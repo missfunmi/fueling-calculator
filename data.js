@@ -31,9 +31,11 @@
       getProducts().filter(function (p) { return p.id !== id; })
     ));
     // Remove from recents too
-    var recent = JSON.parse(localStorage.getItem(KEYS.recent) || '[]')
-      .filter(function (i) { return i !== id; });
-    localStorage.setItem(KEYS.recent, JSON.stringify(recent));
+    try {
+      var recent = JSON.parse(localStorage.getItem(KEYS.recent) || '[]')
+        .filter(function (i) { return i !== id; });
+      localStorage.setItem(KEYS.recent, JSON.stringify(recent));
+    } catch (e) {}
   }
 
   // ── Events ──────────────────────────────────────────────────────────────────
@@ -59,17 +61,21 @@
   // ── Recent products ─────────────────────────────────────────────────────────
 
   function getRecentProducts() {
-    var ids = JSON.parse(localStorage.getItem(KEYS.recent) || '[]');
-    var products = getProducts();
-    return ids
-      .map(function (id) { return products.find(function (p) { return p.id === id; }); })
-      .filter(Boolean);
+    try {
+      var ids = JSON.parse(localStorage.getItem(KEYS.recent) || '[]');
+      var products = getProducts();
+      return ids
+        .map(function (id) { return products.find(function (p) { return p.id === id; }); })
+        .filter(Boolean);
+    } catch (e) { return []; }
   }
 
   function recordProductUsed(id) {
-    var ids = JSON.parse(localStorage.getItem(KEYS.recent) || '[]');
-    var updated = [id].concat(ids.filter(function (i) { return i !== id; })).slice(0, 5);
-    localStorage.setItem(KEYS.recent, JSON.stringify(updated));
+    try {
+      var ids = JSON.parse(localStorage.getItem(KEYS.recent) || '[]');
+      var updated = [id].concat(ids.filter(function (i) { return i !== id; })).slice(0, 5);
+      localStorage.setItem(KEYS.recent, JSON.stringify(updated));
+    } catch (e) {}
   }
 
   // ── Calculations ─────────────────────────────────────────────────────────────
@@ -149,9 +155,9 @@
       name: product.name,
       brand: product.brand || '',
       type: product.type,
-      carbsPerUnit: product.carbsPerUnit,
-      sodiumPerUnit: product.sodiumPerUnit,
-      caffeinePerUnit: product.caffeinePerUnit,
+      carbsPerUnit: Number(product.carbsPerUnit) || 0,
+      sodiumPerUnit: Number(product.sodiumPerUnit) || 0,
+      caffeinePerUnit: Number(product.caffeinePerUnit) || 0,
       quantity: 1
     };
   }
