@@ -142,6 +142,22 @@ test('itemFromProduct snapshots product values', function () {
   assert.strictEqual(item.quantity, 1);
 });
 
+test('itemFromOneOff sets productId null, coerces numerics, defaults type to other', function () {
+  var item = D.itemFromOneOff({ name: 'House Gel', brand: '', type: '', carbsPerUnit: '22', sodiumPerUnit: '100', caffeinePerUnit: '0' });
+  assert.strictEqual(item.productId, null);
+  assert.strictEqual(item.type, 'other');
+  assert.strictEqual(item.carbsPerUnit, 22);
+  assert.strictEqual(item.quantity, 1);
+});
+
+test('newSegment uses provided name and duration', function () {
+  var seg = D.newSegment('Bike', 3);
+  assert.strictEqual(seg.name, 'Bike');
+  assert.strictEqual(seg.durationHours, 3);
+  assert.strictEqual(seg.targets.carbsPerHour, 80);
+  assert.deepStrictEqual(seg.items, []);
+});
+
 // ── Calculations ──────────────────────────────────────────────────────────────
 
 console.log('\nCalculations');
@@ -196,6 +212,28 @@ test('calcEventTotals: sums across segments', function () {
   assert.strictEqual(t.sodium, 1600);  // 1200 + 400
   assert.strictEqual(t.caffeine, 200); // 0 + 200
   assert.strictEqual(t.durationHours, 4.5);
+});
+
+test('calcEventRates: divides totals by total duration', function () {
+  var event = {
+    segments: [
+      { durationHours: 2, items: [{ carbsPerUnit: 100, sodiumPerUnit: 500, caffeinePerUnit: 0, quantity: 2 }] },
+      { durationHours: 2, items: [{ carbsPerUnit: 100, sodiumPerUnit: 500, caffeinePerUnit: 0, quantity: 2 }] }
+    ]
+  };
+  var r = D.calcEventRates(event);
+  assert.strictEqual(r.carbs, 100);   // 400 total / 4h
+  assert.strictEqual(r.sodium, 500);  // 2000 total / 4h
+});
+
+test('calcEventRates: uses 1 as fallback when total duration is 0', function () {
+  var event = {
+    segments: [
+      { durationHours: 0, items: [{ carbsPerUnit: 80, sodiumPerUnit: 0, caffeinePerUnit: 0, quantity: 1 }] }
+    ]
+  };
+  var r = D.calcEventRates(event);
+  assert.strictEqual(r.carbs, 80);
 });
 
 test('rateStatus: on-target within ±10%', function () {
