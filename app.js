@@ -453,6 +453,159 @@
 
   renders.detail = renderDetail;
 
+  // ── Add item sheet ─────────────────────────────────────────────────────────
+
+  var _sheetEventId = null;
+  var _sheetSegmentId = null;
+
+  function openAddItemSheet(eventId, segmentId) {
+    _sheetEventId = eventId;
+    _sheetSegmentId = segmentId;
+    $('sheet-overlay').classList.remove('hidden');
+    $('product-search').value = '';
+    renderSheetLibraryTab();
+    // Reset to library tab
+    $$('.sheet-tab-btn').forEach(function (b) { b.classList.remove('active'); });
+    $$('.sheet-tab-content').forEach(function (c) { c.classList.remove('active'); });
+    $('sheet-tab-library').classList.add('active');
+    document.querySelector('[data-sheet-tab="library"]').classList.add('active');
+    // Reset one-off form
+    $('oneoff-form').reset();
+    $('product-search').focus();
+  }
+
+  function closeSheet() {
+    $('sheet-overlay').classList.add('hidden');
+    _sheetEventId = null;
+    _sheetSegmentId = null;
+  }
+
+  function renderSheetLibraryTab(query) {
+    var products = Data.getProducts();
+    var recent = Data.getRecentProducts();
+
+    // Recent section
+    var $recentSection = $('recent-products-section');
+    if (!query && recent.length) {
+      $recentSection.style.display = '';
+      $('recent-products-list').innerHTML = recent.map(function (p) {
+        return productRowSheetHTML(p);
+      }).join('');
+      attachSheetProductHandlers($('recent-products-list'));
+    } else {
+      $recentSection.style.display = 'none';
+    }
+
+    // Search results
+    var filtered = query
+      ? products.filter(function (p) {
+          var q = query.toLowerCase();
+          return (p.name || '').toLowerCase().includes(q) ||
+                 (p.brand || '').toLowerCase().includes(q) ||
+                 (TYPE_LABELS[p.type] || p.type || '').toLowerCase().includes(q);
+        })
+      : products;
+
+    var $results = $('product-search-results');
+    if (!query && !products.length) {
+      $results.innerHTML = '<div style="padding:16px 0;font-size:14px;color:var(--text-tertiary)">Your library is empty. Add products via the Library tab.</div>';
+      return;
+    }
+    $results.innerHTML = filtered.map(function (p) {
+      return productRowSheetHTML(p);
+    }).join('');
+    attachSheetProductHandlers($results);
+  }
+
+  function productRowSheetHTML(p) {
+    var meta = [];
+    if (p.carbsPerUnit) meta.push(p.carbsPerUnit + 'g carbs');
+    if (p.sodiumPerUnit) meta.push(p.sodiumPerUnit + 'mg Na');
+    if (p.caffeinePerUnit) meta.push(p.caffeinePerUnit + 'mg caff');
+    return '<div class="product-row" data-product-id="' + p.id + '">' +
+      '<div class="product-row-info">' +
+        '<div class="product-row-name">' + escHtml((p.brand ? p.brand + ' ' : '') + p.name) + '</div>' +
+        '<div class="product-row-meta">' + meta.join(' · ') + '</div>' +
+      '</div>' +
+      '<span class="product-type-chip">' + escHtml(TYPE_LABELS[p.type] || p.type) + '</span>' +
+    '</div>';
+  }
+
+  function attachSheetProductHandlers($container) {
+    $$('.product-row', $container).forEach(function (row) {
+      on(row, 'click', function () {
+        var productId = row.dataset.productId;
+        var product = Data.getProducts().find(function (p) { return p.id === productId; });
+        if (!product || !_sheetEventId || !_sheetSegmentId) return;
+        addItemToSegment(_sheetEventId, _sheetSegmentId, Data.itemFromProduct(product));
+        Data.recordProductUsed(productId);
+        closeSheet();
+        renderDetail();
+      });
+    });
+  }
+
+  function addItemToSegment(eventId, segmentId, item) {
+    var evt = Data.getEvents().find(function (e) { return e.id === eventId; });
+    if (!evt) return;
+    var seg = evt.segments.find(function (s) { return s.id === segmentId; });
+    if (!seg) return;
+    seg.items.push(item);
+    Data.saveEvent(evt);
+  }
+
+  // Sheet overlay close
+  on($('sheet-overlay'), 'click', function (e) {
+    if (e.target === $('sheet-overlay')) closeSheet();
+  });
+  on($('btn-close-sheet'), 'click', closeSheet);
+
+  // Sheet tab switching
+  $$('.sheet-tab-btn').forEach(function (btn) {
+    on(btn, 'click', function () {
+      var tab = btn.dataset.sheetTab;
+      $$('.sheet-tab-btn').forEach(function (b) { b.classList.remove('active'); });
+      $$('.sheet-tab-content').forEach(function (c) { c.classList.remove('active'); });
+      btn.classList.add('active');
+      $('sheet-tab-' + tab).classList.add('active');
+      if (tab === 'library') renderSheetLibraryTab($('product-search').value);
+    });
+  });
+
+  // Live search
+  on($('product-search'), 'input', function () {
+    renderSheetLibraryTab($('product-search').value.trim());
+  });
+
+  // One-off form submit
+  on($('oneoff-form'), 'submit', function (e) {
+    e.preventDefault();
+    var name = $('oo-name').value.trim();
+    if (!name) { $('oo-name').focus(); return; }
+    var fields = {
+      name: name,
+      brand: $('oo-brand').value.trim(),
+      type: $('oo-type').value,
+      carbsPerUnit: $('oo-carbs').value,
+      sodiumPerUnit: $('oo-sodium').value,
+      caffeinePerUnit: $('oo-caffeine').value
+    };
+    var item = Data.itemFromOneOff(fields);
+    if ($('oo-save-library').checked) {
+      var product = Object.assign({ id: Data.generateId() }, fields, {
+        carbsPerUnit: Number(fields.carbsPerUnit) || 0,
+        sodiumPerUnit: Number(fields.sodiumPerUnit) || 0,
+        caffeinePerUnit: Number(fields.caffeinePerUnit) || 0
+      });
+      Data.saveProduct(product);
+      item.productId = product.id;
+      Data.recordProductUsed(product.id);
+    }
+    addItemToSegment(_sheetEventId, _sheetSegmentId, item);
+    closeSheet();
+    renderDetail();
+  });
+
   // ── Init ───────────────────────────────────────────────────────────────────
   function init() {
     // Tab bar
