@@ -706,6 +706,97 @@
     navigate('library');
   });
 
+  // ── Inline editing ─────────────────────────────────────────────────────────
+
+  function makeEditable(el, onSave) {
+    if (el.querySelector('input')) return; // already editing
+    var original = el.textContent.trim();
+    var input = document.createElement('input');
+    input.value = original;
+    input.className = 'inline-edit';
+    input.style.width = Math.max(60, original.length * 10) + 'px';
+    el.textContent = '';
+    el.appendChild(input);
+    input.focus();
+    input.select();
+
+    var committed = false;
+    function commit() {
+      if (committed) return;
+      committed = true;
+      var val = input.value.trim() || original;
+      onSave(val);
+    }
+    input.addEventListener('blur', commit);
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+      if (e.key === 'Escape') { input.value = original; input.blur(); }
+    });
+  }
+
+  function handleInlineEdit(el, eventId) {
+    var segSection = el.closest('[data-segment-id]');
+    if (!segSection) return;
+    var segId = segSection.dataset.segmentId;
+    var field = el.dataset.inline;
+
+    function saveSegmentField(value) {
+      var evt = Data.getEvents().find(function (e) { return e.id === eventId; });
+      if (!evt) return;
+      var seg = evt.segments.find(function (s) { return s.id === segId; });
+      if (!seg) return;
+
+      if (field === 'seg-name') {
+        seg.name = value || seg.name;
+      } else if (field === 'seg-duration') {
+        var num = parseFloat(value);
+        if (num > 0) seg.durationHours = num;
+      } else if (field === 'seg-carbs-target') {
+        var num = parseFloat(value);
+        if (!isNaN(num) && num >= 0) seg.targets.carbsPerHour = num;
+      } else if (field === 'seg-sodium-target') {
+        var num = parseFloat(value);
+        if (!isNaN(num) && num >= 0) seg.targets.sodiumPerHour = num;
+      } else if (field === 'seg-caff-target') {
+        var num = parseFloat(value);
+        if (!isNaN(num) && num >= 0) seg.targets.caffeinePerHour = num;
+      }
+      Data.saveEvent(evt);
+      renderDetail();
+    }
+
+    // For duration, strip the "· " prefix before editing
+    if (field === 'seg-duration') {
+      var evt = Data.getEvents().find(function (e) { return e.id === eventId; });
+      var seg = evt ? evt.segments.find(function (s) { return s.id === segId; }) : null;
+      if (!seg) return;
+      var dh = seg.durationHours;
+      // Replace element content with just the number
+      el.textContent = dh;
+      makeEditable(el, function (val) {
+        saveSegmentField(val);
+      });
+      return;
+    }
+
+    // For target pills, extract just the number
+    if (field === 'seg-carbs-target' || field === 'seg-sodium-target' || field === 'seg-caff-target') {
+      var evt = Data.getEvents().find(function (e) { return e.id === eventId; });
+      var seg = evt ? evt.segments.find(function (s) { return s.id === segId; }) : null;
+      if (!seg) return;
+      var currentVal = field === 'seg-carbs-target' ? seg.targets.carbsPerHour
+                     : field === 'seg-sodium-target' ? seg.targets.sodiumPerHour
+                     : seg.targets.caffeinePerHour;
+      el.textContent = currentVal;
+      makeEditable(el, function (val) {
+        saveSegmentField(val);
+      });
+      return;
+    }
+
+    makeEditable(el, saveSegmentField);
+  }
+
   // ── Init ───────────────────────────────────────────────────────────────────
   function init() {
     // Tab bar
