@@ -131,7 +131,7 @@
       return '<div class="event-card" data-event-id="' + evt.id + '">' +
         '<div class="event-card-row">' +
           '<span class="event-card-name">' + escHtml(evt.name) + '</span>' +
-          '<span class="type-badge">' + (EVENT_TYPE_LABELS[evt.type] || evt.type) + '</span>' +
+          '<span class="type-badge">' + (EVENT_TYPE_LABELS[evt.type] || escHtml(evt.type)) + '</span>' +
         '</div>' +
         '<div class="event-card-meta">' +
           (evt.date ? evt.date + ' · ' : '') +
