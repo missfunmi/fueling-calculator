@@ -22,7 +22,7 @@
 
   var TYPE_LABELS = {
     gel: 'Gel', bar: 'Bar', drink_powder: 'Drink powder',
-    liquid: 'Liquid', chew: 'Chew'
+    liquid: 'Liquid', chew: 'Chew', other: 'Other'
   };
 
   var EVENT_TYPE_LABELS = {
@@ -632,7 +632,7 @@
 
     $body.innerHTML = types.map(function (type) {
       return '<div class="product-group">' +
-        '<div class="product-group-title">' + (TYPE_LABELS[type] || type) + 's</div>' +
+        '<div class="product-group-title">' + escHtml(TYPE_LABELS[type] || type) + 's</div>' +
         groups[type].map(function (p) {
           var meta = [];
           if (p.carbsPerUnit) meta.push(p.carbsPerUnit + 'g carbs');
