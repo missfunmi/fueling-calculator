@@ -569,9 +569,12 @@ a { color: inherit; text-decoration: none; }
 .target-pill:hover { background: var(--border); }
 .editable:hover { border-bottom-color: var(--accent); }
 
+/* Smooth view transitions */
+.view { animation: none; }
 .view.active { animation: fadeIn 0.15s ease; }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
+/* Focus ring for accessibility */
 button:focus-visible, input:focus-visible, select:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
