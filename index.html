@@ -7,8 +7,223 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="app"><!-- views injected here in Task 8 --></div>
-  <script src="data.js"></script>
-  <script src="app.js"></script>
+
+<div id="app">
+
+  <!-- ── Events list view ───────────────────────────────────────── -->
+  <div id="view-events" class="view active">
+    <header class="app-header">
+      <h1>Events</h1>
+      <button id="btn-new-event" class="btn-icon" aria-label="New event">+</button>
+    </header>
+    <div id="events-list" class="view-body"></div>
+  </div>
+
+  <!-- ── Event detail view ──────────────────────────────────────── -->
+  <div id="view-detail" class="view">
+    <header class="app-header">
+      <button id="btn-detail-back" class="btn-back" aria-label="Back">&#8592;</button>
+      <span id="detail-event-name" class="header-title editable"></span>
+      <button id="btn-edit-event" class="btn-icon" aria-label="Edit event" style="font-size:16px">&#9998;</button>
+    </header>
+    <div id="detail-summary"></div>
+    <div id="detail-body" class="view-body" style="padding-top:0"></div>
+  </div>
+
+  <!-- ── Create / edit event view ───────────────────────────────── -->
+  <div id="view-create" class="view">
+    <header class="app-header">
+      <button id="btn-create-back" class="btn-back" aria-label="Back">&#8592;</button>
+      <h1 id="create-title">New Event</h1>
+      <button id="btn-delete-event" class="btn-icon btn-danger" aria-label="Delete event" style="font-size:18px;display:none">&#128465;</button>
+    </header>
+    <div class="view-body">
+      <form id="event-form" novalidate>
+        <div class="form-card">
+          <div class="form-group">
+            <label for="ef-name">Event Name *</label>
+            <input id="ef-name" class="form-input" type="text" placeholder="e.g. 145mi Ride" autocomplete="off" required>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="ef-date">Date</label>
+              <input id="ef-date" class="form-input" type="date">
+            </div>
+            <div class="form-group">
+              <label for="ef-type">Type</label>
+              <select id="ef-type" class="form-input">
+                <option value="ride">Ride</option>
+                <option value="run">Run</option>
+                <option value="triathlon">Triathlon</option>
+                <option value="swim">Swim</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="ef-notes">Notes</label>
+            <textarea id="ef-notes" class="form-input" rows="2" placeholder="Optional"></textarea>
+          </div>
+        </div>
+
+        <div class="form-section-header" style="margin:16px 0 8px">
+          <h3>Segments</h3>
+          <button type="button" id="btn-add-segment" class="btn-text">+ Add segment</button>
+        </div>
+        <div id="segments-form-list" style="display:flex;flex-direction:column;gap:12px"></div>
+
+        <button type="submit" class="btn-primary" style="margin-top:24px" id="btn-save-event">Save Event</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Product library view ───────────────────────────────────── -->
+  <div id="view-library" class="view">
+    <header class="app-header">
+      <h1>Library</h1>
+      <button id="btn-new-product" class="btn-icon" aria-label="New product">+</button>
+    </header>
+    <div class="view-body">
+      <div id="library-body"></div>
+    </div>
+  </div>
+
+  <!-- ── Product form view ──────────────────────────────────────── -->
+  <div id="view-product-form" class="view">
+    <header class="app-header">
+      <button id="btn-pf-back" class="btn-back" aria-label="Back">&#8592;</button>
+      <h1 id="pf-title">New Product</h1>
+      <button id="btn-delete-product" class="btn-icon btn-danger" aria-label="Delete" style="font-size:18px">&#128465;</button>
+    </header>
+    <div class="view-body">
+      <p style="font-size:13px;color:var(--text-secondary);background:var(--amber-bg);color:var(--amber-text);padding:10px 14px;border-radius:var(--radius-sm)">
+        Changes won't update existing plans.
+      </p>
+      <form id="product-form" novalidate>
+        <div class="form-card" style="margin-top:12px">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="pf-brand">Brand</label>
+              <input id="pf-brand" class="form-input" type="text" placeholder="e.g. Maurten" autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label for="pf-name">Name *</label>
+              <input id="pf-name" class="form-input" type="text" placeholder="e.g. C-160" autocomplete="off" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="pf-type">Type</label>
+            <select id="pf-type" class="form-input">
+              <option value="gel">Gel</option>
+              <option value="bar">Bar</option>
+              <option value="drink_powder">Drink Powder</option>
+              <option value="liquid">Liquid</option>
+              <option value="chew">Chew</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="pf-carbs">Carbs/unit (g)</label>
+              <input id="pf-carbs" class="form-input" type="number" min="0" step="0.5" value="0">
+            </div>
+            <div class="form-group">
+              <label for="pf-sodium">Sodium/unit (mg)</label>
+              <input id="pf-sodium" class="form-input" type="number" min="0" step="1" value="0">
+            </div>
+            <div class="form-group">
+              <label for="pf-caffeine">Caff/unit (mg)</label>
+              <input id="pf-caffeine" class="form-input" type="number" min="0" step="1" value="0">
+            </div>
+          </div>
+        </div>
+        <button type="submit" class="btn-primary" style="margin-top:16px">Save Product</button>
+      </form>
+    </div>
+  </div>
+
+</div><!-- #app -->
+
+<!-- ── Bottom sheet: Add item ──────────────────────────────────── -->
+<div id="sheet-overlay" class="sheet-overlay hidden">
+  <div id="sheet-add-item" class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <span>Add item</span>
+      <button id="btn-close-sheet" class="sheet-close">&#215;</button>
+    </div>
+    <div class="sheet-tabs">
+      <button class="sheet-tab-btn active" data-sheet-tab="library">Library</button>
+      <button class="sheet-tab-btn" data-sheet-tab="oneoff">One-off</button>
+    </div>
+    <div id="sheet-tab-library" class="sheet-tab-content active">
+      <input id="product-search" class="search-input" type="search" placeholder="Search name, brand, type&#8230;">
+      <div id="recent-products-section">
+        <p class="section-label">Recently used</p>
+        <div id="recent-products-list"></div>
+      </div>
+      <div id="product-search-results"></div>
+    </div>
+    <div id="sheet-tab-oneoff" class="sheet-tab-content">
+      <form id="oneoff-form" novalidate>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="oo-brand">Brand</label>
+              <input id="oo-brand" class="form-input" type="text" placeholder="Optional">
+            </div>
+            <div class="form-group">
+              <label for="oo-name">Name *</label>
+              <input id="oo-name" class="form-input" type="text" placeholder="Required" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="oo-type">Type</label>
+            <select id="oo-type" class="form-input">
+              <option value="gel">Gel</option>
+              <option value="bar">Bar</option>
+              <option value="drink_powder">Drink Powder</option>
+              <option value="liquid">Liquid</option>
+              <option value="chew">Chew</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="oo-carbs">Carbs/unit (g)</label>
+              <input id="oo-carbs" class="form-input" type="number" min="0" value="0">
+            </div>
+            <div class="form-group">
+              <label for="oo-sodium">Sodium/unit (mg)</label>
+              <input id="oo-sodium" class="form-input" type="number" min="0" value="0">
+            </div>
+            <div class="form-group">
+              <label for="oo-caffeine">Caff/unit (mg)</label>
+              <input id="oo-caffeine" class="form-input" type="number" min="0" value="0">
+            </div>
+          </div>
+          <div class="toggle-row">
+            <span class="toggle-label">Save to library</span>
+            <input id="oo-save-library" class="toggle-input" type="checkbox">
+          </div>
+          <button type="submit" class="btn-primary">Add item</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ── Bottom tab bar ──────────────────────────────────────────── -->
+<nav class="tab-bar" id="tab-bar">
+  <button class="tab-btn active" data-tab-view="events">
+    <span class="tab-icon">&#128197;</span>
+    <span>Events</span>
+  </button>
+  <button class="tab-btn" data-tab-view="library">
+    <span class="tab-icon">&#128230;</span>
+    <span>Library</span>
+  </button>
+</nav>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
 </body>
 </html>
