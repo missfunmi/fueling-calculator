@@ -44,7 +44,8 @@
     // Show/hide tab bar (hide on detail and form views)
     var hideTabBar = (view === 'detail' || view === 'create' ||
                       view === 'product-form');
-    $('tab-bar').style.display = hideTabBar ? 'none' : '';
+    var tabBar = $('tab-bar');
+    if (tabBar) tabBar.style.display = hideTabBar ? 'none' : '';
     if (hideTabBar) {
       $$('.view.active').forEach(function (v) {
         v.style.paddingBottom = '0';
