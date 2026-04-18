@@ -568,7 +568,7 @@
       $$('.sheet-tab-content').forEach(function (c) { c.classList.remove('active'); });
       btn.classList.add('active');
       $('sheet-tab-' + tab).classList.add('active');
-      if (tab === 'library') renderSheetLibraryTab($('product-search').value);
+      if (tab === 'library') renderSheetLibraryTab($('product-search').value.trim());
     });
   });
 
