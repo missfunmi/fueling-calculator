@@ -251,11 +251,7 @@
 
     Data.saveEvent(evt);
 
-    if (isEdit) {
-      navigate('detail', { currentEventId: evt.id });
-    } else {
-      navigate('detail', { currentEventId: evt.id });
-    }
+    navigate('detail', { currentEventId: evt.id });
   });
 
   on($('btn-create-back'), 'click', function () {
