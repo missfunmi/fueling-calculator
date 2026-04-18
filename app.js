@@ -746,52 +746,34 @@
       var seg = evt.segments.find(function (s) { return s.id === segId; });
       if (!seg) return;
 
+      var num = parseFloat(value);
       if (field === 'seg-name') {
         seg.name = value || seg.name;
       } else if (field === 'seg-duration') {
-        var num = parseFloat(value);
         if (num > 0) seg.durationHours = num;
       } else if (field === 'seg-carbs-target') {
-        var num = parseFloat(value);
         if (!isNaN(num) && num >= 0) seg.targets.carbsPerHour = num;
       } else if (field === 'seg-sodium-target') {
-        var num = parseFloat(value);
         if (!isNaN(num) && num >= 0) seg.targets.sodiumPerHour = num;
       } else if (field === 'seg-caff-target') {
-        var num = parseFloat(value);
         if (!isNaN(num) && num >= 0) seg.targets.caffeinePerHour = num;
       }
       Data.saveEvent(evt);
       renderDetail();
     }
 
-    // For duration, strip the "· " prefix before editing
-    if (field === 'seg-duration') {
-      var evt = Data.getEvents().find(function (e) { return e.id === eventId; });
-      var seg = evt ? evt.segments.find(function (s) { return s.id === segId; }) : null;
-      if (!seg) return;
-      var dh = seg.durationHours;
-      // Replace element content with just the number
-      el.textContent = dh;
-      makeEditable(el, function (val) {
-        saveSegmentField(val);
-      });
-      return;
-    }
-
-    // For target pills, extract just the number
-    if (field === 'seg-carbs-target' || field === 'seg-sodium-target' || field === 'seg-caff-target') {
-      var evt = Data.getEvents().find(function (e) { return e.id === eventId; });
-      var seg = evt ? evt.segments.find(function (s) { return s.id === segId; }) : null;
-      if (!seg) return;
-      var currentVal = field === 'seg-carbs-target' ? seg.targets.carbsPerHour
-                     : field === 'seg-sodium-target' ? seg.targets.sodiumPerHour
-                     : seg.targets.caffeinePerHour;
-      el.textContent = currentVal;
-      makeEditable(el, function (val) {
-        saveSegmentField(val);
-      });
-      return;
+    // For duration and target pills, strip display text and show raw number
+    if (field !== 'seg-name') {
+      var outerEvt = Data.getEvents().find(function (e) { return e.id === eventId; });
+      var outerSeg = outerEvt ? outerEvt.segments.find(function (s) { return s.id === segId; }) : null;
+      if (!outerSeg) return;
+      if (field === 'seg-duration') {
+        el.textContent = outerSeg.durationHours;
+      } else {
+        el.textContent = field === 'seg-carbs-target' ? outerSeg.targets.carbsPerHour
+                       : field === 'seg-sodium-target' ? outerSeg.targets.sodiumPerHour
+                       : outerSeg.targets.caffeinePerHour;
+      }
     }
 
     makeEditable(el, saveSegmentField);
