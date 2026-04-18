@@ -270,6 +270,193 @@
 
   renders.create = renderCreate;
 
+  // ── Event detail ───────────────────────────────────────────────────────────
+
+  function renderDetail() {
+    var evt = Data.getEvents().find(function (e) { return e.id === state.currentEventId; });
+    if (!evt) { navigate('events'); return; }
+
+    // Header name
+    $('detail-event-name').textContent = evt.name;
+
+    // Summary cards
+    var totals = Data.calcEventTotals(evt);
+    var rates = Data.calcEventRates(evt);
+    var totalH = totals.durationHours;
+    $('detail-summary').innerHTML =
+      '<div class="summary-cards">' +
+        metricCardHTML('carbs', Math.round(totals.carbs) + 'g', fmt(rates.carbs, 'g/hr avg')) +
+        metricCardHTML('sodium', Math.round(totals.sodium) + 'mg', fmt(rates.sodium, 'mg/hr avg')) +
+        metricCardHTML('caffeine', Math.round(totals.caffeine) + 'mg', fmt(rates.caffeine, 'mg/hr avg')) +
+      '</div>';
+
+    // Segment sections
+    var multiSeg = evt.segments.length > 1;
+    var $body = $('detail-body');
+    $body.innerHTML = evt.segments.map(function (seg) {
+      return segmentSectionHTML(seg, multiSeg);
+    }).join('') +
+    (multiSeg ? totalsFooterHTML(totals, totalH) : '');
+
+    attachDetailHandlers(evt);
+  }
+
+  function metricCardHTML(key, value, rate) {
+    var labels = { carbs: 'Carbs', sodium: 'Sodium', caffeine: 'Caffeine' };
+    return '<div class="metric-card">' +
+      '<div class="metric-value">' + value + '</div>' +
+      '<div class="metric-label">' + labels[key] + '</div>' +
+      '<div class="metric-rate">' + rate + '</div>' +
+    '</div>';
+  }
+
+  function segmentSectionHTML(seg, showLabel) {
+    var totals = Data.calcSegmentTotals(seg);
+    var rates = Data.calcSegmentRates(seg);
+    var tgt = seg.targets;
+
+    var pctCarbs   = tgt.carbsPerHour   ? Math.min(rates.carbs   / tgt.carbsPerHour   * 100, 150) : 0;
+    var pctSodium  = tgt.sodiumPerHour  ? Math.min(rates.sodium  / tgt.sodiumPerHour  * 100, 150) : 0;
+    var pctCaff    = tgt.caffeinePerHour ? Math.min(rates.caffeine / tgt.caffeinePerHour * 100, 150) : 0;
+
+    var stCarbs   = Data.rateStatus(rates.carbs,   tgt.carbsPerHour);
+    var stSodium  = Data.rateStatus(rates.sodium,  tgt.sodiumPerHour);
+    var stCaff    = Data.rateStatus(rates.caffeine, tgt.caffeinePerHour);
+
+    var dh = seg.durationHours;
+    var dhLabel = dh === Math.floor(dh) ? dh + 'h' : dh.toFixed(1) + 'h';
+
+    return '<div class="segment-section" data-segment-id="' + seg.id + '">' +
+      (showLabel
+        ? '<div class="segment-header">' +
+            '<div class="segment-title-row">' +
+              '<span class="segment-name editable" data-inline="seg-name">' + escHtml(seg.name) + '</span>' +
+              '<span class="segment-duration editable" data-inline="seg-duration">&nbsp;· ' + dhLabel + '</span>' +
+            '</div>' +
+            '<div class="segment-targets-row">' +
+              '<span class="target-pill" data-inline="seg-carbs-target">' + tgt.carbsPerHour + 'g carbs/hr</span>' +
+              '<span class="target-pill" data-inline="seg-sodium-target">' + tgt.sodiumPerHour + 'mg Na/hr</span>' +
+              (tgt.caffeinePerHour ? '<span class="target-pill" data-inline="seg-caff-target">' + tgt.caffeinePerHour + 'mg caff/hr</span>' : '') +
+            '</div>' +
+          '</div>'
+        : '<div class="segment-header">' +
+            '<div class="segment-targets-row">' +
+              '<span class="target-pill" data-inline="seg-carbs-target">' + tgt.carbsPerHour + 'g carbs/hr</span>' +
+              '<span class="target-pill" data-inline="seg-sodium-target">' + tgt.sodiumPerHour + 'mg Na/hr</span>' +
+              (tgt.caffeinePerHour ? '<span class="target-pill" data-inline="seg-caff-target">' + tgt.caffeinePerHour + 'mg caff/hr</span>' : '') +
+            '</div>' +
+          '</div>') +
+      '<div class="progress-group">' +
+        progressRowHTML('Carbs', fmt(rates.carbs, 'g/hr'), pctCarbs, stCarbs) +
+        progressRowHTML('Sodium', fmt(rates.sodium, 'mg/hr'), pctSodium, stSodium) +
+        progressRowHTML('Caffeine', fmt(rates.caffeine, 'mg/hr'), pctCaff, stCaff) +
+      '</div>' +
+      '<div class="item-list">' +
+        (seg.items.length
+          ? seg.items.map(function (item) { return itemRowHTML(item); }).join('')
+          : '<div style="padding:12px 16px;font-size:13px;color:var(--text-tertiary)">No items yet.</div>') +
+      '</div>' +
+      '<button class="btn-add-item" data-add-segment-id="' + seg.id + '">+ Add item</button>' +
+    '</div>';
+  }
+
+  function progressRowHTML(label, value, pct, status) {
+    return '<div class="progress-row status-' + status + '">' +
+      '<span class="progress-label">' + label + '</span>' +
+      '<div class="progress-track"><div class="progress-fill" style="--pct:' + pct.toFixed(1) + '"></div></div>' +
+      '<span class="progress-value">' + value + '</span>' +
+    '</div>';
+  }
+
+  function itemRowHTML(item) {
+    var metaParts = [TYPE_LABELS[item.type] || item.type];
+    if (item.carbsPerUnit) metaParts.push(item.carbsPerUnit + 'g');
+    if (item.sodiumPerUnit) metaParts.push(item.sodiumPerUnit + 'mg Na');
+    if (item.caffeinePerUnit) metaParts.push(item.caffeinePerUnit + 'mg caff');
+    return '<div class="item-row" data-item-id="' + item.id + '">' +
+      '<div class="item-info">' +
+        '<div class="item-name">' + escHtml((item.brand ? item.brand + ' ' : '') + item.name) + '</div>' +
+        '<div class="item-meta">' + metaParts.join(' · ') + '</div>' +
+      '</div>' +
+      '<div class="stepper">' +
+        '<button class="stepper-btn" data-action="dec">&#8722;</button>' +
+        '<span class="stepper-qty">' + item.quantity + '</span>' +
+        '<button class="stepper-btn" data-action="inc">&#43;</button>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function totalsFooterHTML(totals, durationHours) {
+    var dh = durationHours === Math.floor(durationHours) ? durationHours + 'h' : durationHours.toFixed(1) + 'h';
+    return '<div class="totals-footer">' +
+      'Totals &mdash; ' + Math.round(totals.carbs) + 'g carbs · ' +
+      Math.round(totals.sodium) + 'mg Na · ' +
+      Math.round(totals.caffeine) + 'mg caffeine · ' + dh +
+    '</div>';
+  }
+
+  function attachDetailHandlers(evt) {
+    // Back button
+    on($('btn-detail-back'), 'click', function () { navigate('events'); });
+
+    // Edit event button
+    on($('btn-edit-event'), 'click', function () {
+      navigate('create', { currentEventId: evt.id });
+    });
+
+    // Inline edit: event name in header
+    on($('detail-event-name'), 'click', function () {
+      makeEditable($('detail-event-name'), function (val) {
+        var updated = Object.assign({}, Data.getEvents().find(function (e) { return e.id === evt.id; }), { name: val });
+        Data.saveEvent(updated);
+        renderDetail();
+      });
+    });
+
+    // Stepper buttons
+    $$('.stepper-btn', $('detail-body')).forEach(function (btn) {
+      on(btn, 'click', function () {
+        var row = btn.closest('[data-item-id]');
+        var segSection = btn.closest('[data-segment-id]');
+        var itemId = row.dataset.itemId;
+        var segId = segSection.dataset.segmentId;
+        updateItemQty(evt.id, segId, itemId, btn.dataset.action === 'inc' ? 1 : -1);
+      });
+    });
+
+    // Add item buttons
+    $$('[data-add-segment-id]', $('detail-body')).forEach(function (btn) {
+      on(btn, 'click', function () {
+        openAddItemSheet(evt.id, btn.dataset.addSegmentId);
+      });
+    });
+
+    // Inline editable segment fields
+    $$('[data-inline]', $('detail-body')).forEach(function (el) {
+      on(el, 'click', function () {
+        handleInlineEdit(el, evt.id);
+      });
+    });
+  }
+
+  function updateItemQty(eventId, segId, itemId, delta) {
+    var events = Data.getEvents();
+    var evt = events.find(function (e) { return e.id === eventId; });
+    if (!evt) return;
+    var seg = evt.segments.find(function (s) { return s.id === segId; });
+    if (!seg) return;
+    var item = seg.items.find(function (i) { return i.id === itemId; });
+    if (!item) return;
+    item.quantity = Math.max(0, item.quantity + delta);
+    if (item.quantity === 0) {
+      seg.items = seg.items.filter(function (i) { return i.id !== itemId; });
+    }
+    Data.saveEvent(evt);
+    renderDetail();
+  }
+
+  renders.detail = renderDetail;
+
   // ── Init ───────────────────────────────────────────────────────────────────
   function init() {
     // Tab bar
