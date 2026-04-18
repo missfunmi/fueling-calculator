@@ -134,7 +134,7 @@
           '<span class="type-badge">' + (EVENT_TYPE_LABELS[evt.type] || escHtml(evt.type)) + '</span>' +
         '</div>' +
         '<div class="event-card-meta">' +
-          (evt.date ? evt.date + ' · ' : '') +
+          (evt.date ? escHtml(evt.date) + ' · ' : '') +
           hLabel + ' · ' +
           Math.round(totals.carbs) + 'g carbs · ' +
           Math.round(totals.sodium) + 'mg Na' +
@@ -284,6 +284,10 @@
     var rates = Data.calcEventRates(evt);
     var totalH = totals.durationHours;
     $('detail-summary').innerHTML =
+      '<div class="event-meta-row">' +
+        '<span class="type-badge">' + (EVENT_TYPE_LABELS[evt.type] || escHtml(evt.type)) + '</span>' +
+        (evt.date ? '<span class="event-meta-date">' + escHtml(evt.date) + '</span>' : '') +
+      '</div>' +
       '<div class="summary-cards">' +
         metricCardHTML('carbs', Math.round(totals.carbs) + 'g', fmt(rates.carbs, 'g/hr avg')) +
         metricCardHTML('sodium', Math.round(totals.sodium) + 'mg', fmt(rates.sodium, 'mg/hr avg')) +
@@ -369,7 +373,7 @@
   }
 
   function itemRowHTML(item) {
-    var metaParts = [TYPE_LABELS[item.type] || item.type];
+    var metaParts = [TYPE_LABELS[item.type] || escHtml(item.type)];
     if (item.carbsPerUnit) metaParts.push(item.carbsPerUnit + 'g');
     if (item.sodiumPerUnit) metaParts.push(item.sodiumPerUnit + 'mg Na');
     if (item.caffeinePerUnit) metaParts.push(item.caffeinePerUnit + 'mg caff');
