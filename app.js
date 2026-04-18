@@ -111,6 +111,50 @@
       .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
+  // ── Events list ────────────────────────────────────────────────────────────
+
+  function renderEventsList() {
+    var events = Data.getEvents().slice().sort(function (a, b) {
+      return (b.date || '').localeCompare(a.date || '');
+    });
+    var $list = $('events-list');
+    if (!events.length) {
+      $list.innerHTML = '<div class="empty-state"><div style="font-size:48px">🚴</div><p>No events yet.</p><p>Tap + to plan your first one.</p></div>';
+      return;
+    }
+    $list.innerHTML = events.map(function (evt) {
+      var totals = Data.calcEventTotals(evt);
+      var totalHours = totals.durationHours;
+      var hLabel = totalHours === Math.floor(totalHours)
+        ? totalHours + 'h'
+        : totalHours.toFixed(1) + 'h';
+      return '<div class="event-card" data-event-id="' + evt.id + '">' +
+        '<div class="event-card-row">' +
+          '<span class="event-card-name">' + escHtml(evt.name) + '</span>' +
+          '<span class="type-badge">' + (EVENT_TYPE_LABELS[evt.type] || evt.type) + '</span>' +
+        '</div>' +
+        '<div class="event-card-meta">' +
+          (evt.date ? evt.date + ' · ' : '') +
+          hLabel + ' · ' +
+          Math.round(totals.carbs) + 'g carbs · ' +
+          Math.round(totals.sodium) + 'mg Na' +
+        '</div>' +
+      '</div>';
+    }).join('');
+
+    $list.querySelectorAll('.event-card').forEach(function (card) {
+      on(card, 'click', function () {
+        navigate('detail', { currentEventId: card.dataset.eventId });
+      });
+    });
+  }
+
+  renders.events = renderEventsList;
+
+  on($('btn-new-event'), 'click', function () {
+    navigate('create', { currentEventId: null });
+  });
+
   // ── Init ───────────────────────────────────────────────────────────────────
   function init() {
     // Tab bar
