@@ -155,6 +155,125 @@
     navigate('create', { currentEventId: null });
   });
 
+  // ── Create / Edit event ────────────────────────────────────────────────────
+
+  // draftSegments is rebuilt each time the create view opens
+  var draftSegments = [];
+
+  function renderCreate() {
+    var isEdit = !!state.currentEventId;
+    var evt = isEdit ? Data.getEvents().find(function (e) { return e.id === state.currentEventId; }) : null;
+
+    $('create-title').textContent = isEdit ? 'Edit Event' : 'New Event';
+    $('btn-save-event').textContent = isEdit ? 'Save Changes' : 'Save Event';
+    $('btn-delete-event').style.display = isEdit ? '' : 'none';
+
+    $('ef-name').value = evt ? evt.name : '';
+    $('ef-date').value = evt ? (evt.date || '') : new Date().toISOString().slice(0, 10);
+    $('ef-type').value = evt ? evt.type : 'ride';
+    $('ef-notes').value = evt ? (evt.notes || '') : '';
+
+    // Seed draftSegments from existing event or a fresh default
+    draftSegments = evt
+      ? evt.segments.map(function (s) { return JSON.parse(JSON.stringify(s)); })
+      : [Data.newSegment('', 1)];
+
+    renderSegmentForms();
+  }
+
+  function renderSegmentForms() {
+    var $list = $('segments-form-list');
+    $list.innerHTML = draftSegments.map(function (seg, i) {
+      return segmentFormHTML(seg, i, draftSegments.length);
+    }).join('');
+
+    // Wire remove buttons
+    $$('.btn-remove-segment').forEach(function (btn) {
+      on(btn, 'click', function () {
+        var card = btn.closest('[data-seg-draft-id]');
+        var id = card.dataset.segDraftId;
+        var seg = draftSegments.find(function (s) { return s.id === id; });
+        if (seg && seg.items && seg.items.length > 0) {
+          if (!confirm('Remove segment "' + seg.name + '"? It has ' + seg.items.length + ' item(s) which will be lost.')) return;
+        }
+        draftSegments = draftSegments.filter(function (s) { return s.id !== id; });
+        renderSegmentForms();
+      });
+    });
+  }
+
+  on($('btn-add-segment'), 'click', function () {
+    draftSegments.push(Data.newSegment('', 1));
+    renderSegmentForms();
+    // Scroll to new segment
+    var cards = $$('[data-seg-draft-id]');
+    if (cards.length) cards[cards.length - 1].scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
+  on($('event-form'), 'submit', function (e) {
+    e.preventDefault();
+    var name = $('ef-name').value.trim();
+    if (!name) { $('ef-name').focus(); return; }
+
+    // Read segment values from DOM
+    var segCards = $$('[data-seg-draft-id]');
+    var segments = Array.from(segCards).map(function (card) {
+      var id = card.dataset.segDraftId;
+      var existing = draftSegments.find(function (s) { return s.id === id; });
+      return {
+        id: id,
+        name: card.querySelector('.seg-name').value.trim() || name,
+        durationHours: parseFloat(card.querySelector('.seg-duration').value) || 1,
+        targets: {
+          carbsPerHour: parseFloat(card.querySelector('.seg-carbs-target').value) || 0,
+          sodiumPerHour: parseFloat(card.querySelector('.seg-sodium-target').value) || 0,
+          caffeinePerHour: parseFloat(card.querySelector('.seg-caffeine-target').value) || 0
+        },
+        items: existing ? (existing.items || []) : []
+      };
+    });
+
+    var isEdit = !!state.currentEventId;
+    var evt = isEdit
+      ? Object.assign({}, Data.getEvents().find(function (e) { return e.id === state.currentEventId; }), {
+          name: name,
+          date: $('ef-date').value,
+          type: $('ef-type').value,
+          notes: $('ef-notes').value.trim(),
+          segments: segments
+        })
+      : Object.assign(Data.newEvent(name), {
+          date: $('ef-date').value,
+          type: $('ef-type').value,
+          notes: $('ef-notes').value.trim(),
+          segments: segments
+        });
+
+    Data.saveEvent(evt);
+
+    if (isEdit) {
+      navigate('detail', { currentEventId: evt.id });
+    } else {
+      navigate('detail', { currentEventId: evt.id });
+    }
+  });
+
+  on($('btn-create-back'), 'click', function () {
+    navigate(state.currentEventId ? 'detail' : 'events');
+  });
+
+  // Show delete button only when editing an existing event
+  // (renderCreate is called before this handler fires, so check state.currentEventId)
+  on($('btn-delete-event'), 'click', function () {
+    var evt = Data.getEvents().find(function (e) { return e.id === state.currentEventId; });
+    if (!evt) return;
+    if (!confirm('Delete "' + evt.name + '"? This cannot be undone.')) return;
+    Data.deleteEvent(evt.id);
+    navigate('events');
+  });
+
+  renders.create = renderCreate;
+
   // ── Init ───────────────────────────────────────────────────────────────────
   function init() {
     // Tab bar
