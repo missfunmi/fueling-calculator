@@ -396,22 +396,18 @@
   }
 
   function attachDetailHandlers(evt) {
-    // Back button
-    on($('btn-detail-back'), 'click', function () { navigate('events'); });
-
-    // Edit event button
-    on($('btn-edit-event'), 'click', function () {
+    // Static header buttons — use .onclick to avoid stacking listeners on re-render
+    $('btn-detail-back').onclick = function () { navigate('events'); };
+    $('btn-edit-event').onclick = function () {
       navigate('create', { currentEventId: evt.id });
-    });
-
-    // Inline edit: event name in header
-    on($('detail-event-name'), 'click', function () {
+    };
+    $('detail-event-name').onclick = function () {
       makeEditable($('detail-event-name'), function (val) {
         var updated = Object.assign({}, Data.getEvents().find(function (e) { return e.id === evt.id; }), { name: val });
         Data.saveEvent(updated);
         renderDetail();
       });
-    });
+    };
 
     // Stepper buttons
     $$('.stepper-btn', $('detail-body')).forEach(function (btn) {
