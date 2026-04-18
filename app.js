@@ -606,6 +606,106 @@
     renderDetail();
   });
 
+  // ── Product library ──────────────────────────────────────────────────────────
+
+  var TYPE_ORDER = ['gel', 'bar', 'drink_powder', 'liquid', 'chew'];
+
+  function renderLibrary() {
+    var products = Data.getProducts();
+    var $body = $('library-body');
+    if (!products.length) {
+      $body.innerHTML = '<div class="empty-state"><div style="font-size:48px">📦</div><p>No products yet.</p><p>Tap + to add your first product.</p></div>';
+      return;
+    }
+
+    // Group by type
+    var groups = {};
+    products.forEach(function (p) {
+      var key = p.type || 'other';
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(p);
+    });
+
+    var types = TYPE_ORDER.concat(
+      Object.keys(groups).filter(function (t) { return TYPE_ORDER.indexOf(t) === -1; })
+    ).filter(function (t) { return groups[t]; });
+
+    $body.innerHTML = types.map(function (type) {
+      return '<div class="product-group">' +
+        '<div class="product-group-title">' + (TYPE_LABELS[type] || type) + 's</div>' +
+        groups[type].map(function (p) {
+          var meta = [];
+          if (p.carbsPerUnit) meta.push(p.carbsPerUnit + 'g carbs');
+          if (p.sodiumPerUnit) meta.push(p.sodiumPerUnit + 'mg Na');
+          if (p.caffeinePerUnit) meta.push(p.caffeinePerUnit + 'mg caff');
+          return '<div class="product-row" data-product-id="' + p.id + '">' +
+            '<div class="product-row-info">' +
+              '<div class="product-row-name">' + escHtml((p.brand ? p.brand + ' ' : '') + p.name) + '</div>' +
+              '<div class="product-row-meta">' + meta.join(' · ') + '</div>' +
+            '</div>' +
+            '<span style="color:var(--text-tertiary);font-size:20px">&#8250;</span>' +
+          '</div>';
+        }).join('') +
+      '</div>';
+    }).join('');
+
+    $$('.product-row', $body).forEach(function (row) {
+      on(row, 'click', function () {
+        navigate('product-form', { editingProductId: row.dataset.productId });
+      });
+    });
+  }
+
+  renders.library = renderLibrary;
+
+  on($('btn-new-product'), 'click', function () {
+    navigate('product-form', { editingProductId: null });
+  });
+
+  // ── Product form ──────────────────────────────────────────────────────────────
+
+  function renderProductForm() {
+    var isEdit = !!state.editingProductId;
+    var product = isEdit ? Data.getProducts().find(function (p) { return p.id === state.editingProductId; }) : null;
+
+    $('pf-title').textContent = isEdit ? 'Edit Product' : 'New Product';
+    $('btn-delete-product').style.display = isEdit ? '' : 'none';
+    $('pf-brand').value    = product ? (product.brand || '') : '';
+    $('pf-name').value     = product ? product.name : '';
+    $('pf-type').value     = product ? product.type : 'gel';
+    $('pf-carbs').value    = product ? product.carbsPerUnit : 0;
+    $('pf-sodium').value   = product ? product.sodiumPerUnit : 0;
+    $('pf-caffeine').value = product ? product.caffeinePerUnit : 0;
+  }
+
+  renders['product-form'] = renderProductForm;
+
+  on($('btn-pf-back'), 'click', function () { navigate('library'); });
+
+  on($('product-form'), 'submit', function (e) {
+    e.preventDefault();
+    var name = $('pf-name').value.trim();
+    if (!name) { $('pf-name').focus(); return; }
+    var product = {
+      id: state.editingProductId || Data.generateId(),
+      brand: $('pf-brand').value.trim(),
+      name: name,
+      type: $('pf-type').value,
+      carbsPerUnit: parseFloat($('pf-carbs').value) || 0,
+      sodiumPerUnit: parseFloat($('pf-sodium').value) || 0,
+      caffeinePerUnit: parseFloat($('pf-caffeine').value) || 0
+    };
+    Data.saveProduct(product);
+    navigate('library');
+  });
+
+  on($('btn-delete-product'), 'click', function () {
+    if (!state.editingProductId) return;
+    if (!confirm('Delete this product from your library? Existing plans won\'t be affected.')) return;
+    Data.deleteProduct(state.editingProductId);
+    navigate('library');
+  });
+
   // ── Init ───────────────────────────────────────────────────────────────────
   function init() {
     // Tab bar
