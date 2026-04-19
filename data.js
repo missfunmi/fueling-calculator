@@ -18,9 +18,8 @@
     var defaultPrefer = method === 'POST' ? 'return=representation' : '';
     var preferValue = prefer !== undefined ? prefer : defaultPrefer;
     var headers = {
-      'apikey':        SUPABASE_ANON_KEY,
-      'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
-      'Content-Type':  'application/json'
+      'apikey':       SUPABASE_ANON_KEY,
+      'Content-Type': 'application/json'
     };
     if (preferValue) headers['Prefer'] = preferValue;
     var res = await fetch(SUPABASE_URL + '/rest/v1/' + path, {
