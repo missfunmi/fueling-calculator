@@ -4,9 +4,9 @@
 
   // ── Config ──────────────────────────────────────────────────────────────────
   // Fill these in from your Supabase project Settings → API
-  var SUPABASE_URL  = 'https://YOUR_PROJECT_REF.supabase.co';
-  var SUPABASE_ANON_KEY = 'YOUR_ANON_KEY';
-  var USER_ID = 'YOUR-USER-UUID'; // the UUID you generated and used in the SQL
+  var SUPABASE_URL  = 'https://jcrmkxlzqewwqugkwlww.supabase.co';
+  var SUPABASE_ANON_KEY = 'sb_publishable_VArDAA7V8Gg-Xi20vj7zkw_NiidAk_Q';
+  var USER_ID = '33d5e92b-360a-45b7-a423-656f14e67b98'; // the UUID you generated and used in the SQL
 
   var KEYS = {
     recent:   'fuelPlanner.recentProducts',
