@@ -198,20 +198,28 @@
   // draftSegments is rebuilt each time the create view opens
   var draftSegments = [];
 
-  function renderCreate() {
+  async function renderCreate() {
     var isEdit = !!state.currentEventId;
-    var evt = isEdit ? Data.getEvents().find(function (e) { return e.id === state.currentEventId; }) : null;
+    var evt = null;
+    if (isEdit) {
+      try {
+        evt = await Data.getEvent(state.currentEventId);
+      } catch (e) {
+        showToast("Couldn't load event — check your connection.");
+        return;
+      }
+      if (!evt) { navigate('events'); return; }
+    }
 
     $('create-title').textContent = isEdit ? 'Edit Event' : 'New Event';
     $('btn-save-event').textContent = isEdit ? 'Save Changes' : 'Save Event';
     $('btn-delete-event').style.display = isEdit ? '' : 'none';
 
-    $('ef-name').value = evt ? evt.name : '';
-    $('ef-date').value = evt ? (evt.date || '') : new Date().toISOString().slice(0, 10);
-    $('ef-type').value = evt ? evt.type : 'ride';
+    $('ef-name').value  = evt ? evt.name : '';
+    $('ef-date').value  = evt ? (evt.date || '') : new Date().toISOString().slice(0, 10);
+    $('ef-type').value  = evt ? evt.type : 'ride';
     $('ef-notes').value = evt ? (evt.notes || '') : '';
 
-    // Seed draftSegments from existing event or a fresh default
     draftSegments = evt
       ? evt.segments.map(function (s) { return JSON.parse(JSON.stringify(s)); })
       : [Data.newSegment('', 1)];
@@ -268,23 +276,22 @@
     if (cards.length) cards[cards.length - 1].scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 
-  on($('event-form'), 'submit', function (e) {
+  on($('event-form'), 'submit', async function (e) {
     e.preventDefault();
     var name = $('ef-name').value.trim();
     if (!name) { $('ef-name').focus(); return; }
 
-    // Read segment values from DOM
     var segCards = $$('[data-seg-draft-id]');
     var segments = Array.from(segCards).map(function (card) {
       var id = card.dataset.segDraftId;
       var existing = draftSegments.find(function (s) { return s.id === id; });
       return {
-        id: id,
-        name: card.querySelector('.seg-name').value.trim() || name,
+        id:            id,
+        name:          card.querySelector('.seg-name').value.trim() || name,
         durationHours: parseFloat(card.querySelector('.seg-duration').value) || 1,
         targets: {
-          carbsPerHour: parseFloat(card.querySelector('.seg-carbs-target').value) || 0,
-          sodiumPerHour: parseFloat(card.querySelector('.seg-sodium-target').value) || 0,
+          carbsPerHour:    parseFloat(card.querySelector('.seg-carbs-target').value)    || 0,
+          sodiumPerHour:   parseFloat(card.querySelector('.seg-sodium-target').value)   || 0,
           caffeinePerHour: parseFloat(card.querySelector('.seg-caffeine-target').value) || 0
         },
         items: existing ? (existing.items || []) : []
@@ -292,24 +299,38 @@
     });
 
     var isEdit = !!state.currentEventId;
-    var evt = isEdit
-      ? Object.assign({}, Data.getEvents().find(function (e) { return e.id === state.currentEventId; }), {
-          name: name,
-          date: $('ef-date').value,
-          type: $('ef-type').value,
-          notes: $('ef-notes').value.trim(),
-          segments: segments
-        })
-      : Object.assign(Data.newEvent(name), {
-          date: $('ef-date').value,
-          type: $('ef-type').value,
-          notes: $('ef-notes').value.trim(),
-          segments: segments
-        });
+    var evt;
+    if (isEdit) {
+      var base;
+      try { base = await Data.getEvent(state.currentEventId); }
+      catch (e) { showToast("Couldn't load event — check your connection."); return; }
+      if (!base) { navigate('events'); return; }
+      evt = Object.assign({}, base, {
+        name:     name,
+        date:     $('ef-date').value,
+        type:     $('ef-type').value,
+        notes:    $('ef-notes').value.trim(),
+        segments: segments
+      });
+    } else {
+      evt = Object.assign(Data.newEvent(name), {
+        date:     $('ef-date').value,
+        type:     $('ef-type').value,
+        notes:    $('ef-notes').value.trim(),
+        segments: segments
+      });
+    }
 
-    Data.saveEvent(evt);
-
-    navigate('detail', { currentEventId: evt.id });
+    var saveBtn = $('btn-save-event');
+    saveBtn.disabled = true;
+    try {
+      await Data.saveEvent(evt);
+      navigate('detail', { currentEventId: evt.id });
+    } catch (e) {
+      showToast("Couldn't save — check your connection.");
+    } finally {
+      saveBtn.disabled = false;
+    }
   });
 
   on($('btn-create-back'), 'click', function () {
@@ -318,12 +339,18 @@
 
   // Show delete button only when editing an existing event
   // (renderCreate is called before this handler fires, so check state.currentEventId)
-  on($('btn-delete-event'), 'click', function () {
-    var evt = Data.getEvents().find(function (e) { return e.id === state.currentEventId; });
+  on($('btn-delete-event'), 'click', async function () {
+    var evt;
+    try { evt = await Data.getEvent(state.currentEventId); }
+    catch (e) { showToast("Couldn't load event — check your connection."); return; }
     if (!evt) return;
     if (!confirm('Delete "' + evt.name + '"? This cannot be undone.')) return;
-    Data.deleteEvent(evt.id);
-    navigate('events');
+    try {
+      await Data.deleteEvent(evt.id);
+      navigate('events');
+    } catch (e) {
+      showToast("Couldn't delete — check your connection.");
+    }
   });
 
   renders.create = renderCreate;
