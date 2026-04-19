@@ -10,6 +10,16 @@
 
 <div id="app">
 
+  <!-- ── Top nav (desktop) ─────────────────────────────────────── -->
+  <nav id="top-nav" class="top-nav">
+    <span class="top-nav-brand">Fueling Calculator</span>
+    <div class="top-nav-links">
+      <button class="tab-btn top-nav-link" data-tab-view="events">Events</button>
+      <button class="tab-btn top-nav-link" data-tab-view="library">Library</button>
+      <button id="btn-new-event-nav" class="top-nav-cta">+ New Event</button>
+    </div>
+  </nav>
+
   <!-- ── Events list view ───────────────────────────────────────── -->
   <div id="view-events" class="view active">
     <header class="app-header">
@@ -213,14 +223,8 @@
 
 <!-- ── Bottom tab bar ──────────────────────────────────────────── -->
 <nav class="tab-bar" id="tab-bar">
-  <button class="tab-btn active" data-tab-view="events">
-    <span class="tab-icon">&#128197;</span>
-    <span>Events</span>
-  </button>
-  <button class="tab-btn" data-tab-view="library">
-    <span class="tab-icon">&#128230;</span>
-    <span>Library</span>
-  </button>
+  <button class="tab-btn active" data-tab-view="events">Events</button>
+  <button class="tab-btn" data-tab-view="library">Library</button>
 </nav>
 
 <script src="data.js"></script>

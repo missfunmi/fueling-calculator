@@ -155,6 +155,10 @@
     navigate('create', { currentEventId: null });
   });
 
+  on($('btn-new-event-nav'), 'click', function () {
+    navigate('create', { currentEventId: null });
+  });
+
   // ── Create / Edit event ────────────────────────────────────────────────────
 
   // draftSegments is rebuilt each time the create view opens
@@ -181,6 +185,24 @@
     renderSegmentForms();
   }
 
+  function syncDraftSegmentsFromDOM() {
+    var segCards = $$('[data-seg-draft-id]');
+    segCards.forEach(function (card) {
+      var id = card.dataset.segDraftId;
+      var seg = draftSegments.find(function (s) { return s.id === id; });
+      if (!seg) return;
+      seg.name = card.querySelector('.seg-name').value.trim();
+      var dur = parseFloat(card.querySelector('.seg-duration').value);
+      if (dur > 0) seg.durationHours = dur;
+      var carbs = parseFloat(card.querySelector('.seg-carbs-target').value);
+      if (!isNaN(carbs)) seg.targets.carbsPerHour = carbs;
+      var sodium = parseFloat(card.querySelector('.seg-sodium-target').value);
+      if (!isNaN(sodium)) seg.targets.sodiumPerHour = sodium;
+      var caff = parseFloat(card.querySelector('.seg-caffeine-target').value);
+      if (!isNaN(caff)) seg.targets.caffeinePerHour = caff;
+    });
+  }
+
   function renderSegmentForms() {
     var $list = $('segments-form-list');
     $list.innerHTML = draftSegments.map(function (seg, i) {
@@ -190,6 +212,7 @@
     // Wire remove buttons
     $$('.btn-remove-segment').forEach(function (btn) {
       on(btn, 'click', function () {
+        syncDraftSegmentsFromDOM();
         var card = btn.closest('[data-seg-draft-id]');
         var id = card.dataset.segDraftId;
         var seg = draftSegments.find(function (s) { return s.id === id; });
@@ -203,6 +226,7 @@
   }
 
   on($('btn-add-segment'), 'click', function () {
+    syncDraftSegmentsFromDOM();
     draftSegments.push(Data.newSegment('', 1));
     renderSegmentForms();
     // Scroll to new segment
@@ -355,6 +379,12 @@
         progressRowHTML('Sodium', fmt(rates.sodium, 'mg/hr'), pctSodium, stSodium) +
         progressRowHTML('Caffeine', fmt(rates.caffeine, 'mg/hr'), pctCaff, stCaff) +
       '</div>' +
+      '<div class="segment-totals">' +
+        '<span>' + totals.carbs + 'g carbs</span>' +
+        '<span>' + totals.sodium + 'mg Na</span>' +
+        (totals.caffeine ? '<span>' + totals.caffeine + 'mg caff</span>' : '') +
+        '<span>' + dhLabel + '</span>' +
+      '</div>' +
       '<div class="item-list">' +
         (seg.items.length
           ? seg.items.map(function (item) { return itemRowHTML(item); }).join('')
@@ -500,7 +530,8 @@
       $recentSection.style.display = 'none';
     }
 
-    // Search results
+    // Search results — exclude recents from the all-products list when no query
+    var recentIds = recent.map(function (p) { return p.id; });
     var filtered = query
       ? products.filter(function (p) {
           var q = query.toLowerCase();
@@ -508,7 +539,7 @@
                  (p.brand || '').toLowerCase().includes(q) ||
                  (TYPE_LABELS[p.type] || p.type || '').toLowerCase().includes(q);
         })
-      : products;
+      : products.filter(function (p) { return recentIds.indexOf(p.id) === -1; });
 
     var $results = $('product-search-results');
     if (!query && !products.length) {
@@ -617,8 +648,12 @@
   function renderLibrary() {
     var products = Data.getProducts();
     var $body = $('library-body');
+    // Desktop "New product" button (header is hidden on desktop)
+    var desktopBtn = '<button class="btn-new-product-desktop" id="btn-new-product-desktop">+ New Product</button>';
     if (!products.length) {
-      $body.innerHTML = '<div class="empty-state"><div style="font-size:48px">📦</div><p>No products yet.</p><p>Tap + to add your first product.</p></div>';
+      $body.innerHTML = desktopBtn + '<div class="empty-state"><div style="font-size:48px">📦</div><p>No products yet.</p><p>Tap + to add your first product.</p></div>';
+      var dbtn = $('btn-new-product-desktop');
+      if (dbtn) on(dbtn, 'click', function () { navigate('product-form', { editingProductId: null }); });
       return;
     }
 
@@ -634,7 +669,7 @@
       Object.keys(groups).filter(function (t) { return TYPE_ORDER.indexOf(t) === -1; })
     ).filter(function (t) { return groups[t]; });
 
-    $body.innerHTML = types.map(function (type) {
+    $body.innerHTML = desktopBtn + types.map(function (type) {
       return '<div class="product-group">' +
         '<div class="product-group-title">' + escHtml(TYPE_LABELS[type] || type) + 's</div>' +
         groups[type].map(function (p) {
@@ -658,6 +693,9 @@
         navigate('product-form', { editingProductId: row.dataset.productId });
       });
     });
+
+    var dbtn = $('btn-new-product-desktop');
+    if (dbtn) on(dbtn, 'click', function () { navigate('product-form', { editingProductId: null }); });
   }
 
   renders.library = renderLibrary;
