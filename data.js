@@ -17,10 +17,8 @@
   async function supabaseRequest(method, path, body, prefer) {
     var defaultPrefer = method === 'POST' ? 'return=representation' : '';
     var preferValue = prefer !== undefined ? prefer : defaultPrefer;
-    var headers = {
-      'apikey':       SUPABASE_ANON_KEY,
-      'Content-Type': 'application/json'
-    };
+    var headers = { 'apikey': SUPABASE_ANON_KEY };
+    if (body) headers['Content-Type'] = 'application/json';
     if (preferValue) headers['Prefer'] = preferValue;
     var res = await fetch(SUPABASE_URL + '/rest/v1/' + path, {
       method:  method,
