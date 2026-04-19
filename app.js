@@ -138,11 +138,20 @@
 
   // ── Events list ────────────────────────────────────────────────────────────
 
-  function renderEventsList() {
-    var events = Data.getEvents().slice().sort(function (a, b) {
-      return (b.date || '').localeCompare(a.date || '');
-    });
+  async function renderEventsList() {
     var $list = $('events-list');
+    showContainerSpinner($list);
+    var events;
+    try {
+      events = (await Data.getEvents()).slice().sort(function (a, b) {
+        return (b.date || '').localeCompare(a.date || '');
+      });
+    } catch (e) {
+      $list.innerHTML = '';
+      showToast("Couldn't load events — check your connection.");
+      return;
+    }
+
     if (!events.length) {
       $list.innerHTML = '<div class="empty-state"><div style="font-size:48px">🚴</div><p>No events yet.</p><p>Tap + to plan your first one.</p></div>';
       return;
