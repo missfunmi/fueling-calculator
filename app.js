@@ -20,6 +20,23 @@
     return rounded + (unit || '');
   }
 
+  function showContainerSpinner(el) {
+    if (el) el.innerHTML = '<div class="container-spinner"></div>';
+  }
+
+  var _toastTimer = null;
+  function showToast(message) {
+    var el = $('toast');
+    if (!el) return;
+    if (_toastTimer) clearTimeout(_toastTimer);
+    el.textContent = message;
+    el.className = 'toast';
+    _toastTimer = setTimeout(function () {
+      el.classList.add('fade-out');
+      setTimeout(function () { el.className = 'toast hidden'; }, 300);
+    }, 4000);
+  }
+
   var TYPE_LABELS = {
     gel: 'Gel', bar: 'Bar', drink_powder: 'Drink powder',
     liquid: 'Liquid', chew: 'Chew', other: 'Other'
@@ -61,8 +78,16 @@
       btn.classList.toggle('active', btn.dataset.tabView === view);
     });
 
-    // Render the new view
-    if (renders[view]) renders[view]();
+    // Render the new view — attach .catch() so async renders don't silently swallow errors
+    if (renders[view]) {
+      var renderResult = renders[view]();
+      if (renderResult && typeof renderResult.catch === 'function') {
+        renderResult.catch(function (e) {
+          console.error('Render error:', e);
+          showToast("Couldn't load — check your connection.");
+        });
+      }
+    }
   }
 
   // ── Renders (populated in later tasks) ────────────────────────────────────
@@ -822,11 +847,20 @@
   }
 
   // ── Init ───────────────────────────────────────────────────────────────────
-  function init() {
+  async function init() {
     // Tab bar
     $$('.tab-btn').forEach(function (btn) {
       on(btn, 'click', function () { navigate(btn.dataset.tabView); });
     });
+
+    // Migrate localStorage data to Supabase on first load
+    try {
+      await Data.migrateIfNeeded();
+    } catch (e) {
+      console.error('Migration failed:', e);
+      showToast("Migration failed — your local data is safe. Will retry next load.");
+    }
+
     navigate('events');
   }
 
