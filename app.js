@@ -758,11 +758,21 @@
 
   var TYPE_ORDER = ['gel', 'bar', 'drink_powder', 'liquid', 'chew'];
 
-  function renderLibrary() {
-    var products = Data.getProducts();
+  async function renderLibrary() {
     var $body = $('library-body');
-    // Desktop "New product" button (header is hidden on desktop)
+    showContainerSpinner($body);
+
+    var products;
+    try {
+      products = await Data.getProducts();
+    } catch (e) {
+      $body.innerHTML = '';
+      showToast("Couldn't load library — check your connection.");
+      return;
+    }
+
     var desktopBtn = '<button class="btn-new-product-desktop" id="btn-new-product-desktop">+ New Product</button>';
+
     if (!products.length) {
       $body.innerHTML = desktopBtn + '<div class="empty-state"><div style="font-size:48px">📦</div><p>No products yet.</p><p>Tap + to add your first product.</p></div>';
       var dbtn = $('btn-new-product-desktop');
@@ -787,8 +797,8 @@
         '<div class="product-group-title">' + escHtml(TYPE_LABELS[type] || type) + 's</div>' +
         groups[type].map(function (p) {
           var meta = [];
-          if (p.carbsPerUnit) meta.push(p.carbsPerUnit + 'g carbs');
-          if (p.sodiumPerUnit) meta.push(p.sodiumPerUnit + 'mg Na');
+          if (p.carbsPerUnit)    meta.push(p.carbsPerUnit + 'g carbs');
+          if (p.sodiumPerUnit)   meta.push(p.sodiumPerUnit + 'mg Na');
           if (p.caffeinePerUnit) meta.push(p.caffeinePerUnit + 'mg caff');
           return '<div class="product-row" data-product-id="' + p.id + '">' +
             '<div class="product-row-info">' +
@@ -819,17 +829,23 @@
 
   // ── Product form ──────────────────────────────────────────────────────────────
 
-  function renderProductForm() {
+  async function renderProductForm() {
     var isEdit = !!state.editingProductId;
-    var product = isEdit ? Data.getProducts().find(function (p) { return p.id === state.editingProductId; }) : null;
+    var product = null;
+    if (isEdit) {
+      var products;
+      try { products = await Data.getProducts(); }
+      catch (e) { showToast("Couldn't load product — check your connection."); return; }
+      product = products.find(function (p) { return p.id === state.editingProductId; }) || null;
+    }
 
-    $('pf-title').textContent = isEdit ? 'Edit Product' : 'New Product';
+    $('pf-title').textContent             = isEdit ? 'Edit Product' : 'New Product';
     $('btn-delete-product').style.display = isEdit ? '' : 'none';
-    $('pf-brand').value    = product ? (product.brand || '') : '';
-    $('pf-name').value     = product ? product.name : '';
-    $('pf-type').value     = product ? product.type : 'gel';
-    $('pf-carbs').value    = product ? product.carbsPerUnit : 0;
-    $('pf-sodium').value   = product ? product.sodiumPerUnit : 0;
+    $('pf-brand').value    = product ? (product.brand    || '') : '';
+    $('pf-name').value     = product ? product.name           : '';
+    $('pf-type').value     = product ? product.type           : 'gel';
+    $('pf-carbs').value    = product ? product.carbsPerUnit    : 0;
+    $('pf-sodium').value   = product ? product.sodiumPerUnit   : 0;
     $('pf-caffeine').value = product ? product.caffeinePerUnit : 0;
   }
 
@@ -837,28 +853,42 @@
 
   on($('btn-pf-back'), 'click', function () { navigate('library'); });
 
-  on($('product-form'), 'submit', function (e) {
+  on($('product-form'), 'submit', async function (e) {
     e.preventDefault();
     var name = $('pf-name').value.trim();
     if (!name) { $('pf-name').focus(); return; }
+
     var product = {
-      id: state.editingProductId || Data.generateId(),
-      brand: $('pf-brand').value.trim(),
-      name: name,
-      type: $('pf-type').value,
-      carbsPerUnit: parseFloat($('pf-carbs').value) || 0,
-      sodiumPerUnit: parseFloat($('pf-sodium').value) || 0,
+      id:              state.editingProductId || Data.generateId(),
+      brand:           $('pf-brand').value.trim(),
+      name:            name,
+      type:            $('pf-type').value,
+      carbsPerUnit:    parseFloat($('pf-carbs').value)    || 0,
+      sodiumPerUnit:   parseFloat($('pf-sodium').value)   || 0,
       caffeinePerUnit: parseFloat($('pf-caffeine').value) || 0
     };
-    Data.saveProduct(product);
-    navigate('library');
+
+    var saveBtn = document.querySelector('#product-form button[type="submit"]');
+    if (saveBtn) saveBtn.disabled = true;
+    try {
+      await Data.saveProduct(product);
+      navigate('library');
+    } catch (e) {
+      showToast("Couldn't save — check your connection.");
+    } finally {
+      if (saveBtn) saveBtn.disabled = false;
+    }
   });
 
-  on($('btn-delete-product'), 'click', function () {
+  on($('btn-delete-product'), 'click', async function () {
     if (!state.editingProductId) return;
     if (!confirm('Delete this product from your library? Existing plans won\'t be affected.')) return;
-    Data.deleteProduct(state.editingProductId);
-    navigate('library');
+    try {
+      await Data.deleteProduct(state.editingProductId);
+      navigate('library');
+    } catch (e) {
+      showToast("Couldn't delete — check your connection.");
+    }
   });
 
   // ── Inline editing ─────────────────────────────────────────────────────────
