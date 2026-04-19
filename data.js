@@ -28,7 +28,8 @@
       headers: headers,
       body:    body ? JSON.stringify(body) : undefined
     });
-    if (!res.ok) throw new Error(await res.text());
+    var errText = await res.text();
+    if (!res.ok) throw new Error(res.status + ' ' + (errText || res.statusText));
     if (res.status === 204) return null;
     // Use text() first to guard against empty bodies (e.g. void RPC responses)
     var text = await res.text();
@@ -155,7 +156,7 @@
       'GET',
       'products?user_id=eq.' + USER_ID + '&select=*&order=created_at.asc'
     );
-    return rows.map(dbToProduct);
+    return (rows || []).map(dbToProduct);
   }
 
   async function saveProduct(product) {
@@ -184,13 +185,13 @@
       'GET',
       'events?user_id=eq.' + USER_ID + '&select=*,segments(*,items(*))&order=date.desc.nullslast'
     );
-    return rows.map(dbToEvent);
+    return (rows || []).map(dbToEvent);
   }
 
   async function getEvent(id) {
     var rows = await supabaseRequest(
       'GET',
-      'events?id=eq.' + id + '&select=*,segments(*,items(*))'
+      'events?id=eq.' + id + '&user_id=eq.' + USER_ID + '&select=*,segments(*,items(*))'
     );
     return rows.length ? dbToEvent(rows[0]) : null;
   }
@@ -235,7 +236,7 @@
     // If Supabase already has data (e.g. migrated from another device), just mark done
     var existingEvents   = await supabaseRequest('GET', 'events?user_id=eq.'   + USER_ID + '&select=id&limit=1');
     var existingProducts = await supabaseRequest('GET', 'products?user_id=eq.' + USER_ID + '&select=id&limit=1');
-    if (existingEvents.length > 0 || existingProducts.length > 0) {
+    if (existingEvents.length > 0 && existingProducts.length > 0) {
       localStorage.setItem(KEYS.migrated, 'true');
       return;
     }
@@ -266,6 +267,16 @@
     for (var i = 0; i < migratedProducts.length; i++) {
       await saveProduct(migratedProducts[i]);
     }
+
+    // Remap recent product IDs to their new UUIDs
+    try {
+      var oldRecent = JSON.parse(localStorage.getItem(KEYS.recent) || '[]');
+      var newRecent = oldRecent
+        .map(function (id) { return productIdMap[id]; })
+        .filter(Boolean)
+        .slice(0, 5);
+      localStorage.setItem(KEYS.recent, JSON.stringify(newRecent));
+    } catch (e) {}
 
     for (var j = 0; j < oldEvents.length; j++) {
       var oldEvt = oldEvents[j];
