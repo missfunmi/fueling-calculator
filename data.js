@@ -25,12 +25,10 @@
       headers: headers,
       body:    body ? JSON.stringify(body) : undefined
     });
-    var errText = await res.text();
-    if (!res.ok) throw new Error(res.status + ' ' + (errText || res.statusText));
-    if (res.status === 204) return null;
-    // Use text() first to guard against empty bodies (e.g. void RPC responses)
     var text = await res.text();
-    return text ? JSON.parse(text) : null;
+    if (!res.ok) throw new Error(res.status + ' ' + (text || res.statusText));
+    if (res.status === 204 || !text) return null;
+    return JSON.parse(text);
   }
 
   // ── Normalisation ────────────────────────────────────────────────────────────
