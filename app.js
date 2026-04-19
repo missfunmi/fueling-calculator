@@ -357,16 +357,24 @@
 
   // ── Event detail ───────────────────────────────────────────────────────────
 
-  function renderDetail() {
-    var evt = Data.getEvents().find(function (e) { return e.id === state.currentEventId; });
+  async function renderDetail() {
+    // Show spinner while fetching — clears automatically when body is replaced below
+    showContainerSpinner($('detail-body'));
+
+    var evt;
+    try {
+      evt = await Data.getEvent(state.currentEventId);
+    } catch (e) {
+      $('detail-body').innerHTML = '';
+      showToast("Couldn't load event — check your connection.");
+      return;
+    }
     if (!evt) { navigate('events'); return; }
 
-    // Header name
     $('detail-event-name').textContent = evt.name;
 
-    // Summary cards
     var totals = Data.calcEventTotals(evt);
-    var rates = Data.calcEventRates(evt);
+    var rates  = Data.calcEventRates(evt);
     var totalH = totals.durationHours;
     $('detail-summary').innerHTML =
       '<div class="event-meta-row">' +
@@ -374,12 +382,11 @@
         (evt.date ? '<span class="event-meta-date">' + escHtml(evt.date) + '</span>' : '') +
       '</div>' +
       '<div class="summary-cards">' +
-        metricCardHTML('carbs', Math.round(totals.carbs) + 'g', fmt(rates.carbs, 'g/hr avg')) +
-        metricCardHTML('sodium', Math.round(totals.sodium) + 'mg', fmt(rates.sodium, 'mg/hr avg')) +
+        metricCardHTML('carbs',    Math.round(totals.carbs)    + 'g',  fmt(rates.carbs,    'g/hr avg'))  +
+        metricCardHTML('sodium',   Math.round(totals.sodium)   + 'mg', fmt(rates.sodium,   'mg/hr avg')) +
         metricCardHTML('caffeine', Math.round(totals.caffeine) + 'mg', fmt(rates.caffeine, 'mg/hr avg')) +
       '</div>';
 
-    // Segment sections
     var multiSeg = evt.segments.length > 1;
     var $body = $('detail-body');
     $body.innerHTML = evt.segments.map(function (seg) {
@@ -497,10 +504,16 @@
       navigate('create', { currentEventId: evt.id });
     };
     $('detail-event-name').onclick = function () {
-      makeEditable($('detail-event-name'), function (val) {
-        var updated = Object.assign({}, Data.getEvents().find(function (e) { return e.id === evt.id; }), { name: val });
-        Data.saveEvent(updated);
-        renderDetail();
+      makeEditable($('detail-event-name'), async function (val) {
+        try {
+          var updated = await Data.getEvent(evt.id);
+          if (!updated) return;
+          updated.name = val;
+          await Data.saveEvent(updated);
+          await renderDetail();
+        } catch (e) {
+          showToast("Couldn't save — check your connection.");
+        }
       });
     };
 
@@ -530,20 +543,28 @@
     });
   }
 
-  function updateItemQty(eventId, segId, itemId, delta) {
-    var events = Data.getEvents();
-    var evt = events.find(function (e) { return e.id === eventId; });
+  async function updateItemQty(eventId, segId, itemId, delta) {
+    var evt;
+    try { evt = await Data.getEvent(eventId); }
+    catch (e) { showToast("Couldn't load event — check your connection."); return; }
     if (!evt) return;
+
     var seg = evt.segments.find(function (s) { return s.id === segId; });
     if (!seg) return;
     var item = seg.items.find(function (i) { return i.id === itemId; });
     if (!item) return;
+
     item.quantity = Math.max(0, item.quantity + delta);
     if (item.quantity === 0) {
       seg.items = seg.items.filter(function (i) { return i.id !== itemId; });
     }
-    Data.saveEvent(evt);
-    renderDetail();
+
+    try {
+      await Data.saveEvent(evt);
+      await renderDetail();
+    } catch (e) {
+      showToast("Couldn't save — check your connection.");
+    }
   }
 
   renders.detail = renderDetail;
@@ -843,40 +864,35 @@
     var segId = segSection.dataset.segmentId;
     var field = el.dataset.inline;
 
-    function saveSegmentField(value) {
-      var evt = Data.getEvents().find(function (e) { return e.id === eventId; });
-      if (!evt) return;
-      var seg = evt.segments.find(function (s) { return s.id === segId; });
-      if (!seg) return;
-
-      var num = parseFloat(value);
-      if (field === 'seg-name') {
-        seg.name = value || seg.name;
-      } else if (field === 'seg-duration') {
-        if (num > 0) seg.durationHours = num;
-      } else if (field === 'seg-carbs-target') {
-        if (!isNaN(num) && num >= 0) seg.targets.carbsPerHour = num;
-      } else if (field === 'seg-sodium-target') {
-        if (!isNaN(num) && num >= 0) seg.targets.sodiumPerHour = num;
-      } else if (field === 'seg-caff-target') {
-        if (!isNaN(num) && num >= 0) seg.targets.caffeinePerHour = num;
+    async function saveSegmentField(value) {
+      try {
+        var evt = await Data.getEvent(eventId);
+        if (!evt) return;
+        var seg = evt.segments.find(function (s) { return s.id === segId; });
+        if (!seg) return;
+        var num = parseFloat(value);
+        if (field === 'seg-name') {
+          seg.name = value || seg.name;
+        } else if (field === 'seg-duration') {
+          if (num > 0) seg.durationHours = num;
+        } else if (field === 'seg-carbs-target') {
+          if (!isNaN(num) && num >= 0) seg.targets.carbsPerHour = num;
+        } else if (field === 'seg-sodium-target') {
+          if (!isNaN(num) && num >= 0) seg.targets.sodiumPerHour = num;
+        } else if (field === 'seg-caff-target') {
+          if (!isNaN(num) && num >= 0) seg.targets.caffeinePerHour = num;
+        }
+        await Data.saveEvent(evt);
+        await renderDetail();
+      } catch (e) {
+        showToast("Couldn't save — check your connection.");
       }
-      Data.saveEvent(evt);
-      renderDetail();
     }
 
-    // For duration and target pills, strip display text and show raw number
+    // Strip display formatting so the inline input shows just the raw number
     if (field !== 'seg-name') {
-      var outerEvt = Data.getEvents().find(function (e) { return e.id === eventId; });
-      var outerSeg = outerEvt ? outerEvt.segments.find(function (s) { return s.id === segId; }) : null;
-      if (!outerSeg) return;
-      if (field === 'seg-duration') {
-        el.textContent = outerSeg.durationHours;
-      } else {
-        el.textContent = field === 'seg-carbs-target' ? outerSeg.targets.carbsPerHour
-                       : field === 'seg-sodium-target' ? outerSeg.targets.sodiumPerHour
-                       : outerSeg.targets.caffeinePerHour;
-      }
+      var raw = el.textContent.trim();
+      el.textContent = parseFloat(raw.replace(/[^0-9.]/g, '')) || 0;
     }
 
     makeEditable(el, saveSegmentField);
