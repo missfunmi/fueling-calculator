@@ -1607,9 +1607,331 @@
 
 ---
 
-### Task 10: Manual smoke test
+### Task 10: Update tests/data.test.js for async data.js
 
-**Files:** None changed — this is a verification task.
+**Files:**
+- Modify: `tests/data.test.js`
+
+The CRUD functions are now async and the `getRecentProducts()` return type changed. The calculation and factory tests are pure functions — they are **not** touched.
+
+**What needs a mock:**
+- `global.crypto.randomUUID` — used by `generateId()` in the new data.js
+- `global.fetch` — used by all async CRUD functions
+
+**Specific behavioral change:** `getRecentProducts()` now returns `string[]` (IDs) instead of `Product[]`. Filtering stale IDs is no longer done inside `getRecentProducts()` — it happens at the call site (`renderSheetLibraryTab`) after a full product fetch.
+
+- [ ] **Step 1: Add crypto mock and async-aware test runner at the top of the file**
+
+  Replace the existing preamble (lines 1–30 of the current file — the `global.localStorage` mock, `require`, and `test` helper) with:
+
+  ```js
+  // tests/data.test.js
+  'use strict';
+
+  // ── Mocks ────────────────────────────────────────────────────────────────────
+
+  global.localStorage = (function () {
+    var store = {};
+    return {
+      getItem:    function (k)    { return store[k] !== undefined ? store[k] : null; },
+      setItem:    function (k, v) { store[k] = String(v); },
+      removeItem: function (k)    { delete store[k]; },
+      clear:      function ()     { store = {}; }
+    };
+  })();
+
+  // crypto.randomUUID — returns a deterministic value per call for predictable test IDs
+  var _uuidCounter = 0;
+  global.crypto = {
+    randomUUID: function () {
+      _uuidCounter++;
+      return '00000000-0000-0000-0000-' + String(_uuidCounter).padStart(12, '0');
+    }
+  };
+
+  // fetch mock — each test section configures _fetchResponses before calling async Data functions.
+  // Format: [{ status, body }] — consumed FIFO by each fetch call.
+  var _fetchResponses = [];
+  global.fetch = async function (_url, _opts) {
+    var resp = _fetchResponses.shift() || { status: 200, body: '[]' };
+    return {
+      ok:     resp.status >= 200 && resp.status < 300,
+      status: resp.status,
+      text:   async function () { return resp.body !== undefined ? String(resp.body) : ''; }
+    };
+  };
+
+  function mockFetch(responses) {
+    _fetchResponses = responses.slice();
+  }
+
+  var assert = require('assert');
+  var D = require('../data.js');
+
+  var passed = 0, failed = 0;
+
+  // Supports both sync and async test functions
+  async function test(name, fn) {
+    localStorage.clear();
+    _fetchResponses = [];
+    _uuidCounter = 0;
+    try {
+      await fn();
+      console.log('  \u2713 ' + name);
+      passed++;
+    } catch (e) {
+      console.error('  \u2717 ' + name + ': ' + e.message);
+      failed++;
+    }
+  }
+
+  async function run() {
+  ```
+
+  Note: all test blocks below are now indented inside the `run()` async function. The file ends with `}` closing `run()` and a call to run it.
+
+- [ ] **Step 2: Rewrite the Products CRUD section**
+
+  Replace the Products CRUD test block (the four `test(...)` calls under `console.log('\nProducts CRUD')`) with:
+
+  ```js
+  // ── Products ─────────────────────────────────────────────────────────────────
+
+  console.log('\nProducts CRUD');
+
+  await test('getProducts returns [] when empty', async function () {
+    mockFetch([{ status: 200, body: '[]' }]);
+    var result = await D.getProducts();
+    assert.deepStrictEqual(result, []);
+  });
+
+  await test('saveProduct sends upsert POST to Supabase', async function () {
+    var p = { id: 'aaaaaaaa-0000-0000-0000-000000000001', brand: 'Maurten', name: 'C-160',
+              type: 'drink_powder', carbsPerUnit: 160, sodiumPerUnit: 290, caffeinePerUnit: 0 };
+    // saveProduct returns nothing useful — just confirm it doesn't throw
+    mockFetch([{ status: 200, body: '[]' }]);
+    await D.saveProduct(p); // no assertion needed — would throw on non-ok status
+  });
+
+  await test('saveProduct throws on server error', async function () {
+    var p = { id: 'aaaaaaaa-0000-0000-0000-000000000001', brand: '', name: 'X',
+              type: 'gel', carbsPerUnit: 0, sodiumPerUnit: 0, caffeinePerUnit: 0 };
+    mockFetch([{ status: 400, body: 'Bad request' }]);
+    await assert.rejects(D.saveProduct(p), /Bad request/);
+  });
+
+  await test('deleteProduct removes from recent list', async function () {
+    localStorage.setItem('fuelPlanner.recentProducts', JSON.stringify(['p1', 'p2']));
+    mockFetch([{ status: 204, body: '' }]);
+    await D.deleteProduct('p1');
+    var ids = JSON.parse(localStorage.getItem('fuelPlanner.recentProducts'));
+    assert.deepStrictEqual(ids, ['p2']);
+  });
+
+  await test('getProducts normalises snake_case to camelCase', async function () {
+    var row = { id: 'abc', brand: 'Maurten', name: 'C-160', type: 'drink_powder',
+                carbs_per_unit: 160, sodium_per_unit: 290, caffeine_per_unit: 0 };
+    mockFetch([{ status: 200, body: JSON.stringify([row]) }]);
+    var products = await D.getProducts();
+    assert.strictEqual(products.length, 1);
+    assert.strictEqual(products[0].carbsPerUnit, 160);
+    assert.strictEqual(products[0].sodiumPerUnit, 290);
+    assert.strictEqual(products[0].id, 'abc');
+  });
+  ```
+
+- [ ] **Step 3: Rewrite the Events CRUD section**
+
+  Replace the Events CRUD test block with:
+
+  ```js
+  // ── Events ────────────────────────────────────────────────────────────────────
+
+  console.log('\nEvents CRUD');
+
+  await test('getEvents returns [] when empty', async function () {
+    mockFetch([{ status: 200, body: '[]' }]);
+    var result = await D.getEvents();
+    assert.deepStrictEqual(result, []);
+  });
+
+  await test('getEvent returns null when not found', async function () {
+    mockFetch([{ status: 200, body: '[]' }]);
+    var result = await D.getEvent('non-existent-id');
+    assert.strictEqual(result, null);
+  });
+
+  await test('saveEvent sends POST to rpc/save_event', async function () {
+    var e = D.newEvent('Test Ride');
+    mockFetch([{ status: 204, body: '' }]);
+    await D.saveEvent(e); // confirm no throw
+  });
+
+  await test('saveEvent throws on server error', async function () {
+    var e = D.newEvent('Bad Ride');
+    mockFetch([{ status: 500, body: 'Internal Server Error' }]);
+    await assert.rejects(D.saveEvent(e), /Internal Server Error/);
+  });
+
+  await test('deleteEvent sends DELETE request', async function () {
+    mockFetch([{ status: 204, body: '' }]);
+    await D.deleteEvent('some-uuid'); // confirm no throw
+  });
+
+  await test('getEvents normalises nested segments and items', async function () {
+    var row = {
+      id: 'evt-1', name: 'Test', date: '2026-05-10', type: 'ride', notes: '',
+      segments: [{
+        id: 'seg-1', name: 'Bike', duration_hours: 3,
+        carbs_per_hour: 110, sodium_per_hour: 600, caffeine_per_hour: 0, sort_order: 0,
+        items: [{
+          id: 'itm-1', product_id: null, name: 'Gel', brand: '', type: 'gel',
+          carbs_per_unit: 25, sodium_per_unit: 0, caffeine_per_unit: 0,
+          quantity: 2, sort_order: 0
+        }]
+      }]
+    };
+    mockFetch([{ status: 200, body: JSON.stringify([row]) }]);
+    var events = await D.getEvents();
+    assert.strictEqual(events.length, 1);
+    var seg = events[0].segments[0];
+    assert.strictEqual(seg.durationHours, 3);
+    assert.strictEqual(seg.targets.carbsPerHour, 110);
+    assert.strictEqual(seg.items[0].carbsPerUnit, 25);
+    assert.strictEqual(seg.items[0].quantity, 2);
+  });
+
+  await test('getEvents sorts segments and items by sort_order', async function () {
+    var row = {
+      id: 'evt-1', name: 'Test', date: '', type: 'other', notes: '',
+      segments: [
+        { id: 'seg-b', name: 'Run',  duration_hours: 1, carbs_per_hour: 0, sodium_per_hour: 0, caffeine_per_hour: 0, sort_order: 1, items: [] },
+        { id: 'seg-a', name: 'Bike', duration_hours: 3, carbs_per_hour: 0, sodium_per_hour: 0, caffeine_per_hour: 0, sort_order: 0, items: [] }
+      ]
+    };
+    mockFetch([{ status: 200, body: JSON.stringify([row]) }]);
+    var events = await D.getEvents();
+    assert.strictEqual(events[0].segments[0].name, 'Bike');
+    assert.strictEqual(events[0].segments[1].name, 'Run');
+  });
+  ```
+
+- [ ] **Step 4: Rewrite the Recent products section**
+
+  The return type of `getRecentProducts()` changed: it now returns `string[]` (IDs), not `Product[]`.
+  Stale-ID filtering now happens at the call site, not inside `getRecentProducts()`.
+
+  Replace the Recent products test block with:
+
+  ```js
+  // ── Recent products ───────────────────────────────────────────────────────────
+
+  console.log('\nRecent products');
+
+  await test('getRecentProducts returns [] when empty', function () {
+    assert.deepStrictEqual(D.getRecentProducts(), []);
+  });
+
+  await test('recordProductUsed prepends and caps at 5', function () {
+    ['1','2','3','4','5','6'].forEach(D.recordProductUsed);
+    var ids = D.getRecentProducts();
+    assert.strictEqual(ids.length, 5);
+    assert.strictEqual(ids[0], '6'); // most recent first
+    assert.strictEqual(ids[4], '2'); // oldest kept
+  });
+
+  await test('deleteProduct removes ID from recent list', async function () {
+    D.recordProductUsed('p1');
+    D.recordProductUsed('p2');
+    mockFetch([{ status: 204, body: '' }]);
+    await D.deleteProduct('p1');
+    var ids = D.getRecentProducts();
+    assert.deepStrictEqual(ids, ['p2']);
+  });
+
+  await test('getRecentProducts returns stale IDs as-is (filtering is caller responsibility)', function () {
+    // The new implementation does not filter stale IDs — callers filter using .filter(Boolean)
+    // after resolving IDs against a fetched product list.
+    localStorage.setItem('fuelPlanner.recentProducts', JSON.stringify(['ghost-id']));
+    assert.deepStrictEqual(D.getRecentProducts(), ['ghost-id']);
+  });
+  ```
+
+- [ ] **Step 5: Keep factory and calculation tests unchanged**
+
+  These test pure functions that did not change. Leave the `newEvent / newSegment factories` and `Calculations` sections exactly as they are. They just need to be inside the `run()` function body (indented).
+
+- [ ] **Step 6: Close the run() function and invoke it**
+
+  At the very end of the file, replace:
+  ```js
+  console.log('\n' + passed + ' passed, ' + failed + ' failed');
+  if (failed > 0) process.exit(1);
+  ```
+  With:
+  ```js
+  // ── Summary ───────────────────────────────────────────────────────────────────
+
+    console.log('\n' + passed + ' passed, ' + failed + ' failed');
+    if (failed > 0) process.exit(1);
+  } // end run()
+
+  run().catch(function (e) { console.error('Test runner error:', e); process.exit(1); });
+  ```
+
+- [ ] **Step 7: Run tests to verify all pass**
+
+  ```bash
+  node tests/data.test.js
+  ```
+
+  Expected output:
+  ```
+  Products CRUD
+    ✓ getProducts returns [] when empty
+    ✓ saveProduct sends upsert POST to Supabase
+    ✓ saveProduct throws on server error
+    ✓ deleteProduct removes from recent list
+    ✓ getProducts normalises snake_case to camelCase
+
+  Events CRUD
+    ✓ getEvents returns [] when empty
+    ✓ getEvent returns null when not found
+    ✓ saveEvent sends POST to rpc/save_event
+    ✓ saveEvent throws on server error
+    ✓ deleteEvent sends DELETE request
+    ✓ getEvents normalises nested segments and items
+    ✓ getEvents sorts segments and items by sort_order
+
+  Recent products
+    ✓ getRecentProducts returns [] when empty
+    ✓ recordProductUsed prepends and caps at 5
+    ✓ deleteProduct removes ID from recent list
+    ✓ getRecentProducts returns stale IDs as-is (filtering is caller responsibility)
+
+  Factories
+    ✓ newEvent has one segment named after the event
+    ✓ itemFromProduct snapshots product values
+    ✓ itemFromOneOff sets productId null, coerces numerics, defaults type to other
+    ✓ newSegment uses provided name and duration
+
+  Calculations
+    ✓ calcSegmentTotals: sums items correctly
+    ... (all calculation tests pass)
+
+  N passed, 0 failed
+  ```
+
+- [ ] **Step 8: Commit**
+
+  ```bash
+  git add tests/data.test.js
+  git commit -m "test: update data.test.js for async Supabase data.js — mock fetch, update CRUD and recent product tests"
+  ```
+
+---
+
+### Task 11: Manual smoke test (end-to-end)
 
 - [ ] **Step 1: Start local server and open the app**
 
