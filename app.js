@@ -579,7 +579,9 @@
     _sheetSegmentId = segmentId;
     $('sheet-overlay').classList.remove('hidden');
     $('product-search').value = '';
-    renderSheetLibraryTab();
+    renderSheetLibraryTab().catch(function (e) {
+      showToast("Couldn't load library — check your connection.");
+    });
     // Reset to library tab
     $$('.sheet-tab-btn').forEach(function (b) { b.classList.remove('active'); });
     $$('.sheet-tab-content').forEach(function (c) { c.classList.remove('active'); });
@@ -596,11 +598,21 @@
     _sheetSegmentId = null;
   }
 
-  function renderSheetLibraryTab(query) {
-    var products = Data.getProducts();
-    var recent = Data.getRecentProducts();
+  async function renderSheetLibraryTab(query) {
+    var products;
+    try {
+      products = await Data.getProducts();
+    } catch (e) {
+      showToast("Couldn't load library — check your connection.");
+      return;
+    }
 
-    // Recent section
+    // Resolve recent product IDs against the full product list
+    var recentIds = Data.getRecentProducts(); // returns array of IDs
+    var recent = recentIds
+      .map(function (id) { return products.find(function (p) { return p.id === id; }); })
+      .filter(Boolean);
+
     var $recentSection = $('recent-products-section');
     if (!query && recent.length) {
       $recentSection.style.display = '';
@@ -612,12 +624,10 @@
       $recentSection.style.display = 'none';
     }
 
-    // Search results — exclude recents from the all-products list when no query
-    var recentIds = recent.map(function (p) { return p.id; });
     var filtered = query
       ? products.filter(function (p) {
           var q = query.toLowerCase();
-          return (p.name || '').toLowerCase().includes(q) ||
+          return (p.name  || '').toLowerCase().includes(q) ||
                  (p.brand || '').toLowerCase().includes(q) ||
                  (TYPE_LABELS[p.type] || p.type || '').toLowerCase().includes(q);
         })
@@ -650,25 +660,34 @@
 
   function attachSheetProductHandlers($container) {
     $$('.product-row', $container).forEach(function (row) {
-      on(row, 'click', function () {
+      on(row, 'click', async function () {
         var productId = row.dataset.productId;
-        var product = Data.getProducts().find(function (p) { return p.id === productId; });
+        var products;
+        try { products = await Data.getProducts(); }
+        catch (e) { showToast("Couldn't load product — check your connection."); return; }
+
+        var product = products.find(function (p) { return p.id === productId; });
         if (!product || !_sheetEventId || !_sheetSegmentId) return;
-        addItemToSegment(_sheetEventId, _sheetSegmentId, Data.itemFromProduct(product));
-        Data.recordProductUsed(productId);
-        closeSheet();
-        renderDetail();
+
+        try {
+          await addItemToSegment(_sheetEventId, _sheetSegmentId, Data.itemFromProduct(product));
+          Data.recordProductUsed(productId);
+          closeSheet();
+          await renderDetail();
+        } catch (e) {
+          showToast("Couldn't add item — check your connection.");
+        }
       });
     });
   }
 
-  function addItemToSegment(eventId, segmentId, item) {
-    var evt = Data.getEvents().find(function (e) { return e.id === eventId; });
+  async function addItemToSegment(eventId, segmentId, item) {
+    var evt = await Data.getEvent(eventId);
     if (!evt) return;
     var seg = evt.segments.find(function (s) { return s.id === segmentId; });
     if (!seg) return;
     seg.items.push(item);
-    Data.saveEvent(evt);
+    await Data.saveEvent(evt);
   }
 
   // Sheet overlay close
@@ -685,42 +704,54 @@
       $$('.sheet-tab-content').forEach(function (c) { c.classList.remove('active'); });
       btn.classList.add('active');
       $('sheet-tab-' + tab).classList.add('active');
-      if (tab === 'library') renderSheetLibraryTab($('product-search').value.trim());
+      if (tab === 'library') {
+        renderSheetLibraryTab($('product-search').value.trim()).catch(function (e) {
+          showToast("Couldn't load library — check your connection.");
+        });
+      }
     });
   });
 
   // Live search
   on($('product-search'), 'input', function () {
-    renderSheetLibraryTab($('product-search').value.trim());
+    renderSheetLibraryTab($('product-search').value.trim()).catch(function (e) {
+      showToast("Couldn't search — check your connection.");
+    });
   });
 
   // One-off form submit
-  on($('oneoff-form'), 'submit', function (e) {
+  on($('oneoff-form'), 'submit', async function (e) {
     e.preventDefault();
     var name = $('oo-name').value.trim();
     if (!name) { $('oo-name').focus(); return; }
+
     var fields = {
-      name: name,
-      brand: $('oo-brand').value.trim(),
-      type: $('oo-type').value,
-      carbsPerUnit: $('oo-carbs').value,
-      sodiumPerUnit: $('oo-sodium').value,
+      name:            name,
+      brand:           $('oo-brand').value.trim(),
+      type:            $('oo-type').value,
+      carbsPerUnit:    $('oo-carbs').value,
+      sodiumPerUnit:   $('oo-sodium').value,
       caffeinePerUnit: $('oo-caffeine').value
     };
     var item = Data.itemFromOneOff(fields);
-    if ($('oo-save-library').checked) {
-      var product = Object.assign({ id: Data.generateId() }, fields, {
-        carbsPerUnit: Number(fields.carbsPerUnit) || 0,
-        sodiumPerUnit: Number(fields.sodiumPerUnit) || 0,
-        caffeinePerUnit: Number(fields.caffeinePerUnit) || 0
-      });
-      Data.saveProduct(product);
-      item.productId = product.id;
-      Data.recordProductUsed(product.id);
+
+    try {
+      if ($('oo-save-library').checked) {
+        var product = Object.assign({ id: Data.generateId() }, fields, {
+          carbsPerUnit:    Number(fields.carbsPerUnit)    || 0,
+          sodiumPerUnit:   Number(fields.sodiumPerUnit)   || 0,
+          caffeinePerUnit: Number(fields.caffeinePerUnit) || 0
+        });
+        await Data.saveProduct(product);
+        item.productId = product.id;
+        Data.recordProductUsed(product.id);
+      }
+      await addItemToSegment(_sheetEventId, _sheetSegmentId, item);
+      closeSheet();
+      await renderDetail();
+    } catch (e) {
+      showToast("Couldn't save — check your connection.");
     }
-    addItemToSegment(_sheetEventId, _sheetSegmentId, item);
-    closeSheet();
-    renderDetail();
   });
 
   // ── Product library ──────────────────────────────────────────────────────────
