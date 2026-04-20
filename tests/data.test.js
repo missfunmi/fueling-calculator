@@ -404,6 +404,86 @@ async function run() {
     );
   });
 
+  // ── Actual calculations ───────────────────────────────────────────────────────
+
+  console.log('\nActual calculations');
+
+  await test('calcActualSegmentTotals: sums items correctly', function () {
+    var actualSeg = {
+      durationHours: 2,
+      items: [
+        { carbsPerUnit: 80, sodiumPerUnit: 400, caffeinePerUnit: 0, quantity: 3 },
+        { carbsPerUnit: 22, sodiumPerUnit: 100, caffeinePerUnit: 50, quantity: 2 }
+      ]
+    };
+    var t = D.calcActualSegmentTotals(actualSeg);
+    assert.strictEqual(t.carbs, 284);    // 240 + 44
+    assert.strictEqual(t.sodium, 1400);  // 1200 + 200
+    assert.strictEqual(t.caffeine, 100); // 0 + 100
+  });
+
+  await test('calcActualSegmentTotals: empty items returns zeros', function () {
+    var t = D.calcActualSegmentTotals({ durationHours: 2, items: [] });
+    assert.deepStrictEqual(t, { carbs: 0, sodium: 0, caffeine: 0 });
+  });
+
+  await test('calcActualSegmentRates: divides by durationHours', function () {
+    var actualSeg = {
+      durationHours: 2,
+      items: [{ carbsPerUnit: 100, sodiumPerUnit: 500, caffeinePerUnit: 0, quantity: 2 }]
+    };
+    var r = D.calcActualSegmentRates(actualSeg);
+    assert.strictEqual(r.carbs, 100);   // 200 / 2
+    assert.strictEqual(r.sodium, 500);  // 1000 / 2
+  });
+
+  await test('calcActualSegmentRates: uses 1 as fallback when durationHours is 0 or null', function () {
+    var actualSeg = { durationHours: null, items: [{ carbsPerUnit: 80, sodiumPerUnit: 0, caffeinePerUnit: 0, quantity: 1 }] };
+    var r = D.calcActualSegmentRates(actualSeg);
+    assert.strictEqual(r.carbs, 80);
+  });
+
+  await test('calcActualEventTotals: sums across all actual segments', function () {
+    var event = {
+      actuals: {
+        'seg-1': { durationHours: 3, items: [{ carbsPerUnit: 80, sodiumPerUnit: 400, caffeinePerUnit: 0, quantity: 3 }] },
+        'seg-2': { durationHours: 1.5, items: [{ carbsPerUnit: 22, sodiumPerUnit: 100, caffeinePerUnit: 50, quantity: 4 }] }
+      }
+    };
+    var t = D.calcActualEventTotals(event);
+    assert.strictEqual(t.carbs, 328);        // 240 + 88
+    assert.strictEqual(t.sodium, 1600);      // 1200 + 400
+    assert.strictEqual(t.caffeine, 200);     // 0 + 200
+    assert.strictEqual(t.durationHours, 4.5);
+  });
+
+  await test('calcActualEventTotals: returns zeros when actuals is empty', function () {
+    var t = D.calcActualEventTotals({ actuals: {} });
+    assert.deepStrictEqual(t, { carbs: 0, sodium: 0, caffeine: 0, durationHours: 0 });
+  });
+
+  await test('calcActualEventRates: divides totals by total actual duration', function () {
+    var event = {
+      actuals: {
+        'seg-1': { durationHours: 2, items: [{ carbsPerUnit: 100, sodiumPerUnit: 500, caffeinePerUnit: 0, quantity: 2 }] },
+        'seg-2': { durationHours: 2, items: [{ carbsPerUnit: 100, sodiumPerUnit: 500, caffeinePerUnit: 0, quantity: 2 }] }
+      }
+    };
+    var r = D.calcActualEventRates(event);
+    assert.strictEqual(r.carbs, 100);   // 400 total / 4h
+    assert.strictEqual(r.sodium, 500);  // 2000 total / 4h
+  });
+
+  await test('calcActualEventRates: uses 1 as fallback when total duration is 0', function () {
+    var event = {
+      actuals: {
+        'seg-1': { durationHours: 0, items: [{ carbsPerUnit: 80, sodiumPerUnit: 0, caffeinePerUnit: 0, quantity: 1 }] }
+      }
+    };
+    var r = D.calcActualEventRates(event);
+    assert.strictEqual(r.carbs, 80);
+  });
+
   // ── Summary ───────────────────────────────────────────────────────────────────
 
   console.log('\n' + passed + ' passed, ' + failed + ' failed');

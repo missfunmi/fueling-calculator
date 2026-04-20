@@ -354,6 +354,41 @@
     return ratio < 0.75 ? 'under' : 'over';
   }
 
+  function calcActualSegmentTotals(actualSegment) {
+    return (actualSegment.items || []).reduce(function (acc, item) {
+      return {
+        carbs:    acc.carbs    + (item.carbsPerUnit    || 0) * (item.quantity || 0),
+        sodium:   acc.sodium   + (item.sodiumPerUnit   || 0) * (item.quantity || 0),
+        caffeine: acc.caffeine + (item.caffeinePerUnit || 0) * (item.quantity || 0)
+      };
+    }, { carbs: 0, sodium: 0, caffeine: 0 });
+  }
+
+  function calcActualSegmentRates(actualSegment) {
+    var t = calcActualSegmentTotals(actualSegment);
+    var h = actualSegment.durationHours || 1;
+    return { carbs: t.carbs / h, sodium: t.sodium / h, caffeine: t.caffeine / h };
+  }
+
+  function calcActualEventTotals(event) {
+    return Object.keys(event.actuals || {}).reduce(function (acc, segId) {
+      var actualSeg = event.actuals[segId];
+      var t = calcActualSegmentTotals(actualSeg);
+      return {
+        carbs:         acc.carbs         + t.carbs,
+        sodium:        acc.sodium        + t.sodium,
+        caffeine:      acc.caffeine      + t.caffeine,
+        durationHours: acc.durationHours + (actualSeg.durationHours || 0)
+      };
+    }, { carbs: 0, sodium: 0, caffeine: 0, durationHours: 0 });
+  }
+
+  function calcActualEventRates(event) {
+    var t = calcActualEventTotals(event);
+    var h = t.durationHours || 1;
+    return { carbs: t.carbs / h, sodium: t.sodium / h, caffeine: t.caffeine / h };
+  }
+
   // ── Factories (unchanged, updated to use crypto.randomUUID via generateId) ────
 
   function newSegment(name, durationHours) {
@@ -426,6 +461,10 @@
   exports.calcEventTotals   = calcEventTotals;
   exports.calcEventRates    = calcEventRates;
   exports.rateStatus        = rateStatus;
+  exports.calcActualSegmentTotals = calcActualSegmentTotals;
+  exports.calcActualSegmentRates  = calcActualSegmentRates;
+  exports.calcActualEventTotals   = calcActualEventTotals;
+  exports.calcActualEventRates    = calcActualEventRates;
   exports.newSegment        = newSegment;
   exports.newEvent          = newEvent;
   exports.itemFromProduct   = itemFromProduct;
