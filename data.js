@@ -6,7 +6,6 @@
   // Fill these in from your Supabase project Settings → API
   var SUPABASE_URL  = 'https://jcrmkxlzqewwqugkwlww.supabase.co';
   var SUPABASE_ANON_KEY = 'sb_publishable_VArDAA7V8Gg-Xi20vj7zkw_NiidAk_Q';
-  var USER_ID = localStorage.getItem('fuelPlanner.userId');
 
   var KEYS = {
     recent:      'fuelPlanner.recentProducts',
@@ -14,6 +13,8 @@
     userId:      'fuelPlanner.userId',
     displayName: 'fuelPlanner.displayName'
   };
+
+  var USER_ID = localStorage.getItem(KEYS.userId);
 
   // ── Identity ─────────────────────────────────────────────────────────────────
   // Derives a deterministic UUID from a name and passphrase using SHA-256
@@ -233,6 +234,7 @@
     );
   }
 
+  // Creates or updates the user record (upsert on id).
   async function saveUser(id, displayName) {
     await supabaseRequest(
       'POST',
