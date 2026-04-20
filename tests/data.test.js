@@ -539,6 +539,20 @@ async function run() {
     assert.notStrictEqual(id1, id2);
   });
 
+  await test('saveUser sends upsert POST to users endpoint', async function () {
+    mockFetch([{ status: 200, body: '[]' }]);
+    await D.saveUser('aaaaaaaa-0000-0000-0000-000000000001', 'Funmi');
+    // passes if no exception thrown
+  });
+
+  await test('saveUser throws on server error', async function () {
+    mockFetch([{ status: 400, body: 'Bad request' }]);
+    await assert.rejects(
+      D.saveUser('aaaaaaaa-0000-0000-0000-000000000001', 'Funmi'),
+      /Bad request/
+    );
+  });
+
   // ── Summary ───────────────────────────────────────────────────────────────────
 
   console.log('\n' + passed + ' passed, ' + failed + ' failed');

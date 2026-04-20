@@ -6,11 +6,13 @@
   // Fill these in from your Supabase project Settings → API
   var SUPABASE_URL  = 'https://jcrmkxlzqewwqugkwlww.supabase.co';
   var SUPABASE_ANON_KEY = 'sb_publishable_VArDAA7V8Gg-Xi20vj7zkw_NiidAk_Q';
-  var USER_ID = '33d5e92b-360a-45b7-a423-656f14e67b98'; // the UUID you generated and used in the SQL
+  var USER_ID = localStorage.getItem('fuelPlanner.userId');
 
   var KEYS = {
-    recent:   'fuelPlanner.recentProducts',
-    migrated: 'fuelPlanner.migrated'
+    recent:      'fuelPlanner.recentProducts',
+    migrated:    'fuelPlanner.migrated',
+    userId:      'fuelPlanner.userId',
+    displayName: 'fuelPlanner.displayName'
   };
 
   // ── Identity ─────────────────────────────────────────────────────────────────
@@ -228,6 +230,15 @@
       'events?id=eq.' + eventId,
       { actuals: actuals, post_event_notes: postEventNotes || null },
       'return=minimal'
+    );
+  }
+
+  async function saveUser(id, displayName) {
+    await supabaseRequest(
+      'POST',
+      'users?on_conflict=id',
+      { id: id, display_name: displayName },
+      'return=minimal,resolution=merge-duplicates'
     );
   }
 
@@ -475,6 +486,7 @@
   exports.saveEvent        = saveEvent;
   exports.deleteEvent      = deleteEvent;
   exports.saveActuals      = saveActuals;
+  exports.saveUser         = saveUser;
   exports.getRecentProducts = getRecentProducts;
   exports.recordProductUsed = recordProductUsed;
   exports.migrateIfNeeded  = migrateIfNeeded;
