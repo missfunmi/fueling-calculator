@@ -136,6 +136,11 @@
       .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
+  function isEventPastOrToday(dateStr) {
+    if (!dateStr) return true; // no date set = treat as past
+    return dateStr <= new Date().toISOString().slice(0, 10);
+  }
+
   // ── Events list ────────────────────────────────────────────────────────────
 
   async function renderEventsList() {
@@ -358,7 +363,6 @@
   // ── Event detail ───────────────────────────────────────────────────────────
 
   async function renderDetail() {
-    // Show spinner while fetching — clears automatically when body is replaced below
     showContainerSpinner($('detail-body'));
 
     var evt;
@@ -371,38 +375,82 @@
     }
     if (!evt) { navigate('events'); return; }
 
+    var showActuals = isEventPastOrToday(evt.date);
+
+    // Pre-populate actuals from plan on first open (silent background save)
+    if (showActuals) {
+      var needsSave = false;
+      evt.segments.forEach(function (seg) {
+        if (!evt.actuals[seg.id]) {
+          evt.actuals[seg.id] = {
+            durationHours: seg.durationHours,
+            items: seg.items.map(function (item) {
+              return Object.assign({}, item, { id: Data.generateId() });
+            })
+          };
+          needsSave = true;
+        }
+      });
+      if (needsSave) {
+        Data.saveActuals(evt.id, evt.actuals, evt.postEventNotes).catch(function (e) {
+          console.error('Failed to pre-populate actuals:', e);
+        });
+      }
+    }
+
     $('detail-event-name').textContent = evt.name;
 
     var totals = Data.calcEventTotals(evt);
     var rates  = Data.calcEventRates(evt);
     var totalH = totals.durationHours;
+
+    var hasActuals = showActuals && Object.keys(evt.actuals).length > 0;
+    var actTotals = hasActuals ? Data.calcActualEventTotals(evt) : null;
+    var actRates  = hasActuals ? Data.calcActualEventRates(evt)  : null;
+
     $('detail-summary').innerHTML =
       '<div class="event-meta-row">' +
         '<span class="type-badge">' + (EVENT_TYPE_LABELS[evt.type] || escHtml(evt.type)) + '</span>' +
         (evt.date ? '<span class="event-meta-date">' + escHtml(evt.date) + '</span>' : '') +
       '</div>' +
       '<div class="summary-cards">' +
-        metricCardHTML('carbs',    Math.round(totals.carbs)    + 'g',  fmt(rates.carbs,    'g/hr avg'))  +
-        metricCardHTML('sodium',   Math.round(totals.sodium)   + 'mg', fmt(rates.sodium,   'mg/hr avg')) +
-        metricCardHTML('caffeine', Math.round(totals.caffeine) + 'mg', fmt(rates.caffeine, 'mg/hr avg')) +
+        metricCardHTML('carbs',    Math.round(totals.carbs) + 'g',  fmt(rates.carbs, 'g/hr avg'),
+          actTotals ? Math.round(actTotals.carbs) + 'g'   : undefined,
+          actRates  ? fmt(actRates.carbs, 'g/hr avg')     : undefined) +
+        metricCardHTML('sodium',   Math.round(totals.sodium) + 'mg', fmt(rates.sodium, 'mg/hr avg'),
+          actTotals ? Math.round(actTotals.sodium) + 'mg' : undefined,
+          actRates  ? fmt(actRates.sodium, 'mg/hr avg')   : undefined) +
+        metricCardHTML('caffeine', Math.round(totals.caffeine) + 'mg', fmt(rates.caffeine, 'mg/hr avg'),
+          actTotals ? Math.round(actTotals.caffeine) + 'mg' : undefined,
+          actRates  ? fmt(actRates.caffeine, 'mg/hr avg')   : undefined) +
       '</div>';
 
     var multiSeg = evt.segments.length > 1;
     var $body = $('detail-body');
-    $body.innerHTML = evt.segments.map(function (seg) {
-      return segmentSectionHTML(seg, multiSeg);
-    }).join('') +
-    (multiSeg ? totalsFooterHTML(totals, totalH) : '');
+    $body.innerHTML =
+      evt.segments.map(function (seg) {
+        var html = segmentSectionHTML(seg, multiSeg);
+        if (showActuals) {
+          var actualSeg = evt.actuals[seg.id] || { durationHours: null, items: [] };
+          html += actualSegmentSectionHTML(seg, actualSeg);
+        }
+        return html;
+      }).join('') +
+      (multiSeg ? totalsFooterHTML(totals, totalH) : '') +
+      (showActuals ? postEventNotesHTML(evt.postEventNotes) : '');
 
     attachDetailHandlers(evt);
   }
 
-  function metricCardHTML(key, value, rate) {
+  function metricCardHTML(key, value, rate, actualValue, actualRate) {
     var labels = { carbs: 'Carbs', sodium: 'Sodium', caffeine: 'Caffeine' };
-    return '<div class="metric-card">' +
+    var hasActuals = actualValue !== undefined;
+    return '<div class="metric-card' + (hasActuals ? ' has-actuals' : '') + '">' +
       '<div class="metric-value">' + value + '</div>' +
+      (hasActuals ? '<div class="metric-actual">' + actualValue + '</div>' : '') +
       '<div class="metric-label">' + labels[key] + '</div>' +
       '<div class="metric-rate">' + rate + '</div>' +
+      (hasActuals ? '<div class="metric-actual-rate">' + actualRate + '</div>' : '') +
     '</div>';
   }
 
@@ -488,12 +536,65 @@
     '</div>';
   }
 
+  function actualItemRowHTML(item) {
+    var metaParts = [TYPE_LABELS[item.type] || escHtml(item.type)];
+    if (item.carbsPerUnit)   metaParts.push(item.carbsPerUnit + 'g');
+    if (item.sodiumPerUnit)  metaParts.push(item.sodiumPerUnit + 'mg Na');
+    if (item.caffeinePerUnit) metaParts.push(item.caffeinePerUnit + 'mg caff');
+    var isOneOff = !item.productId;
+    return '<div class="item-row' + (isOneOff ? ' is-oneoff' : '') + '" data-actual-item-id="' + item.id + '">' +
+      '<div class="item-info">' +
+        '<div class="item-name">' + escHtml((item.brand ? item.brand + ' ' : '') + item.name) + '</div>' +
+        '<div class="item-meta">' + metaParts.join(' · ') + '</div>' +
+      '</div>' +
+      '<div class="stepper">' +
+        '<button class="stepper-btn" data-action="dec">&#8722;</button>' +
+        '<span class="stepper-qty">' + item.quantity + '</span>' +
+        '<button class="stepper-btn" data-action="inc">&#43;</button>' +
+      '</div>' +
+    '</div>';
+  }
+
   function totalsFooterHTML(totals, durationHours) {
     var dh = durationHours === Math.floor(durationHours) ? durationHours + 'h' : durationHours.toFixed(1) + 'h';
     return '<div class="totals-footer">' +
       'Totals &mdash; ' + Math.round(totals.carbs) + 'g carbs · ' +
       Math.round(totals.sodium) + 'mg Na · ' +
       Math.round(totals.caffeine) + 'mg caffeine · ' + dh +
+    '</div>';
+  }
+
+  function postEventNotesHTML(notes) {
+    return '<div class="post-event-notes-section">' +
+      '<label for="post-event-notes">Post-event notes</label>' +
+      '<textarea id="post-event-notes" class="post-event-notes-textarea"' +
+        ' placeholder="What worked, what didn\'t\u2026">' +
+      escHtml(notes || '') +
+      '</textarea>' +
+    '</div>';
+  }
+
+  function actualSegmentSectionHTML(seg, actualSeg) {
+    var dh = actualSeg.durationHours;
+    var dhLabel = (dh && dh > 0)
+      ? (dh === Math.floor(dh) ? dh + 'h' : dh.toFixed(1) + 'h')
+      : '—';
+    return '<div class="actual-section" data-actual-segment-id="' + seg.id + '">' +
+      '<div class="actual-section-header">' +
+        '<span class="actual-pill">ACTUAL</span>' +
+        '<span class="actual-section-title">' + escHtml(seg.name) + '</span>' +
+      '</div>' +
+      '<div class="actual-duration-row">' +
+        'Duration: <span class="actual-duration-value editable" data-inline="actual-duration">' +
+        dhLabel +
+        '</span>' +
+      '</div>' +
+      '<div class="item-list">' +
+        (actualSeg.items.length
+          ? actualSeg.items.map(function (item) { return actualItemRowHTML(item); }).join('')
+          : '<div style="padding:8px 16px;font-size:13px;color:var(--text-tertiary)">No items logged yet.</div>') +
+      '</div>' +
+      '<button class="btn-add-item" data-add-actual-segment-id="' + seg.id + '">+ Add item</button>' +
     '</div>';
   }
 
