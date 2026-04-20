@@ -6,6 +6,7 @@
   var state = {
     view: 'events',
     currentEventId: null,
+    currentEvent: null,
     addingToSegmentId: null,
     editingProductId: null   // null = creating new product
   };
@@ -18,6 +19,29 @@
   function fmt(n, unit) {
     var rounded = Math.round(n * 10) / 10;
     return rounded + (unit || '');
+  }
+
+  function parseHMS(str) {
+    str = (str || '').trim();
+    var parts = str.split(':');
+    if (parts.length === 3) {
+      return (parseFloat(parts[0]) || 0) + (parseFloat(parts[1]) || 0) / 60 + (parseFloat(parts[2]) || 0) / 3600;
+    }
+    if (parts.length === 2) {
+      return (parseFloat(parts[0]) || 0) + (parseFloat(parts[1]) || 0) / 60;
+    }
+    return parseFloat(str) || 0;
+  }
+
+  function formatHMS(hours) {
+    if (!hours || hours <= 0) return '—';
+    var h = Math.floor(hours);
+    var rem = (hours - h) * 60;
+    var m = Math.floor(rem + 0.0001); // rounding guard
+    var s = Math.round(((rem - m) + 0.0001) * 60);
+    if (s >= 60) { s -= 60; m += 1; }
+    if (m >= 60) { m -= 60; h += 1; }
+    return h + ':' + (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
   }
 
   function showContainerSpinner(el) {
@@ -376,31 +400,10 @@
     }
     if (!evt) { navigate('events'); return; }
 
-    var showActuals = isEventPastOrToday(evt.date);
+    state.currentEvent = evt;
 
-    // Pre-populate actuals from plan on first open (silent background save)
-    if (showActuals) {
-      var needsSave = false;
-      evt.segments.forEach(function (seg) {
-        if (!evt.actuals[seg.id]) {
-          evt.actuals[seg.id] = {
-            durationHours: seg.durationHours,
-            items: seg.items.map(function (item) {
-              return Object.assign({}, item, { id: Data.generateId() });
-            })
-          };
-          needsSave = true;
-        }
-      });
-      if (needsSave) {
-        try {
-          await Data.saveActuals(evt.id, evt.actuals, evt.postEventNotes);
-        } catch (e) {
-          console.error('Failed to pre-populate actuals:', e);
-          // non-fatal: continue rendering with in-memory state
-        }
-      }
-    }
+    var canAddActuals = isEventPastOrToday(evt.date);
+    var showActuals   = canAddActuals && Object.keys(evt.actuals).length > 0;
 
     $('detail-event-name').textContent = evt.name;
 
@@ -408,9 +411,8 @@
     var rates  = Data.calcEventRates(evt);
     var totalH = totals.durationHours;
 
-    var hasActuals = showActuals && Object.keys(evt.actuals).length > 0;
-    var actTotals = hasActuals ? Data.calcActualEventTotals(evt) : null;
-    var actRates  = hasActuals ? Data.calcActualEventRates(evt)  : null;
+    var actTotals = showActuals ? Data.calcActualEventTotals(evt) : null;
+    var actRates  = showActuals ? Data.calcActualEventRates(evt)  : null;
 
     $('detail-summary').innerHTML =
       '<div class="event-meta-row">' +
@@ -441,7 +443,10 @@
         return html;
       }).join('') +
       (multiSeg ? totalsFooterHTML(totals, totalH) : '') +
-      (showActuals ? postEventNotesHTML(evt.postEventNotes) : '');
+      (showActuals ? postEventNotesHTML(evt.postEventNotes) : '') +
+      (canAddActuals && !showActuals
+        ? '<div class="start-actuals-section"><button class="btn-secondary" data-start-actuals>📝 Log post-event data</button></div>'
+        : '');
 
     attachDetailHandlers(evt);
   }
@@ -580,9 +585,7 @@
 
   function actualSegmentSectionHTML(seg, actualSeg) {
     var dh = actualSeg.durationHours;
-    var dhLabel = (dh && dh > 0)
-      ? (dh === Math.floor(dh) ? dh + 'h' : dh.toFixed(1) + 'h')
-      : '—';
+    var dhLabel = formatHMS(dh);
     return '<div class="actual-section" data-actual-segment-id="' + seg.id + '">' +
       '<div class="actual-section-header">' +
         '<span class="actual-pill">ACTUAL</span>' +
@@ -674,14 +677,13 @@
         var secEl = el.closest('[data-actual-segment-id]');
         if (!secEl) return;
         var segId = secEl.dataset.actualSegmentId;
-        // Strip display label so input shows a plain number
         var raw = el.textContent.trim();
-        el.textContent = parseFloat(raw.replace(/[^0-9.]/g, '')) || '';
+        el.textContent = raw === '—' ? '' : raw; // show current hh:mm:ss for editing
         makeEditable(el, async function (val) {
           try {
             var evt2 = await Data.getEvent(evt.id);
             if (!evt2) return;
-            var num = parseFloat(val);
+            var num = parseHMS(val);
             if (!num || num <= 0) {
               showToast('Duration must be greater than 0.');
               await renderDetail();
@@ -712,13 +714,114 @@
         }
       });
     }
+
+    // Start actuals button
+    var startActualsBtn = document.querySelector('[data-start-actuals]');
+    if (startActualsBtn) {
+      on(startActualsBtn, 'click', function () {
+        startActuals(evt.id);
+      });
+    }
   }
 
-  async function updateItemQty(eventId, segId, itemId, delta) {
-    var evt;
-    try { evt = await Data.getEvent(eventId); }
-    catch (e) { showToast("Couldn't load event — check your connection."); return; }
+  function refreshSummaryCards() {
+    var evt = state.currentEvent;
     if (!evt) return;
+    var totals  = Data.calcEventTotals(evt);
+    var rates   = Data.calcEventRates(evt);
+    var showAct = isEventPastOrToday(evt.date) && Object.keys(evt.actuals || {}).length > 0;
+    var actTotals = showAct ? Data.calcActualEventTotals(evt) : null;
+    var actRates  = showAct ? Data.calcActualEventRates(evt)  : null;
+    var cardsEl = $('detail-summary') && $('detail-summary').querySelector('.summary-cards');
+    if (cardsEl) {
+      cardsEl.innerHTML =
+        metricCardHTML('carbs',    Math.round(totals.carbs)    + 'g',  fmt(rates.carbs,    'g/hr avg'),
+          actTotals ? Math.round(actTotals.carbs)    + 'g'  : undefined,
+          actRates  ? fmt(actRates.carbs,    'g/hr avg') : undefined) +
+        metricCardHTML('sodium',   Math.round(totals.sodium)   + 'mg', fmt(rates.sodium,   'mg/hr avg'),
+          actTotals ? Math.round(actTotals.sodium)   + 'mg' : undefined,
+          actRates  ? fmt(actRates.sodium,   'mg/hr avg') : undefined) +
+        metricCardHTML('caffeine', Math.round(totals.caffeine) + 'mg', fmt(rates.caffeine, 'mg/hr avg'),
+          actTotals ? Math.round(actTotals.caffeine) + 'mg' : undefined,
+          actRates  ? fmt(actRates.caffeine, 'mg/hr avg') : undefined);
+    }
+    // Also update totals footer if present
+    var footerEl = $('detail-body') && $('detail-body').querySelector('.totals-footer');
+    if (footerEl) {
+      var totalH = totals.durationHours;
+      footerEl.outerHTML = totalsFooterHTML(totals, totalH);
+    }
+  }
+
+  function reattachSegmentHandlers(segId) {
+    var evt = state.currentEvent;
+    var segEl = document.querySelector('[data-segment-id="' + segId + '"]');
+    if (!segEl || !evt) return;
+    $$('.stepper-btn', segEl).forEach(function (btn) {
+      on(btn, 'click', function () {
+        var row = btn.closest('[data-item-id]');
+        if (!row) return;
+        var itemId = row.dataset.itemId;
+        updateItemQty(evt.id, segId, itemId, btn.dataset.action === 'inc' ? 1 : -1);
+      });
+    });
+    $$('[data-add-segment-id]', segEl).forEach(function (btn) {
+      on(btn, 'click', function () {
+        openAddItemSheet(evt.id, btn.dataset.addSegmentId);
+      });
+    });
+    $$('[data-inline]:not([data-inline="actual-duration"])', segEl).forEach(function (el) {
+      on(el, 'click', function () { handleInlineEdit(el, evt.id); });
+    });
+  }
+
+  function reattachActualSegmentHandlers(segId) {
+    var evt = state.currentEvent;
+    var secEl = document.querySelector('[data-actual-segment-id="' + segId + '"]');
+    if (!secEl || !evt) return;
+    $$('.stepper-btn', secEl).forEach(function (btn) {
+      on(btn, 'click', function () {
+        var row = btn.closest('[data-actual-item-id]');
+        if (!row) return;
+        var itemId = row.dataset.actualItemId;
+        updateActualItemQty(evt.id, segId, itemId, btn.dataset.action === 'inc' ? 1 : -1);
+      });
+    });
+    $$('[data-add-actual-segment-id]', secEl).forEach(function (btn) {
+      on(btn, 'click', function () {
+        openAddItemSheet(evt.id, btn.dataset.addActualSegmentId, true);
+      });
+    });
+    $$('[data-inline="actual-duration"]', secEl).forEach(function (el) {
+      on(el, 'click', function () {
+        if (el.querySelector('input')) return;
+        var raw = el.textContent.trim();
+        el.textContent = raw === '—' ? '' : raw;
+        makeEditable(el, async function (val) {
+          try {
+            var num = parseHMS(val);
+            if (!num || num <= 0) {
+              showToast('Duration must be greater than 0.');
+              await renderDetail();
+              return;
+            }
+            var evt2 = await Data.getEvent(evt.id);
+            if (!evt2) return;
+            if (!evt2.actuals[segId]) evt2.actuals[segId] = { durationHours: null, items: [] };
+            evt2.actuals[segId].durationHours = num;
+            await Data.saveActuals(evt2.id, evt2.actuals, evt2.postEventNotes);
+            await renderDetail();
+          } catch (e) {
+            showToast("Couldn't save — check your connection.");
+          }
+        });
+      });
+    });
+  }
+
+  function updateItemQty(eventId, segId, itemId, delta) {
+    var evt = state.currentEvent;
+    if (!evt || evt.id !== eventId) return;
 
     var seg = evt.segments.find(function (s) { return s.id === segId; });
     if (!seg) return;
@@ -730,20 +833,26 @@
       seg.items = seg.items.filter(function (i) { return i.id !== itemId; });
     }
 
-    try {
-      await Data.saveEvent(evt);
-      await renderDetail();
-    } catch (e) {
-      showToast("Couldn't save — check your connection.");
+    // Re-render just this segment section
+    var multiSeg = evt.segments.length > 1;
+    var segEl = document.querySelector('[data-segment-id="' + segId + '"]');
+    if (segEl) {
+      segEl.outerHTML = segmentSectionHTML(seg, multiSeg);
+      reattachSegmentHandlers(segId);
     }
+    refreshSummaryCards();
+
+    // Save in background
+    Data.saveEvent(evt).catch(function () {
+      showToast("Couldn't save — check your connection.");
+    });
   }
 
-  async function updateActualItemQty(eventId, segId, itemId, delta) {
-    var evt;
-    try { evt = await Data.getEvent(eventId); }
-    catch (e) { showToast("Couldn't load event — check your connection."); return; }
-    if (!evt) return;
+  function updateActualItemQty(eventId, segId, itemId, delta) {
+    var evt = state.currentEvent;
+    if (!evt || evt.id !== eventId) return;
 
+    if (!evt.actuals) evt.actuals = {};
     var actualSeg = evt.actuals[segId];
     if (!actualSeg) return;
     var item = actualSeg.items.find(function (i) { return i.id === itemId; });
@@ -753,6 +862,38 @@
     if (item.quantity === 0) {
       actualSeg.items = actualSeg.items.filter(function (i) { return i.id !== itemId; });
     }
+
+    // Re-render just this actual section
+    var seg = evt.segments.find(function (s) { return s.id === segId; });
+    var secEl = document.querySelector('[data-actual-segment-id="' + segId + '"]');
+    if (secEl && seg) {
+      secEl.outerHTML = actualSegmentSectionHTML(seg, actualSeg);
+      reattachActualSegmentHandlers(segId);
+    }
+    refreshSummaryCards();
+
+    // Save in background
+    Data.saveActuals(evt.id, evt.actuals, evt.postEventNotes).catch(function () {
+      showToast("Couldn't save — check your connection.");
+    });
+  }
+
+  async function startActuals(eventId) {
+    var evt;
+    try { evt = await Data.getEvent(eventId); }
+    catch (e) { showToast("Couldn't load event — check your connection."); return; }
+    if (!evt) return;
+
+    evt.segments.forEach(function (seg) {
+      if (!evt.actuals[seg.id]) {
+        evt.actuals[seg.id] = {
+          durationHours: seg.durationHours,
+          items: seg.items.map(function (item) {
+            return Object.assign({}, item, { id: Data.generateId() });
+          })
+        };
+      }
+    });
 
     try {
       await Data.saveActuals(evt.id, evt.actuals, evt.postEventNotes);
