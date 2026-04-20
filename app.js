@@ -44,6 +44,16 @@
     return h + ':' + (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
   }
 
+  // Display-only format: "6h42m" or "10h" (no seconds shown)
+  function formatHM(hours) {
+    if (!hours || hours <= 0) return '—';
+    var h = Math.floor(hours);
+    var rem = (hours - h) * 60;
+    var m = Math.floor(rem + 0.0001);
+    if (m === 0) return h + 'h';
+    return h + 'h' + m + 'm';
+  }
+
   function showContainerSpinner(el) {
     if (el) el.innerHTML = '<div class="container-spinner"></div>';
   }
@@ -444,6 +454,9 @@
       }).join('') +
       (multiSeg ? totalsFooterHTML(totals, totalH) : '') +
       (showActuals ? postEventNotesHTML(evt.postEventNotes) : '') +
+      (showActuals
+        ? '<div class="clear-actuals-section"><button class="btn-clear-actuals" data-clear-actuals>Remove post-event data</button></div>'
+        : '') +
       (canAddActuals && !showActuals
         ? '<div class="start-actuals-section"><button class="btn-secondary" data-start-actuals>📝 Log post-event data</button></div>'
         : '');
@@ -585,7 +598,7 @@
 
   function actualSegmentSectionHTML(seg, actualSeg) {
     var dh = actualSeg.durationHours;
-    var dhLabel = formatHMS(dh);
+    var dhLabel = formatHM(dh);
     return '<div class="actual-section" data-actual-segment-id="' + seg.id + '">' +
       '<div class="actual-section-header">' +
         '<span class="actual-pill">ACTUAL</span>' +
@@ -677,8 +690,10 @@
         var secEl = el.closest('[data-actual-segment-id]');
         if (!secEl) return;
         var segId = secEl.dataset.actualSegmentId;
-        var raw = el.textContent.trim();
-        el.textContent = raw === '—' ? '' : raw; // show current hh:mm:ss for editing
+        // Show hh:mm:ss in the input (not the display "Xh Ym" label)
+        var dh = (state.currentEvent && state.currentEvent.actuals && state.currentEvent.actuals[segId])
+          ? state.currentEvent.actuals[segId].durationHours : null;
+        el.textContent = dh ? formatHMS(dh) : '';
         makeEditable(el, async function (val) {
           try {
             var evt2 = await Data.getEvent(evt.id);
@@ -720,6 +735,14 @@
     if (startActualsBtn) {
       on(startActualsBtn, 'click', function () {
         startActuals(evt.id);
+      });
+    }
+
+    // Clear actuals button
+    var clearActualsBtn = document.querySelector('[data-clear-actuals]');
+    if (clearActualsBtn) {
+      on(clearActualsBtn, 'click', function () {
+        clearActuals(evt.id);
       });
     }
   }
@@ -795,8 +818,10 @@
     $$('[data-inline="actual-duration"]', secEl).forEach(function (el) {
       on(el, 'click', function () {
         if (el.querySelector('input')) return;
-        var raw = el.textContent.trim();
-        el.textContent = raw === '—' ? '' : raw;
+        // Show hh:mm:ss in the input (not the display "Xh Ym" label)
+        var dh = (state.currentEvent && state.currentEvent.actuals && state.currentEvent.actuals[segId])
+          ? state.currentEvent.actuals[segId].durationHours : null;
+        el.textContent = dh ? formatHMS(dh) : '';
         makeEditable(el, async function (val) {
           try {
             var num = parseHMS(val);
@@ -897,6 +922,19 @@
 
     try {
       await Data.saveActuals(evt.id, evt.actuals, evt.postEventNotes);
+      await renderDetail();
+    } catch (e) {
+      showToast("Couldn't save — check your connection.");
+    }
+  }
+
+  async function clearActuals(eventId) {
+    try {
+      await Data.saveActuals(eventId, null, null);
+      if (state.currentEvent && state.currentEvent.id === eventId) {
+        state.currentEvent.actuals = {};
+        state.currentEvent.postEventNotes = '';
+      }
       await renderDetail();
     } catch (e) {
       showToast("Couldn't save — check your connection.");
