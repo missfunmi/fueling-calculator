@@ -286,6 +286,8 @@ async function run() {
     var seg = { durationHours: 0, targets: {}, items: [{ carbsPerUnit: 80, sodiumPerUnit: 0, caffeinePerUnit: 0, quantity: 1 }] };
     var r = D.calcSegmentRates(seg);
     assert.strictEqual(r.carbs, 80);
+    assert.strictEqual(r.sodium,   0);
+    assert.strictEqual(r.caffeine, 0);
   });
 
   await test('calcEventTotals: sums across segments', function () {
@@ -322,6 +324,8 @@ async function run() {
     };
     var r = D.calcEventRates(event);
     assert.strictEqual(r.carbs, 80);
+    assert.strictEqual(r.sodium,   0);
+    assert.strictEqual(r.caffeine, 0);
   });
 
   await test('rateStatus: on-target within ±10%', function () {
