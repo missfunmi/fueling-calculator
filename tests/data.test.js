@@ -441,6 +441,8 @@ async function run() {
     var actualSeg = { durationHours: null, items: [{ carbsPerUnit: 80, sodiumPerUnit: 0, caffeinePerUnit: 0, quantity: 1 }] };
     var r = D.calcActualSegmentRates(actualSeg);
     assert.strictEqual(r.carbs, 80);
+    assert.strictEqual(r.sodium,   0);
+    assert.strictEqual(r.caffeine, 0);
   });
 
   await test('calcActualEventTotals: sums across all actual segments', function () {
@@ -482,6 +484,8 @@ async function run() {
     };
     var r = D.calcActualEventRates(event);
     assert.strictEqual(r.carbs, 80);
+    assert.strictEqual(r.sodium,   0);
+    assert.strictEqual(r.caffeine, 0);
   });
 
   // ── Summary ───────────────────────────────────────────────────────────────────

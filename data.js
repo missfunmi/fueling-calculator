@@ -355,13 +355,7 @@
   }
 
   function calcActualSegmentTotals(actualSegment) {
-    return (actualSegment.items || []).reduce(function (acc, item) {
-      return {
-        carbs:    acc.carbs    + (item.carbsPerUnit    || 0) * (item.quantity || 0),
-        sodium:   acc.sodium   + (item.sodiumPerUnit   || 0) * (item.quantity || 0),
-        caffeine: acc.caffeine + (item.caffeinePerUnit || 0) * (item.quantity || 0)
-      };
-    }, { carbs: 0, sodium: 0, caffeine: 0 });
+    return calcSegmentTotals(actualSegment);
   }
 
   function calcActualSegmentRates(actualSegment) {
