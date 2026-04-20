@@ -624,6 +624,7 @@
     // Stepper buttons
     $$('.stepper-btn', $('detail-body')).forEach(function (btn) {
       on(btn, 'click', function () {
+        if (btn.closest('.actual-section')) return; // handled by actual stepper handler
         var row = btn.closest('[data-item-id]');
         if (!row) return; // actual item rows use data-actual-item-id — handled separately
         var segSection = btn.closest('[data-segment-id]');
@@ -641,7 +642,7 @@
     });
 
     // Inline editable segment fields
-    $$('[data-inline]', $('detail-body')).forEach(function (el) {
+    $$('[data-inline]:not([data-inline="actual-duration"])', $('detail-body')).forEach(function (el) {
       on(el, 'click', function () {
         handleInlineEdit(el, evt.id);
       });
@@ -673,12 +674,15 @@
             var evt2 = await Data.getEvent(evt.id);
             if (!evt2) return;
             var num = parseFloat(val);
-            if (num > 0) {
-              if (!evt2.actuals[segId]) evt2.actuals[segId] = { durationHours: null, items: [] };
-              evt2.actuals[segId].durationHours = num;
-              await Data.saveActuals(evt2.id, evt2.actuals, evt2.postEventNotes);
+            if (!num || num <= 0) {
+              showToast('Duration must be greater than 0.');
               await renderDetail();
+              return;
             }
+            if (!evt2.actuals[segId]) evt2.actuals[segId] = { durationHours: null, items: [] };
+            evt2.actuals[segId].durationHours = num;
+            await Data.saveActuals(evt2.id, evt2.actuals, evt2.postEventNotes);
+            await renderDetail();
           } catch (e) {
             showToast("Couldn't save — check your connection.");
           }
