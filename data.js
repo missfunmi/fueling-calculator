@@ -383,6 +383,18 @@
     return { carbs: t.carbs / h, sodium: t.sodium / h, caffeine: t.caffeine / h };
   }
 
+  // Weighted-average goal rates across all segments (by planned duration)
+  function calcEventGoalRates(event) {
+    var segs = event.segments || [];
+    var totalH = segs.reduce(function (s, seg) { return s + (seg.durationHours || 0); }, 0);
+    if (!totalH) return { carbs: 0, sodium: 0, caffeine: 0 };
+    return {
+      carbs:    segs.reduce(function (s, seg) { return s + (seg.targets.carbsPerHour  || 0) * (seg.durationHours || 0); }, 0) / totalH,
+      sodium:   segs.reduce(function (s, seg) { return s + (seg.targets.sodiumPerHour || 0) * (seg.durationHours || 0); }, 0) / totalH,
+      caffeine: segs.reduce(function (s, seg) { return s + (seg.targets.caffeinePerHour || 0) * (seg.durationHours || 0); }, 0) / totalH,
+    };
+  }
+
   // ── Factories (unchanged, updated to use crypto.randomUUID via generateId) ────
 
   function newSegment(name, durationHours) {
@@ -459,6 +471,7 @@
   exports.calcActualSegmentRates  = calcActualSegmentRates;
   exports.calcActualEventTotals   = calcActualEventTotals;
   exports.calcActualEventRates    = calcActualEventRates;
+  exports.calcEventGoalRates      = calcEventGoalRates;
   exports.newSegment        = newSegment;
   exports.newEvent          = newEvent;
   exports.itemFromProduct   = itemFromProduct;

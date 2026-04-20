@@ -916,6 +916,19 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   color: rgba(255, 255, 255, 0.75);
 }
 
+.metric-card.has-actuals .metric-goal-rate {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-top: 2px;
+}
+
+/* Actual segment progress bars */
+.actual-progress {
+  border-top: 1px solid var(--border);
+  margin-top: 8px;
+  padding-top: 4px;
+}
+
 .start-actuals-section {
   padding: 16px;
   text-align: center;

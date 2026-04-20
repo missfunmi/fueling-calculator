@@ -421,8 +421,9 @@
     var rates  = Data.calcEventRates(evt);
     var totalH = totals.durationHours;
 
-    var actTotals = showActuals ? Data.calcActualEventTotals(evt) : null;
-    var actRates  = showActuals ? Data.calcActualEventRates(evt)  : null;
+    var actTotals  = showActuals ? Data.calcActualEventTotals(evt) : null;
+    var actRates   = showActuals ? Data.calcActualEventRates(evt)  : null;
+    var goalRates  = showActuals ? Data.calcEventGoalRates(evt)    : null;
 
     $('detail-summary').innerHTML =
       '<div class="event-meta-row">' +
@@ -432,13 +433,16 @@
       '<div class="summary-cards">' +
         metricCardHTML('carbs',    Math.round(totals.carbs) + 'g',  fmt(rates.carbs, 'g/hr avg'),
           actTotals ? Math.round(actTotals.carbs) + 'g'   : undefined,
-          actRates  ? fmt(actRates.carbs, 'g/hr avg')     : undefined) +
+          actRates  ? fmt(actRates.carbs, 'g/hr avg')     : undefined,
+          goalRates ? fmt(goalRates.carbs, 'g/hr goal')   : undefined) +
         metricCardHTML('sodium',   Math.round(totals.sodium) + 'mg', fmt(rates.sodium, 'mg/hr avg'),
           actTotals ? Math.round(actTotals.sodium) + 'mg' : undefined,
-          actRates  ? fmt(actRates.sodium, 'mg/hr avg')   : undefined) +
+          actRates  ? fmt(actRates.sodium, 'mg/hr avg')   : undefined,
+          goalRates ? fmt(goalRates.sodium, 'mg/hr goal') : undefined) +
         metricCardHTML('caffeine', Math.round(totals.caffeine) + 'mg', fmt(rates.caffeine, 'mg/hr avg'),
           actTotals ? Math.round(actTotals.caffeine) + 'mg' : undefined,
-          actRates  ? fmt(actRates.caffeine, 'mg/hr avg')   : undefined) +
+          actRates  ? fmt(actRates.caffeine, 'mg/hr avg')   : undefined,
+          goalRates ? fmt(goalRates.caffeine, 'mg/hr goal') : undefined) +
       '</div>';
 
     var multiSeg = evt.segments.length > 1;
@@ -464,7 +468,7 @@
     attachDetailHandlers(evt);
   }
 
-  function metricCardHTML(key, value, rate, actualValue, actualRate) {
+  function metricCardHTML(key, value, rate, actualValue, actualRate, goalRate) {
     var labels = { carbs: 'Carbs', sodium: 'Sodium', caffeine: 'Caffeine' };
     var hasActuals = actualValue !== undefined;
     return '<div class="metric-card' + (hasActuals ? ' has-actuals' : '') + '">' +
@@ -473,6 +477,7 @@
       '<div class="metric-label">' + labels[key] + '</div>' +
       '<div class="metric-rate">' + rate + '</div>' +
       (hasActuals ? '<div class="metric-actual-rate">' + actualRate + '</div>' : '') +
+      (hasActuals && goalRate ? '<div class="metric-goal-rate">🎯 ' + goalRate + '</div>' : '') +
     '</div>';
   }
 
@@ -599,6 +604,25 @@
   function actualSegmentSectionHTML(seg, actualSeg) {
     var dh = actualSeg.durationHours;
     var dhLabel = formatHM(dh);
+
+    var gaugesHTML = '';
+    if (dh && dh > 0) {
+      var actRates = Data.calcActualSegmentRates(actualSeg);
+      var tgt = seg.targets;
+      var pctCarbs  = tgt.carbsPerHour   ? Math.min(actRates.carbs    / tgt.carbsPerHour   * 100, 150) : 0;
+      var pctSodium = tgt.sodiumPerHour  ? Math.min(actRates.sodium   / tgt.sodiumPerHour  * 100, 150) : 0;
+      var pctCaff   = tgt.caffeinePerHour ? Math.min(actRates.caffeine / tgt.caffeinePerHour * 100, 150) : 0;
+      var stCarbs   = Data.rateStatus(actRates.carbs,    tgt.carbsPerHour);
+      var stSodium  = Data.rateStatus(actRates.sodium,   tgt.sodiumPerHour);
+      var stCaff    = Data.rateStatus(actRates.caffeine, tgt.caffeinePerHour);
+      gaugesHTML =
+        '<div class="progress-group actual-progress">' +
+          progressRowHTML('Carbs',    fmt(actRates.carbs,    'g/hr'), pctCarbs,  stCarbs)  +
+          progressRowHTML('Sodium',   fmt(actRates.sodium,   'mg/hr'), pctSodium, stSodium) +
+          progressRowHTML('Caffeine', fmt(actRates.caffeine, 'mg/hr'), pctCaff,   stCaff)  +
+        '</div>';
+    }
+
     return '<div class="actual-section" data-actual-segment-id="' + seg.id + '">' +
       '<div class="actual-section-header">' +
         '<span class="actual-pill">ACTUAL</span>' +
@@ -615,6 +639,7 @@
           : '<div style="padding:8px 16px;font-size:13px;color:var(--text-tertiary)">No items logged yet.</div>') +
       '</div>' +
       '<button class="btn-add-item" data-add-actual-segment-id="' + seg.id + '">+ Add item</button>' +
+      gaugesHTML +
     '</div>';
   }
 
@@ -755,18 +780,22 @@
     var showAct = isEventPastOrToday(evt.date) && Object.keys(evt.actuals || {}).length > 0;
     var actTotals = showAct ? Data.calcActualEventTotals(evt) : null;
     var actRates  = showAct ? Data.calcActualEventRates(evt)  : null;
+    var goalRates = showAct ? Data.calcEventGoalRates(evt)    : null;
     var cardsEl = $('detail-summary') && $('detail-summary').querySelector('.summary-cards');
     if (cardsEl) {
       cardsEl.innerHTML =
         metricCardHTML('carbs',    Math.round(totals.carbs)    + 'g',  fmt(rates.carbs,    'g/hr avg'),
           actTotals ? Math.round(actTotals.carbs)    + 'g'  : undefined,
-          actRates  ? fmt(actRates.carbs,    'g/hr avg') : undefined) +
+          actRates  ? fmt(actRates.carbs,    'g/hr avg')     : undefined,
+          goalRates ? fmt(goalRates.carbs,   'g/hr goal')    : undefined) +
         metricCardHTML('sodium',   Math.round(totals.sodium)   + 'mg', fmt(rates.sodium,   'mg/hr avg'),
           actTotals ? Math.round(actTotals.sodium)   + 'mg' : undefined,
-          actRates  ? fmt(actRates.sodium,   'mg/hr avg') : undefined) +
+          actRates  ? fmt(actRates.sodium,   'mg/hr avg')    : undefined,
+          goalRates ? fmt(goalRates.sodium,  'mg/hr goal')   : undefined) +
         metricCardHTML('caffeine', Math.round(totals.caffeine) + 'mg', fmt(rates.caffeine, 'mg/hr avg'),
           actTotals ? Math.round(actTotals.caffeine) + 'mg' : undefined,
-          actRates  ? fmt(actRates.caffeine, 'mg/hr avg') : undefined);
+          actRates  ? fmt(actRates.caffeine, 'mg/hr avg')    : undefined,
+          goalRates ? fmt(goalRates.caffeine,'mg/hr goal')   : undefined);
     }
     // Also update totals footer if present
     var footerEl = $('detail-body') && $('detail-body').querySelector('.totals-footer');
@@ -1239,7 +1268,7 @@
     $('btn-delete-product').style.display = isEdit ? '' : 'none';
     $('pf-brand').value    = product ? (product.brand    || '') : '';
     $('pf-name').value     = product ? product.name           : '';
-    $('pf-type').value     = product ? product.type           : 'gel';
+    $('pf-type').value     = product ? (TYPE_LABELS[product.type] || product.type) : 'Gel';
     $('pf-carbs').value    = product ? product.carbsPerUnit    : 0;
     $('pf-sodium').value   = product ? product.sodiumPerUnit   : 0;
     $('pf-caffeine').value = product ? product.caffeinePerUnit : 0;
@@ -1258,7 +1287,7 @@
       id:              state.editingProductId || Data.generateId(),
       brand:           $('pf-brand').value.trim(),
       name:            name,
-      type:            $('pf-type').value,
+      type:            $('pf-type').value.trim() || 'other',
       carbsPerUnit:    parseFloat($('pf-carbs').value)    || 0,
       sodiumPerUnit:   parseFloat($('pf-sodium').value)   || 0,
       caffeinePerUnit: parseFloat($('pf-caffeine').value) || 0
