@@ -634,10 +634,17 @@
       });
     });
 
-    // Add item buttons
+    // Add item buttons (planned segments)
     $$('[data-add-segment-id]', $('detail-body')).forEach(function (btn) {
       on(btn, 'click', function () {
         openAddItemSheet(evt.id, btn.dataset.addSegmentId);
+      });
+    });
+
+    // Add item buttons (actual segments)
+    $$('[data-add-actual-segment-id]', $('detail-body')).forEach(function (btn) {
+      on(btn, 'click', function () {
+        openAddItemSheet(evt.id, btn.dataset.addActualSegmentId, true);
       });
     });
 
@@ -745,10 +752,12 @@
 
   var _sheetEventId = null;
   var _sheetSegmentId = null;
+  var _sheetIsActual = false;
 
-  function openAddItemSheet(eventId, segmentId) {
-    _sheetEventId = eventId;
+  function openAddItemSheet(eventId, segmentId, isActual) {
+    _sheetEventId   = eventId;
     _sheetSegmentId = segmentId;
+    _sheetIsActual  = !!isActual;
     $('sheet-overlay').classList.remove('hidden');
     $('product-search').value = '';
     renderSheetLibraryTab().catch(function (e) {
@@ -766,8 +775,9 @@
 
   function closeSheet() {
     $('sheet-overlay').classList.add('hidden');
-    _sheetEventId = null;
+    _sheetEventId   = null;
     _sheetSegmentId = null;
+    _sheetIsActual  = false;
   }
 
   async function renderSheetLibraryTab(query) {
@@ -842,7 +852,11 @@
         if (!product || !_sheetEventId || !_sheetSegmentId) return;
 
         try {
-          await addItemToSegment(_sheetEventId, _sheetSegmentId, Data.itemFromProduct(product));
+          if (_sheetIsActual) {
+            await addItemToActualSegment(_sheetEventId, _sheetSegmentId, Data.itemFromProduct(product));
+          } else {
+            await addItemToSegment(_sheetEventId, _sheetSegmentId, Data.itemFromProduct(product));
+          }
           Data.recordProductUsed(productId);
           closeSheet();
           await renderDetail();
@@ -860,6 +874,16 @@
     if (!seg) return;
     seg.items.push(item);
     await Data.saveEvent(evt);
+  }
+
+  async function addItemToActualSegment(eventId, segmentId, item) {
+    var evt = await Data.getEvent(eventId);
+    if (!evt) return;
+    if (!evt.actuals[segmentId]) {
+      evt.actuals[segmentId] = { durationHours: null, items: [] };
+    }
+    evt.actuals[segmentId].items.push(item);
+    await Data.saveActuals(evt.id, evt.actuals, evt.postEventNotes);
   }
 
   // Sheet overlay close
@@ -907,23 +931,27 @@
     };
     var item = Data.itemFromOneOff(fields);
 
-    try {
-      if ($('oo-save-library').checked) {
-        var product = Object.assign({ id: Data.generateId() }, fields, {
-          carbsPerUnit:    Number(fields.carbsPerUnit)    || 0,
-          sodiumPerUnit:   Number(fields.sodiumPerUnit)   || 0,
-          caffeinePerUnit: Number(fields.caffeinePerUnit) || 0
-        });
-        await Data.saveProduct(product);
-        item.productId = product.id;
-        Data.recordProductUsed(product.id);
+      try {
+        if ($('oo-save-library').checked) {
+          var product = Object.assign({ id: Data.generateId() }, fields, {
+            carbsPerUnit:    Number(fields.carbsPerUnit)    || 0,
+            sodiumPerUnit:   Number(fields.sodiumPerUnit)   || 0,
+            caffeinePerUnit: Number(fields.caffeinePerUnit) || 0
+          });
+          await Data.saveProduct(product);
+          item.productId = product.id;
+          Data.recordProductUsed(product.id);
+        }
+        if (_sheetIsActual) {
+          await addItemToActualSegment(_sheetEventId, _sheetSegmentId, item);
+        } else {
+          await addItemToSegment(_sheetEventId, _sheetSegmentId, item);
+        }
+        closeSheet();
+        await renderDetail();
+      } catch (e) {
+        showToast("Couldn't save — check your connection.");
       }
-      await addItemToSegment(_sheetEventId, _sheetSegmentId, item);
-      closeSheet();
-      await renderDetail();
-    } catch (e) {
-      showToast("Couldn't save — check your connection.");
-    }
   });
 
   // ── Product library ──────────────────────────────────────────────────────────
