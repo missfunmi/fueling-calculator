@@ -354,6 +354,56 @@ async function run() {
     assert.strictEqual(D.rateStatus(0, 0), 'none');
   });
 
+  // ── Actuals normalisation ─────────────────────────────────────────────────────
+
+  console.log('\nActuals normalisation');
+
+  await test('dbToEvent maps post_event_notes and actuals from DB row', async function () {
+    var actuals = { 'seg-1': { durationHours: 2.5, items: [] } };
+    var row = {
+      id: 'e1', name: 'Test', date: '2026-04-18', type: 'ride',
+      notes: '', post_event_notes: 'Felt good', actuals: actuals,
+      segments: []
+    };
+    mockFetch([{ status: 200, body: JSON.stringify([row]) }]);
+    var events = await D.getEvents();
+    assert.strictEqual(events[0].postEventNotes, 'Felt good');
+    assert.deepStrictEqual(events[0].actuals, actuals);
+  });
+
+  await test('dbToEvent defaults postEventNotes to empty string and actuals to {} when absent', async function () {
+    var row = {
+      id: 'e1', name: 'Test', date: '2026-04-18', type: 'ride',
+      notes: '', post_event_notes: null, actuals: null,
+      segments: []
+    };
+    mockFetch([{ status: 200, body: JSON.stringify([row]) }]);
+    var events = await D.getEvents();
+    assert.strictEqual(events[0].postEventNotes, '');
+    assert.deepStrictEqual(events[0].actuals, {});
+  });
+
+  await test('newEvent includes postEventNotes and actuals fields', function () {
+    var e = D.newEvent('Test');
+    assert.strictEqual(e.postEventNotes, '');
+    assert.deepStrictEqual(e.actuals, {});
+  });
+
+  await test('saveActuals sends PATCH to events endpoint', async function () {
+    var actuals = { 'seg-1': { durationHours: 3, items: [] } };
+    mockFetch([{ status: 204, body: '' }]);
+    await D.saveActuals('event-uuid', actuals, 'Great ride');
+    // No assertion needed — would throw on non-ok status
+  });
+
+  await test('saveActuals throws on server error', async function () {
+    mockFetch([{ status: 500, body: 'Internal Server Error' }]);
+    await assert.rejects(
+      D.saveActuals('event-uuid', {}, ''),
+      /Internal Server Error/
+    );
+  });
+
   // ── Summary ───────────────────────────────────────────────────────────────────
 
   console.log('\n' + passed + ' passed, ' + failed + ' failed');

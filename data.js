@@ -60,11 +60,13 @@
 
   function dbToEvent(row) {
     return {
-      id:       row.id,
-      name:     row.name,
-      date:     row.date || '',
-      type:     row.type || 'other',
-      notes:    row.notes || '',
+      id:             row.id,
+      name:           row.name,
+      date:           row.date || '',
+      type:           row.type || 'other',
+      notes:          row.notes || '',
+      postEventNotes: row.post_event_notes || '',
+      actuals:        row.actuals || {},
       segments: (row.segments || [])
         .slice()
         .sort(function (a, b) { return a.sort_order - b.sort_order; })
@@ -203,6 +205,15 @@
 
   async function deleteEvent(id) {
     await supabaseRequest('DELETE', 'events?id=eq.' + id, null, 'return=minimal');
+  }
+
+  async function saveActuals(eventId, actuals, postEventNotes) {
+    await supabaseRequest(
+      'PATCH',
+      'events?id=eq.' + eventId,
+      { actuals: actuals, post_event_notes: postEventNotes || null },
+      'return=minimal'
+    );
   }
 
   // ── Recent products — stays in localStorage (per-device convenience) ─────────
@@ -357,12 +368,14 @@
 
   function newEvent(name) {
     return {
-      id:       generateId(),
-      name:     name || 'New Event',
-      date:     new Date().toISOString().slice(0, 10),
-      type:     'ride',
-      notes:    '',
-      segments: [newSegment(name || 'New Event', 1)]
+      id:             generateId(),
+      name:           name || 'New Event',
+      date:           new Date().toISOString().slice(0, 10),
+      type:           'ride',
+      notes:          '',
+      postEventNotes: '',
+      actuals:        {},
+      segments:       [newSegment(name || 'New Event', 1)]
     };
   }
 
@@ -404,6 +417,7 @@
   exports.getEvent         = getEvent;
   exports.saveEvent        = saveEvent;
   exports.deleteEvent      = deleteEvent;
+  exports.saveActuals      = saveActuals;
   exports.getRecentProducts = getRecentProducts;
   exports.recordProductUsed = recordProductUsed;
   exports.migrateIfNeeded  = migrateIfNeeded;
