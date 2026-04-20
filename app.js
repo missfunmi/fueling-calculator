@@ -51,6 +51,7 @@
   var TAB_VIEWS = { events: true, library: true };
 
   function navigate(view, params) {
+    closeSheet(); // ensure sheet is closed on navigation
     if (params) Object.assign(state, params);
     state.view = view;
 
@@ -878,7 +879,8 @@
 
   async function addItemToActualSegment(eventId, segmentId, item) {
     var evt = await Data.getEvent(eventId);
-    if (!evt) return;
+    if (!evt) throw new Error('Event not found');
+    if (!evt.actuals) evt.actuals = {};
     if (!evt.actuals[segmentId]) {
       evt.actuals[segmentId] = { durationHours: null, items: [] };
     }
@@ -931,27 +933,27 @@
     };
     var item = Data.itemFromOneOff(fields);
 
-      try {
-        if ($('oo-save-library').checked) {
-          var product = Object.assign({ id: Data.generateId() }, fields, {
-            carbsPerUnit:    Number(fields.carbsPerUnit)    || 0,
-            sodiumPerUnit:   Number(fields.sodiumPerUnit)   || 0,
-            caffeinePerUnit: Number(fields.caffeinePerUnit) || 0
-          });
-          await Data.saveProduct(product);
-          item.productId = product.id;
-          Data.recordProductUsed(product.id);
-        }
-        if (_sheetIsActual) {
-          await addItemToActualSegment(_sheetEventId, _sheetSegmentId, item);
-        } else {
-          await addItemToSegment(_sheetEventId, _sheetSegmentId, item);
-        }
-        closeSheet();
-        await renderDetail();
-      } catch (e) {
-        showToast("Couldn't save — check your connection.");
+    try {
+      if ($('oo-save-library').checked) {
+        var product = Object.assign({ id: Data.generateId() }, fields, {
+          carbsPerUnit:    Number(fields.carbsPerUnit)    || 0,
+          sodiumPerUnit:   Number(fields.sodiumPerUnit)   || 0,
+          caffeinePerUnit: Number(fields.caffeinePerUnit) || 0
+        });
+        await Data.saveProduct(product);
+        item.productId = product.id;
+        Data.recordProductUsed(product.id);
       }
+      if (_sheetIsActual) {
+        await addItemToActualSegment(_sheetEventId, _sheetSegmentId, item);
+      } else {
+        await addItemToSegment(_sheetEventId, _sheetSegmentId, item);
+      }
+      closeSheet();
+      await renderDetail();
+    } catch (e) {
+      showToast("Couldn't save — check your connection.");
+    }
   });
 
   // ── Product library ──────────────────────────────────────────────────────────
