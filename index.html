@@ -20,6 +20,43 @@
     </div>
   </nav>
 
+  <!-- ── Landing view ───────────────────────────────────────────────── -->
+  <div id="view-landing" class="view view-centered">
+    <div class="landing-content">
+      <h1 class="landing-title">Fueling Calculator</h1>
+      <p class="landing-tagline">Plan your race nutrition. Track what you actually ate.</p>
+      <ul class="landing-features">
+        <li>Plan fuel per segment with carb, sodium and caffeine targets</li>
+        <li>Log actuals after each event and compare to your plan</li>
+        <li>Build a personal product library for faster planning</li>
+        <li>Access your plans from any device</li>
+      </ul>
+      <button id="btn-landing-start" class="btn-primary">Get started</button>
+    </div>
+  </div>
+
+  <!-- ── Setup view ─────────────────────────────────────────────────── -->
+  <div id="view-setup" class="view view-centered">
+    <div class="setup-content">
+      <h1 class="setup-title">Create your account</h1>
+      <form id="setup-form" novalidate>
+        <div class="form-group">
+          <label for="setup-name">What should we call you?</label>
+          <input id="setup-name" class="form-input" type="text" placeholder="Your name" autocomplete="off" required>
+        </div>
+        <div class="form-group">
+          <label for="setup-passphrase">Secret phrase</label>
+          <div class="passphrase-field">
+            <input id="setup-passphrase" class="form-input" type="password" placeholder="e.g. purple cactus tuesday" autocomplete="off" required>
+            <button type="button" id="btn-toggle-passphrase" class="btn-show-passphrase" aria-label="Show passphrase">Show</button>
+          </div>
+          <p class="setup-helper">Use a few words you will remember — this is how you access your data from any device.</p>
+        </div>
+        <button type="submit" class="btn-primary">Get started</button>
+      </form>
+    </div>
+  </div>
+
   <!-- ── Events list view ───────────────────────────────────────── -->
   <div id="view-events" class="view active">
     <header class="app-header">

@@ -95,7 +95,7 @@
 
     // Show/hide tab bar (hide on detail and form views)
     var hideTabBar = (view === 'detail' || view === 'create' ||
-                      view === 'product-form');
+                      view === 'product-form' || view === 'landing' || view === 'setup');
     var tabBar = $('tab-bar');
     if (tabBar) tabBar.style.display = hideTabBar ? 'none' : '';
     if (hideTabBar) {
