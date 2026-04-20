@@ -392,9 +392,12 @@
         }
       });
       if (needsSave) {
-        Data.saveActuals(evt.id, evt.actuals, evt.postEventNotes).catch(function (e) {
+        try {
+          await Data.saveActuals(evt.id, evt.actuals, evt.postEventNotes);
+        } catch (e) {
           console.error('Failed to pre-populate actuals:', e);
-        });
+          // non-fatal: continue rendering with in-memory state
+        }
       }
     }
 
@@ -622,6 +625,7 @@
     $$('.stepper-btn', $('detail-body')).forEach(function (btn) {
       on(btn, 'click', function () {
         var row = btn.closest('[data-item-id]');
+        if (!row) return; // actual item rows use data-actual-item-id — handled separately
         var segSection = btn.closest('[data-segment-id]');
         var itemId = row.dataset.itemId;
         var segId = segSection.dataset.segmentId;
