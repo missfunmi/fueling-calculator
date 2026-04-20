@@ -533,6 +533,12 @@ async function run() {
     assert.match(id, /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
   });
 
+  await test('deriveUserId: passphrase is case-sensitive', async function () {
+    var id1 = await D.deriveUserId('Funmi', 'Test-Phrase');
+    var id2 = await D.deriveUserId('Funmi', 'test-phrase');
+    assert.notStrictEqual(id1, id2);
+  });
+
   // ── Summary ───────────────────────────────────────────────────────────────────
 
   console.log('\n' + passed + ' passed, ' + failed + ' failed');

@@ -16,6 +16,7 @@
   // ── Identity ─────────────────────────────────────────────────────────────────
   // Derives a deterministic UUID from a name and passphrase using SHA-256
   async function deriveUserId(name, passphrase) {
+    // name is case-insensitive; passphrase is case-sensitive (intentional)
     var input = name.toLowerCase().trim() + ':' + passphrase.trim();
     var encoded = new TextEncoder().encode(input);
     var hashBuffer = await crypto.subtle.digest('SHA-256', encoded);
