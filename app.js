@@ -98,6 +98,9 @@
                       view === 'product-form' || view === 'landing' || view === 'setup');
     var tabBar = $('tab-bar');
     if (tabBar) tabBar.style.display = hideTabBar ? 'none' : '';
+
+    var topNav = $('top-nav');
+    if (topNav) topNav.style.display = hideTabBar ? 'none' : '';
     if (hideTabBar) {
       $$('.view.active').forEach(function (v) {
         v.style.paddingBottom = '0';
