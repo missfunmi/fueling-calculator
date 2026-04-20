@@ -697,6 +697,20 @@
         });
       });
     });
+
+    // Post-event notes — save on blur
+    var notesTextarea = $('post-event-notes');
+    if (notesTextarea) {
+      on(notesTextarea, 'blur', async function () {
+        try {
+          var evt2 = await Data.getEvent(evt.id);
+          if (!evt2) return;
+          await Data.saveActuals(evt2.id, evt2.actuals, notesTextarea.value);
+        } catch (e) {
+          showToast("Couldn't save — check your connection.");
+        }
+      });
+    }
   }
 
   async function updateItemQty(eventId, segId, itemId, delta) {
