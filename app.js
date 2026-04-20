@@ -646,6 +646,45 @@
         handleInlineEdit(el, evt.id);
       });
     });
+
+    // Actual stepper buttons
+    $$('.actual-section .stepper-btn', $('detail-body')).forEach(function (btn) {
+      on(btn, 'click', function () {
+        var row    = btn.closest('[data-actual-item-id]');
+        var secEl  = btn.closest('[data-actual-segment-id]');
+        if (!row || !secEl) return;
+        var itemId = row.dataset.actualItemId;
+        var segId  = secEl.dataset.actualSegmentId;
+        updateActualItemQty(evt.id, segId, itemId, btn.dataset.action === 'inc' ? 1 : -1);
+      });
+    });
+
+    // Actual duration inline edit
+    $$('[data-inline="actual-duration"]', $('detail-body')).forEach(function (el) {
+      on(el, 'click', function () {
+        var secEl = el.closest('[data-actual-segment-id]');
+        if (!secEl) return;
+        var segId = secEl.dataset.actualSegmentId;
+        // Strip display label so input shows a plain number
+        var raw = el.textContent.trim();
+        el.textContent = parseFloat(raw.replace(/[^0-9.]/g, '')) || '';
+        makeEditable(el, async function (val) {
+          try {
+            var evt2 = await Data.getEvent(evt.id);
+            if (!evt2) return;
+            var num = parseFloat(val);
+            if (num > 0) {
+              if (!evt2.actuals[segId]) evt2.actuals[segId] = { durationHours: null, items: [] };
+              evt2.actuals[segId].durationHours = num;
+              await Data.saveActuals(evt2.id, evt2.actuals, evt2.postEventNotes);
+              await renderDetail();
+            }
+          } catch (e) {
+            showToast("Couldn't save — check your connection.");
+          }
+        });
+      });
+    });
   }
 
   async function updateItemQty(eventId, segId, itemId, delta) {
@@ -666,6 +705,30 @@
 
     try {
       await Data.saveEvent(evt);
+      await renderDetail();
+    } catch (e) {
+      showToast("Couldn't save — check your connection.");
+    }
+  }
+
+  async function updateActualItemQty(eventId, segId, itemId, delta) {
+    var evt;
+    try { evt = await Data.getEvent(eventId); }
+    catch (e) { showToast("Couldn't load event — check your connection."); return; }
+    if (!evt) return;
+
+    var actualSeg = evt.actuals[segId];
+    if (!actualSeg) return;
+    var item = actualSeg.items.find(function (i) { return i.id === itemId; });
+    if (!item) return;
+
+    item.quantity = Math.max(0, item.quantity + delta);
+    if (item.quantity === 0) {
+      actualSeg.items = actualSeg.items.filter(function (i) { return i.id !== itemId; });
+    }
+
+    try {
+      await Data.saveActuals(evt.id, evt.actuals, evt.postEventNotes);
       await renderDetail();
     } catch (e) {
       showToast("Couldn't save — check your connection.");
