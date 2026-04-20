@@ -14,6 +14,7 @@ global.localStorage = (function () {
 })();
 
 // crypto.randomUUID — returns a deterministic value per call for predictable test IDs
+var nodeCrypto = require('crypto');
 var _uuidCounter = 0;
 Object.defineProperty(global, 'crypto', {
   configurable: true,
@@ -22,7 +23,8 @@ Object.defineProperty(global, 'crypto', {
     randomUUID: function () {
       _uuidCounter++;
       return '00000000-0000-0000-0000-' + String(_uuidCounter).padStart(12, '0');
-    }
+    },
+    subtle: nodeCrypto.webcrypto.subtle
   }
 });
 
@@ -490,6 +492,45 @@ async function run() {
     assert.strictEqual(r.carbs, 80);
     assert.strictEqual(r.sodium,   0);
     assert.strictEqual(r.caffeine, 0);
+  });
+
+  // ── Identity ──────────────────────────────────────────────────────────────────
+
+  console.log('\nIdentity');
+
+  await test('deriveUserId: same inputs produce same UUID', async function () {
+    var id1 = await D.deriveUserId('Funmi', 'test-phrase');
+    var id2 = await D.deriveUserId('Funmi', 'test-phrase');
+    assert.strictEqual(id1, id2);
+  });
+
+  await test('deriveUserId: different name produces different UUID', async function () {
+    var id1 = await D.deriveUserId('Funmi', 'test-phrase');
+    var id2 = await D.deriveUserId('Alice', 'test-phrase');
+    assert.notStrictEqual(id1, id2);
+  });
+
+  await test('deriveUserId: different passphrase produces different UUID', async function () {
+    var id1 = await D.deriveUserId('Funmi', 'test-phrase');
+    var id2 = await D.deriveUserId('Funmi', 'other-phrase');
+    assert.notStrictEqual(id1, id2);
+  });
+
+  await test('deriveUserId: name is case-insensitive', async function () {
+    var id1 = await D.deriveUserId('FUNMI', 'test-phrase');
+    var id2 = await D.deriveUserId('funmi', 'test-phrase');
+    assert.strictEqual(id1, id2);
+  });
+
+  await test('deriveUserId: name and passphrase are trimmed', async function () {
+    var id1 = await D.deriveUserId('  Funmi  ', '  test-phrase  ');
+    var id2 = await D.deriveUserId('Funmi', 'test-phrase');
+    assert.strictEqual(id1, id2);
+  });
+
+  await test('deriveUserId: output is UUID-shaped (8-4-4-4-12 hex)', async function () {
+    var id = await D.deriveUserId('Funmi', 'test-phrase');
+    assert.match(id, /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
   });
 
   // ── Summary ───────────────────────────────────────────────────────────────────

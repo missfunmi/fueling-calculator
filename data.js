@@ -13,6 +13,20 @@
     migrated: 'fuelPlanner.migrated'
   };
 
+  // ── Identity ─────────────────────────────────────────────────────────────────
+  // Derives a deterministic UUID from a name and passphrase using SHA-256
+  async function deriveUserId(name, passphrase) {
+    var input = name.toLowerCase().trim() + ':' + passphrase.trim();
+    var encoded = new TextEncoder().encode(input);
+    var hashBuffer = await crypto.subtle.digest('SHA-256', encoded);
+    var hex = Array.from(new Uint8Array(hashBuffer))
+      .map(function (b) { return b.toString(16).padStart(2, '0'); })
+      .join('');
+    // Format first 32 hex chars as UUID: 8-4-4-4-12
+    return hex.slice(0, 8) + '-' + hex.slice(8, 12) + '-' +
+           hex.slice(12, 16) + '-' + hex.slice(16, 20) + '-' + hex.slice(20, 32);
+  }
+
   // ── Supabase fetch helper ────────────────────────────────────────────────────
   async function supabaseRequest(method, path, body, prefer) {
     var defaultPrefer = method === 'POST' ? 'return=representation' : '';
@@ -450,6 +464,7 @@
 
   // ── Exports ───────────────────────────────────────────────────────────────────
 
+  exports.deriveUserId     = deriveUserId;
   exports.generateId       = generateId;
   exports.getProducts      = getProducts;
   exports.saveProduct      = saveProduct;
