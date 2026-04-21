@@ -1410,11 +1410,10 @@
     on($('setup-form'), 'submit', async function (e) {
       e.preventDefault();
       var name       = $('setup-name').value.trim();
-      var passphrase = $('setup-passphrase').value.trim();
-      if (!name || !passphrase) return;
+      var passphrase = $('setup-passphrase').value;
+      if (!name || !passphrase.trim()) return;
       var submitBtn = $('setup-form').querySelector('button[type="submit"]');
-      submitBtn.disabled = true;
-      submitBtn.textContent = 'Setting up…';
+      if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Setting up…'; }
       try {
         var userId = await Data.deriveUserId(name, passphrase);
         localStorage.setItem('fuelPlanner.userId', userId);
@@ -1422,8 +1421,7 @@
         await Data.saveUser(userId, name);
         window.location.reload();
       } catch (err) {
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Get started';
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Get started'; }
         showToast("Setup failed — check your connection.");
       }
     });
