@@ -957,3 +957,88 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   opacity: 0.75;
 }
 .btn-clear-actuals:active { opacity: 1; }
+
+/* ── Landing + Setup shared ──────────────────────────────────────────────── */
+.view-centered {
+  justify-content: center;
+  align-items: center;
+  padding: 32px 24px;
+  padding-bottom: 32px; /* override tab-bar padding — these views have no tab bar */
+}
+
+/* ── Landing page ────────────────────────────────────────────────────────── */
+.landing-content {
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  text-align: center;
+}
+
+.landing-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.landing-tagline {
+  font-size: 16px;
+  color: var(--text-secondary);
+}
+
+.landing-features {
+  text-align: left;
+  list-style: disc;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+/* ── Setup screen ────────────────────────────────────────────────────────── */
+.setup-content {
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.setup-title {
+  font-size: 22px;
+  font-weight: 700;
+  text-align: center;
+  color: var(--text);
+}
+
+.passphrase-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.passphrase-field .form-input {
+  flex: 1;
+  padding-right: 60px; /* room for show/hide button */
+}
+
+.btn-show-passphrase {
+  position: absolute;
+  right: 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.setup-helper {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 6px;
+  line-height: 1.5;
+}
