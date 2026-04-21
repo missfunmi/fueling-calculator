@@ -1389,6 +1389,54 @@
 
   // ── Init ───────────────────────────────────────────────────────────────────
   async function init() {
+    // ── Landing + setup handlers — registered regardless of login state ────────
+
+    on($('btn-landing-start'), 'click', function () {
+      navigate('setup');
+    });
+
+    on($('btn-toggle-passphrase'), 'click', function () {
+      var field = $('setup-passphrase');
+      var btn   = $('btn-toggle-passphrase');
+      if (field.type === 'password') {
+        field.type = 'text';
+        btn.textContent = 'Hide';
+      } else {
+        field.type = 'password';
+        btn.textContent = 'Show';
+      }
+    });
+
+    on($('setup-form'), 'submit', async function (e) {
+      e.preventDefault();
+      var name       = $('setup-name').value.trim();
+      var passphrase = $('setup-passphrase').value.trim();
+      if (!name || !passphrase) return;
+      var submitBtn = $('setup-form').querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Setting up…';
+      try {
+        var userId = await Data.deriveUserId(name, passphrase);
+        localStorage.setItem('fuelPlanner.userId', userId);
+        localStorage.setItem('fuelPlanner.displayName', name);
+        await Data.saveUser(userId, name);
+        window.location.reload();
+      } catch (err) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Get started';
+        showToast("Setup failed — check your connection.");
+      }
+    });
+
+    // ── Identity check — must come before any data access ─────────────────────
+
+    if (!localStorage.getItem('fuelPlanner.userId')) {
+      navigate('landing');
+      return;
+    }
+
+    // ── Normal app init ───────────────────────────────────────────────────────
+
     // Tab bar
     $$('.tab-btn').forEach(function (btn) {
       on(btn, 'click', function () { navigate(btn.dataset.tabView); });
