@@ -960,8 +960,6 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 
 /* ── Landing + Setup shared ──────────────────────────────────────────────── */
 .view-centered {
-  display: flex;
-  flex-direction: column;
   justify-content: center;
   align-items: center;
   padding: 32px 24px;
