@@ -1398,12 +1398,12 @@
     on($('btn-toggle-passphrase'), 'click', function () {
       var field = $('setup-passphrase');
       var btn   = $('btn-toggle-passphrase');
-      if (field.type === 'password') {
-        field.type = 'text';
-        btn.textContent = 'Hide';
-      } else {
+      if (field.type === 'text') {
         field.type = 'password';
         btn.textContent = 'Show';
+      } else {
+        field.type = 'text';
+        btn.textContent = 'Hide';
       }
     });
 

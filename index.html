@@ -38,19 +38,19 @@
   <!-- ── Setup view ─────────────────────────────────────────────────── -->
   <div id="view-setup" class="view view-centered">
     <div class="setup-content">
-      <h1 class="setup-title">Create your account</h1>
+      <h1 class="setup-title">Set up your space</h1>
       <form id="setup-form" novalidate>
         <div class="form-group">
           <label for="setup-name">What should we call you?</label>
           <input id="setup-name" class="form-input" type="text" placeholder="Your name" autocomplete="off" required>
         </div>
         <div class="form-group">
-          <label for="setup-passphrase">Secret phrase</label>
+          <label for="setup-passphrase">Your phrase</label>
           <div class="passphrase-field">
-            <input id="setup-passphrase" class="form-input" type="password" placeholder="e.g. purple cactus tuesday" autocomplete="new-password" required>
-            <button type="button" id="btn-toggle-passphrase" class="btn-show-passphrase" aria-label="Show passphrase">Show</button>
+            <input id="setup-passphrase" class="form-input" type="text" placeholder="e.g. purple cactus tuesday" autocomplete="off" required>
+            <button type="button" id="btn-toggle-passphrase" class="btn-show-passphrase" aria-label="Hide phrase">Hide</button>
           </div>
-          <p class="setup-helper">Use a few words you will remember — this is how you access your data from any device.</p>
+          <p class="setup-helper">A few words you'll remember — type the same phrase on any device to get back to your data.</p>
         </div>
         <button type="submit" class="btn-primary">Get started</button>
       </form>
