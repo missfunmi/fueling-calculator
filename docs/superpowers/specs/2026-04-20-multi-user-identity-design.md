@@ -46,23 +46,52 @@ On a new device, the user enters the same name and passphrase, derives the same 
 
 ## Database
 
-### New table: `users`
+### `users` table
+
+The `users` table already existed with only an `id UUID PRIMARY KEY` column. Two columns were added:
 
 ```sql
-CREATE TABLE users (
-  id           UUID PRIMARY KEY,
-  display_name TEXT NOT NULL,
-  created_at   TIMESTAMPTZ DEFAULT now()
-);
+ALTER TABLE users ADD COLUMN display_name TEXT NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN created_at   TIMESTAMPTZ DEFAULT now();
+-- Backfill existing row, then tighten the default:
+UPDATE users SET display_name = 'Funmi' WHERE display_name = '';
+ALTER TABLE users ALTER COLUMN display_name DROP DEFAULT;
 ```
 
 Upserted on every setup. If the same user sets up on a second device with a slightly different display name, the upsert updates `display_name` to the latest value. `created_at` is set only on first insert (`ON CONFLICT DO UPDATE SET display_name = EXCLUDED.display_name`).
 
 No foreign keys to `events` or `products` — the UUID is the implicit link via `user_id`.
 
+RLS policy required (anon key has no JWT, so `auth.uid()` is always null):
+
+```sql
+CREATE POLICY "allow anon all" ON users FOR ALL TO anon USING (true) WITH CHECK (true);
+```
+
 ### Existing tables
 
-`events` and `products` already have a `user_id UUID` column. No schema changes required.
+`events`, `products`, `segments`, and `items` already have the necessary columns. However, all four tables had RLS policies written against the old hardcoded UUID. Those policies must be replaced with permissive anon policies (data isolation is enforced by the `user_id=eq.UUID` filter sent in every query):
+
+```sql
+-- Drop old hardcoded-UUID policies, then:
+CREATE POLICY "anon all" ON events   FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "anon all" ON products FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "anon all" ON segments FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "anon all" ON items    FOR ALL TO anon USING (true) WITH CHECK (true);
+```
+
+The `save_event` Postgres function (used by `saveEvent` in `data.js`) also had a hardcoded UUID guard that must be replaced with a `users` table existence check:
+
+```sql
+-- Replace:
+IF (event_data->>'user_id')::UUID != '33d5e92b-...'::UUID THEN RAISE EXCEPTION 'unauthorized'; END IF;
+-- With:
+IF NOT EXISTS (SELECT 1 FROM users WHERE id = (event_data->>'user_id')::UUID) THEN
+  RAISE EXCEPTION 'unauthorized';
+END IF;
+```
+
+This allows any registered user to write events while still rejecting arbitrary UUIDs.
 
 ---
 
@@ -92,18 +121,20 @@ No logic. Placeholder copy to be replaced when a real marketing page is designed
 
 ### Setup screen
 
+Title: "Set up your space" (not "Create your account" — intentionally avoids account/auth framing).
+
 Two fields:
 - "What should we call you?" — display name, required, non-empty
-- "Secret phrase" — passphrase, required, non-empty, shown as password field with a show/hide toggle
+- "Your phrase" — passphrase, required, non-empty, shown as plain text by default with a hide/show toggle
 
-Helper text below passphrase: "Use a few words you'll remember — this is how you access your data from any device."
+Helper text below passphrase: "A few words you'll remember — type the same phrase on any device to get back to your data."
 
 On submit:
-1. Validate both fields non-empty
+1. Validate both fields non-empty (passphrase whitespace-only is also rejected)
 2. Derive UUID via SHA-256
 3. Write `fuelPlanner.userId` and `fuelPlanner.displayName` to localStorage
 4. Upsert to `users` table: `INSERT INTO users (id, display_name) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET display_name = EXCLUDED.display_name`
-5. Navigate to events list
+5. Reload page via `window.location.reload()` — required so `data.js` picks up the new `USER_ID` at module-load time
 
 No confirmation field for the passphrase. The user is responsible for remembering it — the UI makes this clear.
 
@@ -192,11 +223,11 @@ Run in the Supabase SQL editor, replacing `<new-uuid>` with the derived UUID sho
 ```sql
 UPDATE events   SET user_id = '<new-uuid>' WHERE user_id = '33d5e92b-360a-45b7-a423-656f14e67b98';
 UPDATE products SET user_id = '<new-uuid>' WHERE user_id = '33d5e92b-360a-45b7-a423-656f14e67b98';
-INSERT INTO users (id, display_name) VALUES ('<new-uuid>', 'Funmi')
-  ON CONFLICT (id) DO NOTHING;
+UPDATE users    SET id = '<new-uuid>', display_name = 'Funmi'
+  WHERE id = '33d5e92b-360a-45b7-a423-656f14e67b98';
 ```
 
-The `INSERT` is a safety net — if setup was completed before running migration, the `users` row already exists and `ON CONFLICT DO NOTHING` skips it cleanly.
+`UPDATE users` (not `INSERT`) because the `users` table already had a row for the old hardcoded UUID. Inserting would leave the old row as an orphan.
 
 ---
 
@@ -231,7 +262,7 @@ This is intentionally a manual admin process for now. A self-service export/impo
 | `app.js` | Init check; `navigate('landing')` / `navigate('setup')` flows; setup form handler calling `deriveUserId` + `saveUser` |
 | `data.js` | Remove hardcoded `USER_ID`; add `deriveUserId`, `saveUser`; export both |
 | `style.css` | Landing and setup screen styles |
-| Supabase | `CREATE TABLE users`; owner migration SQL |
+| Supabase | `ALTER TABLE users` (add `display_name`, `created_at`); RLS policies on all tables; update `save_event` function; owner migration SQL |
 
 ---
 
