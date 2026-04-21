@@ -960,6 +960,8 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 
 /* ── Landing + Setup shared ──────────────────────────────────────────────── */
 .view-centered {
+  display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
   padding: 32px 24px;
@@ -1034,6 +1036,10 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   border: none;
   cursor: pointer;
   padding: 4px;
+}
+
+.btn-show-passphrase:hover {
+  color: var(--text);
 }
 
 .setup-helper {
