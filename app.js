@@ -1445,15 +1445,7 @@
       navigate('recovery');
     });
 
-    // ── Identity check — must come before any data access ─────────────────────
-    if (!localStorage.getItem('fuelPlanner.userId')) {
-      navigate('landing');
-      return;
-    }
-
-    // ── Normal app init ────────────────────────────────────────────────────────
-
-    // Tab bar
+    // ── Tab bar — registered early so it works immediately after Get Started ────
     $$('.tab-btn').forEach(function (btn) {
       on(btn, 'click', function () { navigate(btn.dataset.tabView); });
     });
@@ -1502,6 +1494,7 @@
         var hash = await Data.hashPhrase(_currentPhrase);
         await Data.saveClaim(hash);
         localStorage.setItem('fuelPlanner.isAnonymous', 'false');
+        _refreshClaimIndicator();
         navigate('events');
         showToast('Recovery phrase saved!');
       } catch (e) {
@@ -1552,6 +1545,13 @@
         btn.textContent = 'Find my data';
       }
     });
+
+    // ── Identity check — must come before any data access ─────────────────────
+    // All handlers above are safe to register for anonymous users too.
+    if (!localStorage.getItem('fuelPlanner.userId')) {
+      navigate('landing');
+      return;
+    }
 
     // Migrate localStorage data to Supabase on first load
     try {
