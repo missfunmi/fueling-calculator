@@ -20,6 +20,12 @@
     </div>
   </nav>
 
+  <!-- Claim indicator — global, shown on all app views for unclaimed anonymous users -->
+  <div id="claim-indicator" class="claim-indicator hidden">
+    <span id="claim-indicator-text" class="claim-indicator-text">Save your data — get a recovery phrase</span>
+    <button id="btn-dismiss-indicator" class="claim-indicator-dismiss" type="button" aria-label="Dismiss">&#215;</button>
+  </div>
+
   <!-- ── Landing view ───────────────────────────────────────────────── -->
   <div id="view-landing" class="view view-centered">
     <div class="landing-content">
@@ -42,10 +48,6 @@
       <h1>Events</h1>
       <button id="btn-new-event" class="btn-icon" aria-label="New event">+</button>
     </header>
-    <div id="claim-indicator" class="claim-indicator hidden">
-      <span id="claim-indicator-text" class="claim-indicator-text">Save your data — get a recovery phrase</span>
-      <button id="btn-dismiss-indicator" class="claim-indicator-dismiss" type="button" aria-label="Dismiss">&#215;</button>
-    </div>
     <div id="events-list" class="view-body"></div>
   </div>
 

@@ -130,6 +130,9 @@
         });
       }
     }
+
+    // Update claim indicator visibility on every navigation
+    _refreshClaimIndicator();
   }
 
   // ── Renders (populated in later tasks) ────────────────────────────────────
@@ -237,7 +240,9 @@
   function _refreshClaimIndicator() {
     var indicator = $('claim-indicator');
     if (!indicator) return;
-    if (!_indicatorDismissed && localStorage.getItem('fuelPlanner.isAnonymous') === 'true') {
+    // Hide on full-screen flows where the banner would be intrusive or redundant
+    var hideOnView = (state.view === 'landing' || state.view === 'claim' || state.view === 'recovery');
+    if (!hideOnView && !_indicatorDismissed && localStorage.getItem('fuelPlanner.isAnonymous') === 'true') {
       indicator.classList.remove('hidden');
     } else {
       indicator.classList.add('hidden');
