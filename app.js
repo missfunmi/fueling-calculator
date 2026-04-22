@@ -11,6 +11,9 @@
     editingProductId: null   // null = creating new product
   };
 
+  var _indicatorDismissed = false; // reset to false on page load; session-only dismissal
+  var _currentPhrase = '';         // holds the phrase currently displayed on the claim screen
+
   // ── DOM helpers ────────────────────────────────────────────────────────────
   function $(id) { return document.getElementById(id); }
   function $$(sel, ctx) { return (ctx || document).querySelectorAll(sel); }
@@ -95,7 +98,8 @@
 
     // Show/hide tab bar (hide on detail and form views)
     var hideTabBar = (view === 'detail' || view === 'create' ||
-                      view === 'product-form' || view === 'landing' || view === 'setup');
+                      view === 'product-form' || view === 'landing' ||
+                      view === 'claim' || view === 'recovery');
     var tabBar = $('tab-bar');
     if (tabBar) tabBar.style.display = hideTabBar ? 'none' : '';
 
@@ -197,6 +201,7 @@
 
     if (!events.length) {
       $list.innerHTML = '<div class="empty-state"><div style="font-size:48px">🚴</div><p>No events yet.</p><p>Tap + to plan your first one.</p></div>';
+      _refreshClaimIndicator();
       return;
     }
     $list.innerHTML = events.map(function (evt) {
@@ -224,9 +229,30 @@
         navigate('detail', { currentEventId: card.dataset.eventId });
       });
     });
+    _refreshClaimIndicator();
   }
 
   renders.events = renderEventsList;
+
+  function _refreshClaimIndicator() {
+    var indicator = $('claim-indicator');
+    if (!indicator) return;
+    if (!_indicatorDismissed && localStorage.getItem('fuelPlanner.isAnonymous') === 'true') {
+      indicator.classList.remove('hidden');
+    } else {
+      indicator.classList.add('hidden');
+    }
+  }
+
+  renders.claim = function () {
+    _currentPhrase = Data.generatePhrase();
+    var phraseEl = $('claim-phrase');
+    if (phraseEl) phraseEl.textContent = _currentPhrase;
+    var checkbox = $('claim-saved-checkbox');
+    if (checkbox) checkbox.checked = false;
+    var saveBtn = $('btn-save-claim');
+    if (saveBtn) saveBtn.disabled = true;
+  };
 
   on($('btn-new-event'), 'click', function () {
     navigate('create', { currentEventId: null });
@@ -1389,55 +1415,126 @@
 
   // ── Init ───────────────────────────────────────────────────────────────────
   async function init() {
-    // ── Landing + setup handlers — registered regardless of login state ────────
-
-    on($('btn-landing-start'), 'click', function () {
-      navigate('setup');
+    // ── Landing handlers — always registered regardless of identity state ───────
+    on($('btn-landing-start'), 'click', async function () {
+      if (!localStorage.getItem('fuelPlanner.userId')) {
+        var uuid = Data.generateId();
+        localStorage.setItem('fuelPlanner.userId', uuid);
+        localStorage.setItem('fuelPlanner.isAnonymous', 'true');
+        // Register user in DB so save_event can validate user_id
+        try {
+          await Data.saveUser(uuid);
+        } catch (e) {
+          console.error('Could not register user:', e);
+          // Non-fatal: user will see a connection error when saving their first event
+        }
+      }
+      navigate('create', { currentEventId: null });
     });
 
-    on($('btn-toggle-passphrase'), 'click', function () {
-      var field = $('setup-passphrase');
-      var btn   = $('btn-toggle-passphrase');
-      if (field.type === 'text') {
-        field.type = 'password';
-        btn.textContent = 'Show';
-      } else {
-        field.type = 'text';
-        btn.textContent = 'Hide';
-      }
-    });
-
-    on($('setup-form'), 'submit', async function (e) {
-      e.preventDefault();
-      var name       = $('setup-name').value.trim();
-      var passphrase = $('setup-passphrase').value;
-      if (!name || !passphrase.trim()) return;
-      var submitBtn = $('setup-form').querySelector('button[type="submit"]');
-      if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Setting up…'; }
-      try {
-        var userId = await Data.deriveUserId(name, passphrase);
-        localStorage.setItem('fuelPlanner.userId', userId);
-        localStorage.setItem('fuelPlanner.displayName', name);
-        await Data.saveUser(userId, name);
-        window.location.reload();
-      } catch (err) {
-        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Get started'; }
-        showToast("Setup failed — check your connection.");
-      }
+    on($('btn-existing-data'), 'click', function () {
+      navigate('recovery');
     });
 
     // ── Identity check — must come before any data access ─────────────────────
-
     if (!localStorage.getItem('fuelPlanner.userId')) {
       navigate('landing');
       return;
     }
 
-    // ── Normal app init ───────────────────────────────────────────────────────
+    // ── Normal app init ────────────────────────────────────────────────────────
 
     // Tab bar
     $$('.tab-btn').forEach(function (btn) {
       on(btn, 'click', function () { navigate(btn.dataset.tabView); });
+    });
+
+    // Claim indicator: tapping the text/background opens claim screen;
+    // tapping the dismiss button hides it for this session only.
+    on($('claim-indicator'), 'click', function (e) {
+      var dismissBtn = $('btn-dismiss-indicator');
+      if (dismissBtn && dismissBtn.contains(e.target)) return;
+      navigate('claim');
+    });
+    on($('btn-dismiss-indicator'), 'click', function (e) {
+      e.stopPropagation();
+      _indicatorDismissed = true;
+      var indicator = $('claim-indicator');
+      if (indicator) indicator.classList.add('hidden');
+    });
+
+    // Claim screen
+    on($('btn-claim-back'), 'click', function () { navigate('events'); });
+
+    on($('btn-regenerate-phrase'), 'click', function () {
+      _currentPhrase = Data.generatePhrase();
+      var phraseEl = $('claim-phrase');
+      if (phraseEl) phraseEl.textContent = _currentPhrase;
+    });
+
+    on($('btn-copy-phrase'), 'click', function () {
+      navigator.clipboard.writeText(_currentPhrase).then(function () {
+        showToast('Phrase copied!');
+      }).catch(function () {
+        showToast("Copy failed \u2014 select and copy manually.");
+      });
+    });
+
+    on($('claim-saved-checkbox'), 'change', function () {
+      var saveBtn = $('btn-save-claim');
+      if (saveBtn) saveBtn.disabled = !$('claim-saved-checkbox').checked;
+    });
+
+    on($('btn-save-claim'), 'click', async function () {
+      var btn = $('btn-save-claim');
+      btn.disabled = true;
+      btn.textContent = 'Saving\u2026';
+      try {
+        var hash = await Data.hashPhrase(_currentPhrase);
+        await Data.saveClaim(hash);
+        localStorage.setItem('fuelPlanner.isAnonymous', 'false');
+        navigate('events');
+        showToast('Recovery phrase saved!');
+      } catch (e) {
+        btn.disabled = false;
+        btn.textContent = 'Save and continue';
+        showToast("Couldn\u2019t save \u2014 check your connection.");
+      }
+    });
+
+    // Recovery screen
+    on($('btn-recovery-back'), 'click', function () { navigate('landing'); });
+
+    on($('btn-find-data'), 'click', async function () {
+      var phrase = ($('recovery-phrase-input') || {}).value || '';
+      var errorEl = $('recovery-error');
+      if (errorEl) { errorEl.textContent = ''; errorEl.classList.add('hidden'); }
+      var btn = $('btn-find-data');
+      btn.disabled = true;
+      btn.textContent = 'Searching\u2026';
+      try {
+        var hash = await Data.hashPhrase(phrase);
+        var userId = await Data.lookupClaim(hash);
+        if (userId) {
+          localStorage.setItem('fuelPlanner.userId', userId);
+          localStorage.setItem('fuelPlanner.isAnonymous', 'false');
+          window.location.reload();
+        } else {
+          if (errorEl) {
+            errorEl.textContent = 'No data found for this phrase. Check for typos and try again.';
+            errorEl.classList.remove('hidden');
+          }
+          btn.disabled = false;
+          btn.textContent = 'Find my data';
+        }
+      } catch (e) {
+        if (errorEl) {
+          errorEl.textContent = "Couldn\u2019t search \u2014 check your connection.";
+          errorEl.classList.remove('hidden');
+        }
+        btn.disabled = false;
+        btn.textContent = 'Find my data';
+      }
     });
 
     // Migrate localStorage data to Supabase on first load
@@ -1445,7 +1542,7 @@
       await Data.migrateIfNeeded();
     } catch (e) {
       console.error('Migration failed:', e);
-      showToast("Migration failed — your local data is safe. Will retry next load.");
+      showToast("Migration failed \u2014 your local data is safe. Will retry next load.");
     }
 
     navigate('events');
