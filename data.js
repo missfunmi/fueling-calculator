@@ -307,6 +307,17 @@
     );
   }
 
+  // Updates last_visited_at to now. Called fire-and-forget on each app load.
+  // Requires: ALTER TABLE users ADD COLUMN last_visited_at TIMESTAMPTZ DEFAULT now();
+  async function touchLastVisited() {
+    await supabaseRequest(
+      'PATCH',
+      'users?id=eq.' + getUserId(),
+      { last_visited_at: new Date().toISOString() },
+      'return=minimal'
+    );
+  }
+
   // ── Recent products — stored in localStorage (per-device convenience) ────────
 
   function getRecentProducts() {
@@ -544,6 +555,7 @@
   exports.deleteEvent        = deleteEvent;
   exports.saveActuals        = saveActuals;
   exports.saveUser           = saveUser;
+  exports.touchLastVisited   = touchLastVisited;
   exports.getRecentProducts  = getRecentProducts;
   exports.recordProductUsed  = recordProductUsed;
   exports.migrateIfNeeded    = migrateIfNeeded;

@@ -1553,6 +1553,9 @@
       return;
     }
 
+    // Record this visit (fire-and-forget — never blocks the UI)
+    Data.touchLastVisited().catch(function (e) { console.warn('touchLastVisited failed:', e); });
+
     // Migrate localStorage data to Supabase on first load
     try {
       await Data.migrateIfNeeded();
