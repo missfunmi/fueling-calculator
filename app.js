@@ -251,7 +251,16 @@
     var checkbox = $('claim-saved-checkbox');
     if (checkbox) checkbox.checked = false;
     var saveBtn = $('btn-save-claim');
-    if (saveBtn) saveBtn.disabled = true;
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Save and continue'; }
+  };
+
+  renders.recovery = function () {
+    var input = $('recovery-phrase-input');
+    if (input) input.value = '';
+    var errorEl = $('recovery-error');
+    if (errorEl) { errorEl.textContent = ''; errorEl.classList.add('hidden'); }
+    var btn = $('btn-find-data');
+    if (btn) { btn.disabled = false; btn.textContent = 'Find my data'; }
   };
 
   on($('btn-new-event'), 'click', function () {
@@ -1476,7 +1485,7 @@
       navigator.clipboard.writeText(_currentPhrase).then(function () {
         showToast('Phrase copied!');
       }).catch(function () {
-        showToast("Copy failed \u2014 select and copy manually.");
+        showToast("Copy failed \u2014 write down the phrase above.");
       });
     });
 
@@ -1509,6 +1518,13 @@
       var phrase = ($('recovery-phrase-input') || {}).value || '';
       var errorEl = $('recovery-error');
       if (errorEl) { errorEl.textContent = ''; errorEl.classList.add('hidden'); }
+      if (!phrase.trim()) {
+        if (errorEl) {
+          errorEl.textContent = 'Please enter your recovery phrase.';
+          errorEl.classList.remove('hidden');
+        }
+        return;
+      }
       var btn = $('btn-find-data');
       btn.disabled = true;
       btn.textContent = 'Searching\u2026';
