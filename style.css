@@ -156,6 +156,22 @@ a { color: inherit; text-decoration: none; }
 }
 .btn-danger { color: var(--red); }
 
+.btn-secondary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 15px;
+  font-weight: 500;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  width: 100%;
+}
+.btn-secondary:active { opacity: 0.7; }
+
 /* ── Empty state ────────────────────────────────────────────────────────────── */
 .empty-state {
   text-align: center;
@@ -933,16 +949,6 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   padding: 16px;
   text-align: center;
 }
-.btn-secondary {
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text);
-  font-size: 14px;
-  padding: 10px 20px;
-  cursor: pointer;
-  width: 100%;
-}
 .clear-actuals-section {
   padding: 8px 16px 20px;
   text-align: center;
@@ -998,51 +1004,66 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   color: var(--text-secondary);
 }
 
-/* ── Setup screen ────────────────────────────────────────────────────────── */
-.setup-content {
-  width: 100%;
-  max-width: 480px;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-.setup-title {
-  font-size: 22px;
-  font-weight: 700;
-  text-align: center;
-  color: var(--text);
-}
-
-.passphrase-field {
-  position: relative;
+/* ── Claim indicator ─────────────────────────────────────────────────────── */
+.claim-indicator {
   display: flex;
   align-items: center;
-}
-
-.passphrase-field .form-input {
-  flex: 1;
-  padding-right: 60px; /* room for show/hide button */
-}
-
-.btn-show-passphrase {
-  position: absolute;
-  right: 10px;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--amber-bg);
+  color: var(--amber-text);
+  padding: 10px 16px;
   font-size: 13px;
-  color: var(--text-secondary);
+  cursor: pointer;
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+}
+.claim-indicator-text {
+  flex: 1;
+}
+.claim-indicator-dismiss {
+  flex-shrink: 0;
   background: none;
   border: none;
   cursor: pointer;
-  padding: 4px;
+  color: inherit;
+  font-size: 18px;
+  line-height: 1;
+  padding: 2px 4px;
 }
 
-.btn-show-passphrase:hover {
-  color: var(--text);
-}
-
-.setup-helper {
-  font-size: 12px;
+/* ── Claim screen ────────────────────────────────────────────────────────── */
+.claim-subtext,
+.recovery-subtext {
+  font-size: 14px;
   color: var(--text-secondary);
-  margin-top: 6px;
+  margin-bottom: 16px;
   line-height: 1.5;
 }
+
+.claim-phrase {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-align: center;
+  padding: 20px 8px;
+  color: var(--text);
+  line-height: 1.4;
+}
+
+.claim-phrase-actions {
+  display: flex;
+  gap: 8px;
+}
+.claim-phrase-actions .btn-secondary {
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+/* ── Recovery screen ─────────────────────────────────────────────────────── */
+.recovery-error {
+  font-size: 13px;
+  color: var(--error, #d93025);
+  margin-top: 8px;
+  padding: 4px 0;
+}
+
