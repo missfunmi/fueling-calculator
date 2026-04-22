@@ -2,33 +2,99 @@
 (function (exports) {
   'use strict';
 
-  // ── Config ──────────────────────────────────────────────────────────────────
-  // Fill these in from your Supabase project Settings → API
-  var SUPABASE_URL  = 'https://jcrmkxlzqewwqugkwlww.supabase.co';
+  // ── Config ───────────────────────────────────────────────────────────────────
+  var SUPABASE_URL      = 'https://jcrmkxlzqewwqugkwlww.supabase.co';
   var SUPABASE_ANON_KEY = 'sb_publishable_VArDAA7V8Gg-Xi20vj7zkw_NiidAk_Q';
 
   var KEYS = {
     recent:      'fuelPlanner.recentProducts',
     migrated:    'fuelPlanner.migrated',
     userId:      'fuelPlanner.userId',
-    displayName: 'fuelPlanner.displayName'
+    isAnonymous: 'fuelPlanner.isAnonymous'
   };
 
-  var USER_ID = localStorage.getItem(KEYS.userId);
-
   // ── Identity ─────────────────────────────────────────────────────────────────
-  // Derives a deterministic UUID from a name and passphrase using SHA-256
-  async function deriveUserId(name, passphrase) {
-    // name is case-insensitive; passphrase is case-sensitive (intentional)
-    var input = name.toLowerCase().trim() + ':' + passphrase.trim();
-    var encoded = new TextEncoder().encode(input);
+
+  // Reads userId dynamically on each call — no module-level constant needed.
+  // This means UUID changes (claim, recovery) take effect immediately.
+  function getUserId() {
+    return localStorage.getItem(KEYS.userId);
+  }
+
+  // 256-word BIP-39 English subset. 256^4 ≈ 4.3 billion combinations.
+  var WORDLIST = [
+    'abandon','ability','able','about','above','absent','absorb','abstract',
+    'absurd','abuse','access','accident','account','accuse','achieve','acid',
+    'acoustic','acquire','across','act','action','actor','actress','actual',
+    'adapt','add','addict','address','adjust','admit','adult','advance',
+    'advice','aerobic','afford','afraid','again','age','agent','agree',
+    'ahead','aim','air','airport','aisle','alarm','album','alcohol',
+    'alert','alien','all','alley','allow','almost','alone','alpha',
+    'already','also','alter','always','amateur','amazing','among','amount',
+    'amused','analyst','anchor','ancient','anger','angle','angry','animal',
+    'ankle','announce','annual','another','answer','antenna','antique','anxiety',
+    'any','apart','apology','appear','apple','approve','april','arch',
+    'arctic','area','arena','argue','arm','armed','armor','army',
+    'around','arrange','arrest','arrive','arrow','art','artefact','artist',
+    'artwork','ask','aspect','assault','asset','assist','assume','asthma',
+    'athlete','atom','attack','attend','attitude','attract','auction','audit',
+    'august','aunt','author','auto','autumn','average','avocado','award',
+    'awesome','awful','awkward','axle','baby','badge','bag','balance',
+    'balcony','ball','bamboo','banana','banner','bar','barely','bargain',
+    'barrel','base','basic','basket','battle','beach','beauty','because',
+    'become','beef','before','begin','behave','behind','believe','below',
+    'belt','bench','benefit','best','betray','better','between','beyond',
+    'bicycle','bid','bike','bind','biology','bird','birth','bitter',
+    'black','blade','blame','blanket','blast','bleak','bless','blind',
+    'blood','blossom','blouse','blue','blur','blush','board','boat',
+    'body','boil','bomb','bone','book','boost','border','boring',
+    'borrow','boss','bottom','bounce','box','boy','bracket','brain',
+    'brand','brave','bread','breeze','brick','bridge','brief','bright',
+    'bring','brisk','broccoli','broken','bronze','broom','brother','brown',
+    'brush','bubble','buddy','budget','buffalo','build','bulb','bulk',
+    'bullet','bundle','bunker','burden','burger','burst','bus','business',
+    'busy','butter','buyer','buzz','cabin','cable','cage','cake',
+    'call','calm','camera','camp','canal','cancel','candy','cannon'
+  ];
+
+  // Picks 4 words from WORDLIST using cryptographically secure random values.
+  // Returns a space-separated string e.g. "maple river sunset bottle"
+  function generatePhrase() {
+    var indices = new Uint32Array(4);
+    crypto.getRandomValues(indices);
+    return Array.from(indices).map(function (n) {
+      return WORDLIST[n % WORDLIST.length];
+    }).join(' ');
+  }
+
+  // Returns sha256(phrase.trim().toLowerCase()) as a 64-char hex string.
+  async function hashPhrase(phrase) {
+    var normalized = phrase.trim().toLowerCase();
+    var encoded = new TextEncoder().encode(normalized);
     var hashBuffer = await crypto.subtle.digest('SHA-256', encoded);
-    var hex = Array.from(new Uint8Array(hashBuffer))
+    return Array.from(new Uint8Array(hashBuffer))
       .map(function (b) { return b.toString(16).padStart(2, '0'); })
       .join('');
-    // Format first 32 hex chars as UUID: 8-4-4-4-12
-    return hex.slice(0, 8) + '-' + hex.slice(8, 12) + '-' +
-           hex.slice(12, 16) + '-' + hex.slice(16, 20) + '-' + hex.slice(20, 32);
+  }
+
+  // Saves phrase_hash → user_id in the claims table.
+  // The raw phrase is never sent to the server.
+  async function saveClaim(phraseHash) {
+    await supabaseRequest(
+      'POST',
+      'claims?on_conflict=phrase_hash',
+      { phrase_hash: phraseHash, user_id: getUserId() },
+      'return=minimal,resolution=merge-duplicates'
+    );
+  }
+
+  // Looks up a phrase_hash in claims. Returns the UUID string if found, null if not.
+  async function lookupClaim(phraseHash) {
+    var rows = await supabaseRequest(
+      'GET',
+      'claims?phrase_hash=eq.' + phraseHash + '&select=user_id'
+    );
+    return (rows && rows.length) ? rows[0].user_id : null;
   }
 
   // ── Supabase fetch helper ────────────────────────────────────────────────────
@@ -65,13 +131,13 @@
 
   function productToDb(p) {
     return {
-      id:               p.id,
-      user_id:          USER_ID,
-      brand:            p.brand || null,
-      name:             p.name,
-      type:             p.type,
-      carbs_per_unit:   p.carbsPerUnit    || 0,
-      sodium_per_unit:  p.sodiumPerUnit   || 0,
+      id:                p.id,
+      user_id:           getUserId(),
+      brand:             p.brand || null,
+      name:              p.name,
+      type:              p.type,
+      carbs_per_unit:    p.carbsPerUnit    || 0,
+      sodium_per_unit:   p.sodiumPerUnit   || 0,
       caffeine_per_unit: p.caffeinePerUnit || 0
     };
   }
@@ -94,8 +160,8 @@
             name:          seg.name,
             durationHours: seg.duration_hours,
             targets: {
-              carbsPerHour:   seg.carbs_per_hour   || 0,
-              sodiumPerHour:  seg.sodium_per_hour  || 0,
+              carbsPerHour:    seg.carbs_per_hour    || 0,
+              sodiumPerHour:   seg.sodium_per_hour   || 0,
               caffeinePerHour: seg.caffeine_per_hour || 0
             },
             items: (seg.items || [])
@@ -123,7 +189,7 @@
   function eventToDb(evt) {
     return {
       id:      evt.id,
-      user_id: USER_ID,
+      user_id: getUserId(),
       name:    evt.name,
       date:    evt.date || '',
       type:    evt.type || 'other',
@@ -159,7 +225,6 @@
   }
 
   // ── ID generation ────────────────────────────────────────────────────────────
-  // Uses crypto.randomUUID() — available in all modern browsers and Netlify's CDN edge
   function generateId() {
     return crypto.randomUUID();
   }
@@ -169,7 +234,7 @@
   async function getProducts() {
     var rows = await supabaseRequest(
       'GET',
-      'products?user_id=eq.' + USER_ID + '&select=*&order=created_at.asc'
+      'products?user_id=eq.' + getUserId() + '&select=*&order=created_at.asc'
     );
     return (rows || []).map(dbToProduct);
   }
@@ -185,7 +250,6 @@
 
   async function deleteProduct(id) {
     await supabaseRequest('DELETE', 'products?id=eq.' + id, null, 'return=minimal');
-    // Keep recents clean — this stays in localStorage
     try {
       var ids = JSON.parse(localStorage.getItem(KEYS.recent) || '[]')
         .filter(function (i) { return i !== id; });
@@ -198,7 +262,7 @@
   async function getEvents() {
     var rows = await supabaseRequest(
       'GET',
-      'events?user_id=eq.' + USER_ID + '&select=*,segments(*,items(*))&order=date.desc.nullslast'
+      'events?user_id=eq.' + getUserId() + '&select=*,segments(*,items(*))&order=date.desc.nullslast'
     );
     return (rows || []).map(dbToEvent);
   }
@@ -206,13 +270,12 @@
   async function getEvent(id) {
     var rows = await supabaseRequest(
       'GET',
-      'events?id=eq.' + id + '&user_id=eq.' + USER_ID + '&select=*,segments(*,items(*))'
+      'events?id=eq.' + id + '&user_id=eq.' + getUserId() + '&select=*,segments(*,items(*))'
     );
     return rows.length ? dbToEvent(rows[0]) : null;
   }
 
   async function saveEvent(evt) {
-    // save_event returns void — use return=minimal so PostgREST doesn't try to serialise output
     await supabaseRequest(
       'POST',
       'rpc/save_event',
@@ -234,19 +297,18 @@
     );
   }
 
-  // Creates or updates the user record (upsert on id).
-  async function saveUser(id, displayName) {
+  // Upserts only the user id — display_name is no longer collected.
+  async function saveUser(id) {
     await supabaseRequest(
       'POST',
       'users?on_conflict=id',
-      { id: id, display_name: displayName },
+      { id: id },
       'return=minimal,resolution=merge-duplicates'
     );
   }
 
-  // ── Recent products — stays in localStorage (per-device convenience) ─────────
+  // ── Recent products — stored in localStorage (per-device convenience) ────────
 
-  // Returns an array of product IDs (strings), most-recent first
   function getRecentProducts() {
     try { return JSON.parse(localStorage.getItem(KEYS.recent) || '[]'); }
     catch (e) { return []; }
@@ -261,21 +323,17 @@
   }
 
   // ── Migration ─────────────────────────────────────────────────────────────────
-  // On first load, moves any existing localStorage data to Supabase.
-  // Sets fuelPlanner.migrated = 'true' on success; leaves localStorage untouched on error.
 
   async function migrateIfNeeded() {
     if (localStorage.getItem(KEYS.migrated) === 'true') return;
 
-    // If Supabase already has data (e.g. migrated from another device), just mark done
-    var existingEvents   = await supabaseRequest('GET', 'events?user_id=eq.'   + USER_ID + '&select=id&limit=1');
-    var existingProducts = await supabaseRequest('GET', 'products?user_id=eq.' + USER_ID + '&select=id&limit=1');
+    var existingEvents   = await supabaseRequest('GET', 'events?user_id=eq.'   + getUserId() + '&select=id&limit=1');
+    var existingProducts = await supabaseRequest('GET', 'products?user_id=eq.' + getUserId() + '&select=id&limit=1');
     if (existingEvents.length > 0 && existingProducts.length > 0) {
       localStorage.setItem(KEYS.migrated, 'true');
       return;
     }
 
-    // Read old localStorage data
     var oldProducts = [];
     var oldEvents   = [];
     try {
@@ -283,14 +341,11 @@
       oldEvents   = JSON.parse(localStorage.getItem('fuelPlanner.events')   || '[]');
     } catch (e) {}
 
-    // Nothing to migrate
     if (!oldProducts.length && !oldEvents.length) {
       localStorage.setItem(KEYS.migrated, 'true');
       return;
     }
 
-    // Old IDs are short alphanumeric strings, not UUIDs.
-    // Assign new UUIDs to all entities; remap productId references.
     var productIdMap = {};
     var migratedProducts = oldProducts.map(function (p) {
       var newId = generateId();
@@ -302,7 +357,6 @@
       await saveProduct(migratedProducts[i]);
     }
 
-    // Remap recent product IDs to their new UUIDs
     try {
       var oldRecent = JSON.parse(localStorage.getItem(KEYS.recent) || '[]');
       var newRecent = oldRecent
@@ -332,11 +386,9 @@
     }
 
     localStorage.setItem(KEYS.migrated, 'true');
-    // Note: on error, the caller (init in app.js) catches and shows a toast.
-    // localStorage is left untouched so migration retries next load.
   }
 
-  // ── Calculations (unchanged) ──────────────────────────────────────────────────
+  // ── Calculations ──────────────────────────────────────────────────────────────
 
   function calcSegmentTotals(segment) {
     return (segment.items || []).reduce(function (acc, item) {
@@ -376,9 +428,9 @@
     if (target === undefined || target === null) return 'none';
     if (target === 0) return actual > 0 ? 'over' : 'none';
     var ratio = actual / target;
-    if (ratio >= 0.9 && ratio <= 1.1)   return 'on-target';
-    if (ratio >= 0.75 && ratio < 0.9)   return 'warning-under';
-    if (ratio > 1.1  && ratio <= 1.25)  return 'warning-over';
+    if (ratio >= 0.9 && ratio <= 1.1)  return 'on-target';
+    if (ratio >= 0.75 && ratio < 0.9)  return 'warning-under';
+    if (ratio > 1.1  && ratio <= 1.25) return 'warning-over';
     return ratio < 0.75 ? 'under' : 'over';
   }
 
@@ -411,19 +463,18 @@
     return { carbs: t.carbs / h, sodium: t.sodium / h, caffeine: t.caffeine / h };
   }
 
-  // Weighted-average goal rates across all segments (by planned duration)
   function calcEventGoalRates(event) {
     var segs = event.segments || [];
     var totalH = segs.reduce(function (s, seg) { return s + (seg.durationHours || 0); }, 0);
     if (!totalH) return { carbs: 0, sodium: 0, caffeine: 0 };
     return {
-      carbs:    segs.reduce(function (s, seg) { return s + (seg.targets.carbsPerHour  || 0) * (seg.durationHours || 0); }, 0) / totalH,
-      sodium:   segs.reduce(function (s, seg) { return s + (seg.targets.sodiumPerHour || 0) * (seg.durationHours || 0); }, 0) / totalH,
+      carbs:    segs.reduce(function (s, seg) { return s + (seg.targets.carbsPerHour    || 0) * (seg.durationHours || 0); }, 0) / totalH,
+      sodium:   segs.reduce(function (s, seg) { return s + (seg.targets.sodiumPerHour   || 0) * (seg.durationHours || 0); }, 0) / totalH,
       caffeine: segs.reduce(function (s, seg) { return s + (seg.targets.caffeinePerHour || 0) * (seg.durationHours || 0); }, 0) / totalH,
     };
   }
 
-  // ── Factories (unchanged, updated to use crypto.randomUUID via generateId) ────
+  // ── Factories ─────────────────────────────────────────────────────────────────
 
   function newSegment(name, durationHours) {
     return {
@@ -478,33 +529,37 @@
 
   // ── Exports ───────────────────────────────────────────────────────────────────
 
-  exports.deriveUserId     = deriveUserId;
-  exports.generateId       = generateId;
-  exports.getProducts      = getProducts;
-  exports.saveProduct      = saveProduct;
-  exports.deleteProduct    = deleteProduct;
-  exports.getEvents        = getEvents;
-  exports.getEvent         = getEvent;
-  exports.saveEvent        = saveEvent;
-  exports.deleteEvent      = deleteEvent;
-  exports.saveActuals      = saveActuals;
-  exports.saveUser         = saveUser;
-  exports.getRecentProducts = getRecentProducts;
-  exports.recordProductUsed = recordProductUsed;
-  exports.migrateIfNeeded  = migrateIfNeeded;
-  exports.calcSegmentTotals = calcSegmentTotals;
-  exports.calcSegmentRates  = calcSegmentRates;
-  exports.calcEventTotals   = calcEventTotals;
-  exports.calcEventRates    = calcEventRates;
-  exports.rateStatus        = rateStatus;
+  exports.getUserId          = getUserId;
+  exports.generatePhrase     = generatePhrase;
+  exports.hashPhrase         = hashPhrase;
+  exports.saveClaim          = saveClaim;
+  exports.lookupClaim        = lookupClaim;
+  exports.generateId         = generateId;
+  exports.getProducts        = getProducts;
+  exports.saveProduct        = saveProduct;
+  exports.deleteProduct      = deleteProduct;
+  exports.getEvents          = getEvents;
+  exports.getEvent           = getEvent;
+  exports.saveEvent          = saveEvent;
+  exports.deleteEvent        = deleteEvent;
+  exports.saveActuals        = saveActuals;
+  exports.saveUser           = saveUser;
+  exports.getRecentProducts  = getRecentProducts;
+  exports.recordProductUsed  = recordProductUsed;
+  exports.migrateIfNeeded    = migrateIfNeeded;
+  exports.calcSegmentTotals  = calcSegmentTotals;
+  exports.calcSegmentRates   = calcSegmentRates;
+  exports.calcEventTotals    = calcEventTotals;
+  exports.calcEventRates     = calcEventRates;
+  exports.rateStatus         = rateStatus;
   exports.calcActualSegmentTotals = calcActualSegmentTotals;
   exports.calcActualSegmentRates  = calcActualSegmentRates;
   exports.calcActualEventTotals   = calcActualEventTotals;
   exports.calcActualEventRates    = calcActualEventRates;
   exports.calcEventGoalRates      = calcEventGoalRates;
-  exports.newSegment        = newSegment;
-  exports.newEvent          = newEvent;
-  exports.itemFromProduct   = itemFromProduct;
-  exports.itemFromOneOff    = itemFromOneOff;
+  exports.newSegment         = newSegment;
+  exports.newEvent           = newEvent;
+  exports.itemFromProduct    = itemFromProduct;
+  exports.itemFromOneOff     = itemFromOneOff;
 
 })(typeof module !== 'undefined' ? module.exports : (window.Data = window.Data || {}));

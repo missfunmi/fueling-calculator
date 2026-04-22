@@ -24,6 +24,11 @@ Object.defineProperty(global, 'crypto', {
       _uuidCounter++;
       return '00000000-0000-0000-0000-' + String(_uuidCounter).padStart(12, '0');
     },
+    getRandomValues: function (arr) {
+      // deterministic values for predictable test output
+      for (var i = 0; i < arr.length; i++) arr[i] = i * 997 + 42;
+      return arr;
+    },
     subtle: nodeCrypto.webcrypto.subtle
   }
 });
@@ -498,57 +503,84 @@ async function run() {
 
   console.log('\nIdentity');
 
-  await test('deriveUserId: same inputs produce same UUID', async function () {
-    var id1 = await D.deriveUserId('Funmi', 'test-phrase');
-    var id2 = await D.deriveUserId('Funmi', 'test-phrase');
-    assert.strictEqual(id1, id2);
+  await test('getUserId returns null when localStorage is empty', function () {
+    assert.strictEqual(D.getUserId(), null);
   });
 
-  await test('deriveUserId: different name produces different UUID', async function () {
-    var id1 = await D.deriveUserId('Funmi', 'test-phrase');
-    var id2 = await D.deriveUserId('Alice', 'test-phrase');
-    assert.notStrictEqual(id1, id2);
+  await test('getUserId returns value set in localStorage', function () {
+    localStorage.setItem('fuelPlanner.userId', 'abc-123');
+    assert.strictEqual(D.getUserId(), 'abc-123');
   });
 
-  await test('deriveUserId: different passphrase produces different UUID', async function () {
-    var id1 = await D.deriveUserId('Funmi', 'test-phrase');
-    var id2 = await D.deriveUserId('Funmi', 'other-phrase');
-    assert.notStrictEqual(id1, id2);
+  await test('generatePhrase returns 4 space-separated words', function () {
+    var phrase = D.generatePhrase();
+    var words = phrase.split(' ');
+    assert.strictEqual(words.length, 4);
+    words.forEach(function (w) { assert.ok(w.length > 0); });
   });
 
-  await test('deriveUserId: name is case-insensitive', async function () {
-    var id1 = await D.deriveUserId('FUNMI', 'test-phrase');
-    var id2 = await D.deriveUserId('funmi', 'test-phrase');
-    assert.strictEqual(id1, id2);
+  await test('generatePhrase returns a string', function () {
+    assert.ok(typeof D.generatePhrase() === 'string');
   });
 
-  await test('deriveUserId: name and passphrase are trimmed', async function () {
-    var id1 = await D.deriveUserId('  Funmi  ', '  test-phrase  ');
-    var id2 = await D.deriveUserId('Funmi', 'test-phrase');
-    assert.strictEqual(id1, id2);
+  await test('hashPhrase returns 64-char hex string', async function () {
+    var hash = await D.hashPhrase('maple river sunset bottle');
+    assert.match(hash, /^[0-9a-f]{64}$/);
   });
 
-  await test('deriveUserId: output is UUID-shaped (8-4-4-4-12 hex)', async function () {
-    var id = await D.deriveUserId('Funmi', 'test-phrase');
-    assert.match(id, /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+  await test('hashPhrase normalises case and trims whitespace', async function () {
+    var h1 = await D.hashPhrase('  Maple River Sunset Bottle  ');
+    var h2 = await D.hashPhrase('maple river sunset bottle');
+    assert.strictEqual(h1, h2);
   });
 
-  await test('deriveUserId: passphrase is case-sensitive', async function () {
-    var id1 = await D.deriveUserId('Funmi', 'Test-Phrase');
-    var id2 = await D.deriveUserId('Funmi', 'test-phrase');
-    assert.notStrictEqual(id1, id2);
+  await test('hashPhrase same input always produces same hash', async function () {
+    var h1 = await D.hashPhrase('maple river sunset bottle');
+    var h2 = await D.hashPhrase('maple river sunset bottle');
+    assert.strictEqual(h1, h2);
   });
 
-  await test('saveUser sends upsert POST to users endpoint', async function () {
+  await test('hashPhrase different input produces different hash', async function () {
+    var h1 = await D.hashPhrase('maple river sunset bottle');
+    var h2 = await D.hashPhrase('maple river sunset jar');
+    assert.notStrictEqual(h1, h2);
+  });
+
+  await test('saveClaim sends POST to claims endpoint', async function () {
+    localStorage.setItem('fuelPlanner.userId', 'test-uuid');
     mockFetch([{ status: 200, body: '[]' }]);
-    await D.saveUser('aaaaaaaa-0000-0000-0000-000000000001', 'Funmi');
+    await D.saveClaim('abc123hash');
+    // passes if no exception thrown
+  });
+
+  await test('saveClaim throws on server error', async function () {
+    localStorage.setItem('fuelPlanner.userId', 'test-uuid');
+    mockFetch([{ status: 400, body: 'Bad request' }]);
+    await assert.rejects(D.saveClaim('abc123hash'), /Bad request/);
+  });
+
+  await test('lookupClaim returns user_id when found', async function () {
+    mockFetch([{ status: 200, body: JSON.stringify([{ user_id: 'found-uuid' }]) }]);
+    var result = await D.lookupClaim('abc123hash');
+    assert.strictEqual(result, 'found-uuid');
+  });
+
+  await test('lookupClaim returns null when not found', async function () {
+    mockFetch([{ status: 200, body: '[]' }]);
+    var result = await D.lookupClaim('abc123hash');
+    assert.strictEqual(result, null);
+  });
+
+  await test('saveUser sends upsert POST to users endpoint (id only)', async function () {
+    mockFetch([{ status: 200, body: '[]' }]);
+    await D.saveUser('aaaaaaaa-0000-0000-0000-000000000001');
     // passes if no exception thrown
   });
 
   await test('saveUser throws on server error', async function () {
     mockFetch([{ status: 400, body: 'Bad request' }]);
     await assert.rejects(
-      D.saveUser('aaaaaaaa-0000-0000-0000-000000000001', 'Funmi'),
+      D.saveUser('aaaaaaaa-0000-0000-0000-000000000001'),
       /Bad request/
     );
   });
