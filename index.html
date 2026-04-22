@@ -32,28 +32,7 @@
         <li>Access your plans from any device</li>
       </ul>
       <button id="btn-landing-start" class="btn-primary">Get started</button>
-    </div>
-  </div>
-
-  <!-- ── Setup view ─────────────────────────────────────────────────── -->
-  <div id="view-setup" class="view view-centered">
-    <div class="setup-content">
-      <h1 class="setup-title">Set up your space</h1>
-      <form id="setup-form" novalidate>
-        <div class="form-group">
-          <label for="setup-name">What should we call you?</label>
-          <input id="setup-name" class="form-input" type="text" placeholder="Your name" autocomplete="off" required>
-        </div>
-        <div class="form-group">
-          <label for="setup-passphrase">Your phrase</label>
-          <div class="passphrase-field">
-            <input id="setup-passphrase" class="form-input" type="text" placeholder="e.g. purple cactus tuesday" autocomplete="off" required>
-            <button type="button" id="btn-toggle-passphrase" class="btn-show-passphrase" aria-label="Hide phrase">Hide</button>
-          </div>
-          <p class="setup-helper">A few words you'll remember — type the same phrase on any device to get back to your data.</p>
-        </div>
-        <button type="submit" class="btn-primary">Get started</button>
-      </form>
+      <button id="btn-existing-data" class="btn-secondary" style="margin-top:8px">Take me to my existing data</button>
     </div>
   </div>
 
@@ -63,7 +42,54 @@
       <h1>Events</h1>
       <button id="btn-new-event" class="btn-icon" aria-label="New event">+</button>
     </header>
+    <div id="claim-indicator" class="claim-indicator hidden">
+      <span id="claim-indicator-text" class="claim-indicator-text">Save your data — get a recovery phrase</span>
+      <button id="btn-dismiss-indicator" class="claim-indicator-dismiss" type="button" aria-label="Dismiss">&#215;</button>
+    </div>
     <div id="events-list" class="view-body"></div>
+  </div>
+
+  <!-- ── Claim view ────────────────────────────────────────────────────── -->
+  <div id="view-claim" class="view">
+    <header class="app-header">
+      <button id="btn-claim-back" class="btn-back" aria-label="Back">&#8592;</button>
+      <h1>Recovery phrase</h1>
+    </header>
+    <div class="view-body">
+      <div class="form-card" style="margin-top:16px">
+        <p class="claim-subtext">Write these words down or copy them somewhere safe. You'll need them to access your data on a new device.</p>
+        <div id="claim-phrase" class="claim-phrase"></div>
+        <div class="claim-phrase-actions">
+          <button id="btn-regenerate-phrase" type="button" class="btn-secondary">Regenerate</button>
+          <button id="btn-copy-phrase" type="button" class="btn-secondary">Copy</button>
+        </div>
+        <div class="toggle-row" style="margin-top:20px">
+          <span class="toggle-label">I've saved my recovery phrase</span>
+          <input id="claim-saved-checkbox" class="toggle-input" type="checkbox">
+        </div>
+      </div>
+      <button id="btn-save-claim" type="button" class="btn-primary" style="margin-top:16px" disabled>Save and continue</button>
+    </div>
+  </div>
+
+  <!-- ── Recovery view ─────────────────────────────────────────────────── -->
+  <div id="view-recovery" class="view">
+    <header class="app-header">
+      <button id="btn-recovery-back" class="btn-back" aria-label="Back">&#8592;</button>
+      <h1>Recovery</h1>
+    </header>
+    <div class="view-body">
+      <div class="form-card" style="margin-top:16px">
+        <p class="recovery-subtext">Type the 4 words you saved when you set up your data.</p>
+        <div class="form-group">
+          <label for="recovery-phrase-input">Recovery phrase</label>
+          <input id="recovery-phrase-input" class="form-input" type="text"
+                 placeholder="e.g. maple river sunset bottle" autocomplete="off">
+        </div>
+        <div id="recovery-error" class="recovery-error hidden"></div>
+      </div>
+      <button id="btn-find-data" type="button" class="btn-primary" style="margin-top:16px">Find my data</button>
+    </div>
   </div>
 
   <!-- ── Event detail view ──────────────────────────────────────── -->
