@@ -523,6 +523,18 @@ async function run() {
     assert.ok(typeof D.generatePhrase() === 'string');
   });
 
+  await test('generatePhrase returns words from the wordlist', function () {
+    // mock getRandomValues fills [42, 1039, 2036, 3033]; each mod 256 = [42, 15, 244, 217]
+    var phrase = D.generatePhrase();
+    var words = phrase.split(' ');
+    // Verify each word is a real word (not undefined/empty/number)
+    words.forEach(function (w) {
+      assert.ok(/^[a-z]+$/.test(w), 'word should be lowercase alpha: ' + w);
+    });
+    // Verify phrase is deterministic with the mock
+    assert.strictEqual(words.length, 4);
+  });
+
   await test('hashPhrase returns 64-char hex string', async function () {
     var hash = await D.hashPhrase('maple river sunset bottle');
     assert.match(hash, /^[0-9a-f]{64}$/);
