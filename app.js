@@ -1298,7 +1298,7 @@
 
   // ── Product library ──────────────────────────────────────────────────────────
 
-  var TYPE_ORDER = ['gel', 'bar', 'drink_powder', 'liquid', 'chew'];
+  var TYPE_ORDER = ['bar', 'chew', 'drink_powder', 'gel', 'liquid'];
 
   // Normalise a product type string to a canonical lowercase key so that
   // "Gel", "gel", "Drink Powder", "drink_powder" all map to the same group.
