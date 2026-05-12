@@ -24,6 +24,39 @@
     return rounded + (unit || '');
   }
 
+  // Parses a segment duration string into decimal hours.
+  // Accepts: "1:45" · "1h45m" · "1h 45m" · "45m" · "1.75" · "2"
+  function parseDuration(str) {
+    str = (str || '').trim().toLowerCase();
+    if (!str) return 0;
+    // "1h45m", "1h 45m", "1h45", "2h" — hours with optional minutes
+    var hmMatch = str.match(/^(\d+(?:\.\d+)?)\s*h\s*(\d+)?\s*m?$/);
+    if (hmMatch) {
+      return (parseFloat(hmMatch[1]) || 0) + (parseFloat(hmMatch[2] || 0)) / 60;
+    }
+    // "45m", "45min" — minutes only
+    var mMatch = str.match(/^(\d+(?:\.\d+)?)\s*m(?:in)?$/);
+    if (mMatch) {
+      return (parseFloat(mMatch[1]) || 0) / 60;
+    }
+    // "1:45" — colon-separated h:m
+    var colonParts = str.split(':');
+    if (colonParts.length === 2) {
+      return (parseFloat(colonParts[0]) || 0) + (parseFloat(colonParts[1]) || 0) / 60;
+    }
+    // plain number = decimal hours
+    return parseFloat(str) || 0;
+  }
+
+  // Formats decimal hours for editing in duration inputs: 1.75 → "1:45", 2 → "2:00"
+  function formatDuration(hours) {
+    if (!hours || hours <= 0) return '';
+    var h = Math.floor(hours);
+    var m = Math.round((hours - h) * 60);
+    if (m === 60) { h += 1; m = 0; }
+    return h + ':' + (m < 10 ? '0' : '') + m;
+  }
+
   function parseHMS(str) {
     str = (str || '').trim();
     var parts = str.split(':');
@@ -154,8 +187,8 @@
       '</div>' +
       '<div class="form-row">' +
         '<div class="form-group">' +
-          '<label>Duration (hrs)</label>' +
-          '<input class="form-input seg-duration" type="number" min="0.25" step="0.25" value="' + seg.durationHours + '">' +
+          '<label>Duration</label>' +
+          '<input class="form-input seg-duration" type="text" inputmode="decimal" value="' + formatDuration(seg.durationHours) + '" placeholder="e.g. 1:45 or 1h45m">' +
         '</div>' +
       '</div>' +
       '<div class="form-row">' +
@@ -317,7 +350,7 @@
       var seg = draftSegments.find(function (s) { return s.id === id; });
       if (!seg) return;
       seg.name = card.querySelector('.seg-name').value.trim();
-      var dur = parseFloat(card.querySelector('.seg-duration').value);
+      var dur = parseDuration(card.querySelector('.seg-duration').value);
       if (dur > 0) seg.durationHours = dur;
       var carbs = parseFloat(card.querySelector('.seg-carbs-target').value);
       if (!isNaN(carbs)) seg.targets.carbsPerHour = carbs;
@@ -371,7 +404,7 @@
       return {
         id:            id,
         name:          card.querySelector('.seg-name').value.trim() || name,
-        durationHours: parseFloat(card.querySelector('.seg-duration').value) || 1,
+        durationHours: parseDuration(card.querySelector('.seg-duration').value) || 1,
         targets: {
           carbsPerHour:    parseFloat(card.querySelector('.seg-carbs-target').value)    || 0,
           sodiumPerHour:   parseFloat(card.querySelector('.seg-sodium-target').value)   || 0,
@@ -1403,7 +1436,8 @@
         if (field === 'seg-name') {
           seg.name = value || seg.name;
         } else if (field === 'seg-duration') {
-          if (num > 0) seg.durationHours = num;
+          var dur = parseDuration(value);
+          if (dur > 0) seg.durationHours = dur;
         } else if (field === 'seg-carbs-target') {
           if (!isNaN(num) && num >= 0) seg.targets.carbsPerHour = num;
         } else if (field === 'seg-sodium-target') {
@@ -1418,8 +1452,12 @@
       }
     }
 
-    // Strip display formatting so the inline input shows just the raw number
-    if (field !== 'seg-name') {
+    // Normalise the element text to the editable format before makeEditable() runs
+    if (field === 'seg-duration') {
+      // Show h:mm so the user can type in the same format they'll see in the form
+      var curSeg = state.currentEvent && state.currentEvent.segments.find(function (s) { return s.id === segId; });
+      el.textContent = curSeg ? formatDuration(curSeg.durationHours) : '';
+    } else if (field !== 'seg-name') {
       var raw = el.textContent.trim();
       el.textContent = parseFloat(raw.replace(/[^0-9.]/g, '')) || 0;
     }
