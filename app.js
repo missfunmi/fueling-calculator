@@ -1134,9 +1134,36 @@
       $results.innerHTML = '<div style="padding:16px 0;font-size:14px;color:var(--text-tertiary)">Your library is empty. Add products via the Library tab.</div>';
       return;
     }
-    $results.innerHTML = filtered.map(function (p) {
-      return productRowSheetHTML(p);
-    }).join('');
+
+    if (query) {
+      // Search results: flat list sorted alphabetically, no category headers.
+      filtered.sort(function (a, b) {
+        return productSortKey(a) < productSortKey(b) ? -1 : productSortKey(a) > productSortKey(b) ? 1 : 0;
+      });
+      $results.innerHTML = filtered.map(function (p) { return productRowSheetHTML(p); }).join('');
+    } else {
+      // No query: group by type, sort within each group, show category headings.
+      var sheetGroups = {};
+      filtered.forEach(function (p) {
+        var key = normalizeType(p.type);
+        if (!sheetGroups[key]) sheetGroups[key] = [];
+        sheetGroups[key].push(p);
+      });
+      Object.keys(sheetGroups).forEach(function (key) {
+        sheetGroups[key].sort(function (a, b) {
+          return productSortKey(a) < productSortKey(b) ? -1 : productSortKey(a) > productSortKey(b) ? 1 : 0;
+        });
+      });
+      var sheetTypes = TYPE_ORDER.concat(
+        Object.keys(sheetGroups).filter(function (t) { return TYPE_ORDER.indexOf(t) === -1; }).sort()
+      ).filter(function (t) { return sheetGroups[t]; });
+      $results.innerHTML = sheetTypes.map(function (type) {
+        return '<div class="product-group-title" style="padding:8px 16px 4px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-tertiary)">' +
+          escHtml(TYPE_LABELS[type] || type) + 's' +
+        '</div>' +
+        sheetGroups[type].map(function (p) { return productRowSheetHTML(p); }).join('');
+      }).join('');
+    }
     attachSheetProductHandlers($results);
   }
 
@@ -1273,6 +1300,18 @@
 
   var TYPE_ORDER = ['gel', 'bar', 'drink_powder', 'liquid', 'chew'];
 
+  // Normalise a product type string to a canonical lowercase key so that
+  // "Gel", "gel", "Drink Powder", "drink_powder" all map to the same group.
+  function normalizeType(type) {
+    if (!type) return 'other';
+    return type.toLowerCase().replace(/\s+/g, '_');
+  }
+
+  // Sort key for a product: "Brand Name" → lowercase, used for alphabetical ordering.
+  function productSortKey(p) {
+    return ((p.brand ? p.brand + ' ' : '') + p.name).toLowerCase();
+  }
+
   async function renderLibrary() {
     var $body = $('library-body');
     showContainerSpinner($body);
@@ -1295,16 +1334,23 @@
       return;
     }
 
-    // Group by type
+    // Group by normalised type key so "Gel" and "gel" land in the same bucket.
     var groups = {};
     products.forEach(function (p) {
-      var key = p.type || 'other';
+      var key = normalizeType(p.type);
       if (!groups[key]) groups[key] = [];
       groups[key].push(p);
     });
 
+    // Sort each group alphabetically by brand + name.
+    Object.keys(groups).forEach(function (key) {
+      groups[key].sort(function (a, b) {
+        return productSortKey(a) < productSortKey(b) ? -1 : productSortKey(a) > productSortKey(b) ? 1 : 0;
+      });
+    });
+
     var types = TYPE_ORDER.concat(
-      Object.keys(groups).filter(function (t) { return TYPE_ORDER.indexOf(t) === -1; })
+      Object.keys(groups).filter(function (t) { return TYPE_ORDER.indexOf(t) === -1; }).sort()
     ).filter(function (t) { return groups[t]; });
 
     $body.innerHTML = desktopBtn + types.map(function (type) {
