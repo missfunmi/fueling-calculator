@@ -533,6 +533,7 @@
         return html;
       }).join('') +
       (multiSeg ? totalsFooterHTML(totals, totalH) : '') +
+      '<div style="padding:8px 16px"><button id="btn-copy-plan" type="button" class="btn-secondary" style="margin-top:8px">Copy plan</button></div>' +
       (showActuals ? postEventNotesHTML(evt.postEventNotes) : '') +
       (showActuals
         ? '<div class="clear-actuals-section"><button class="btn-clear-actuals" data-clear-actuals>Remove post-event data</button></div>'
@@ -844,6 +845,19 @@
     if (clearActualsBtn) {
       on(clearActualsBtn, 'click', function () {
         clearActuals(evt.id);
+      });
+    }
+
+    // Copy plan button
+    var copyPlanBtn = $('btn-copy-plan');
+    if (copyPlanBtn) {
+      on(copyPlanBtn, 'click', function () {
+        var md = Export.generateEventMarkdown(evt);
+        navigator.clipboard.writeText(md).then(function () {
+          showToast('Plan copied!');
+        }).catch(function () {
+          showToast("Couldn't copy — try again.");
+        });
       });
     }
   }
@@ -1616,6 +1630,7 @@
   window._App = {
     state: state, navigate: navigate, renders: renders,
     $: $, $$: $$, on: on, fmt: fmt, escHtml: escHtml,
+    formatHM: formatHM,
     segmentFormHTML: segmentFormHTML,
     TYPE_LABELS: TYPE_LABELS, EVENT_TYPE_LABELS: EVENT_TYPE_LABELS
   };
