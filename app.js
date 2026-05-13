@@ -221,6 +221,26 @@
 
   // ── Events list ────────────────────────────────────────────────────────────
 
+  function eventCardHTML(evt) {
+    var totals = Data.calcEventTotals(evt);
+    var totalHours = totals.durationHours;
+    var hLabel = totalHours === Math.floor(totalHours)
+      ? totalHours + 'h'
+      : totalHours.toFixed(1) + 'h';
+    return '<div class="event-card" data-event-id="' + evt.id + '">' +
+      '<div class="event-card-row">' +
+        '<span class="event-card-name">' + escHtml(evt.name) + '</span>' +
+        '<span class="type-badge">' + (EVENT_TYPE_LABELS[evt.type] || escHtml(evt.type)) + '</span>' +
+      '</div>' +
+      '<div class="event-card-meta">' +
+        (evt.date ? escHtml(evt.date) + ' · ' : '') +
+        hLabel + ' · ' +
+        Math.round(totals.carbs) + 'g carbs · ' +
+        Math.round(totals.sodium) + 'mg Na' +
+      '</div>' +
+    '</div>';
+  }
+
   async function renderEventsList() {
     var $list = $('events-list');
     showContainerSpinner($list);
@@ -240,25 +260,23 @@
       _refreshClaimIndicator();
       return;
     }
-    $list.innerHTML = events.map(function (evt) {
-      var totals = Data.calcEventTotals(evt);
-      var totalHours = totals.durationHours;
-      var hLabel = totalHours === Math.floor(totalHours)
-        ? totalHours + 'h'
-        : totalHours.toFixed(1) + 'h';
-      return '<div class="event-card" data-event-id="' + evt.id + '">' +
-        '<div class="event-card-row">' +
-          '<span class="event-card-name">' + escHtml(evt.name) + '</span>' +
-          '<span class="type-badge">' + (EVENT_TYPE_LABELS[evt.type] || escHtml(evt.type)) + '</span>' +
+
+    var today = new Date().toISOString().slice(0, 10);
+    var upcoming = events.filter(function (evt) { return !evt.date || evt.date >= today; });
+    var past     = events.filter(function (evt) { return evt.date && evt.date < today; });
+
+    var html = upcoming.map(eventCardHTML).join('');
+
+    if (past.length) {
+      html += '<details class="past-events-section">' +
+        '<summary class="past-events-summary">Past events (' + past.length + ')</summary>' +
+        '<div class="past-events-list">' +
+          past.map(eventCardHTML).join('') +
         '</div>' +
-        '<div class="event-card-meta">' +
-          (evt.date ? escHtml(evt.date) + ' · ' : '') +
-          hLabel + ' · ' +
-          Math.round(totals.carbs) + 'g carbs · ' +
-          Math.round(totals.sodium) + 'mg Na' +
-        '</div>' +
-      '</div>';
-    }).join('');
+      '</details>';
+    }
+
+    $list.innerHTML = html;
 
     $list.querySelectorAll('.event-card').forEach(function (card) {
       on(card, 'click', function () {

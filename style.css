@@ -197,6 +197,29 @@ a { color: inherit; text-decoration: none; }
 .event-card-row { display: flex; align-items: center; gap: 8px; }
 .event-card-name { font-weight: 600; font-size: 16px; flex: 1; }
 .event-card-meta { font-size: 13px; color: var(--text-secondary); }
+
+.past-events-section { margin-top: 8px; }
+.past-events-summary {
+  display: flex;
+  align-items: center;
+  padding: 10px 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.past-events-summary::-webkit-details-marker { display: none; }
+.past-events-summary::before {
+  content: '›';
+  display: inline-block;
+  margin-right: 6px;
+  font-size: 16px;
+  transition: transform 0.15s;
+}
+.past-events-section[open] > .past-events-summary::before { transform: rotate(90deg); }
+.past-events-list { display: flex; flex-direction: column; gap: 10px; padding-top: 4px; }
 .type-badge {
   font-size: 11px;
   font-weight: 600;
