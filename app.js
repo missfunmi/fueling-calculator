@@ -188,7 +188,7 @@
       '<div class="form-row">' +
         '<div class="form-group">' +
           '<label>Duration</label>' +
-          '<input class="form-input seg-duration" type="text" inputmode="decimal" value="' + formatDuration(seg.durationHours) + '" placeholder="e.g. 1:45 or 1h45m">' +
+          '<input class="form-input seg-duration" type="text" inputmode="text" value="' + formatDuration(seg.durationHours) + '" placeholder="e.g. 1:45 or 1h45m">' +
         '</div>' +
       '</div>' +
       '<div class="form-row">' +
