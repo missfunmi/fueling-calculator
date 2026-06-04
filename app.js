@@ -8,7 +8,8 @@
     currentEventId: null,
     currentEvent: null,
     addingToSegmentId: null,
-    editingProductId: null   // null = creating new product
+    editingProductId: null,  // null = creating new product
+    claimReturnView: null    // where to return after claim view (null = landing)
   };
 
   var _indicatorDismissed = false; // reset to false on page load; session-only dismissal
@@ -1412,6 +1413,7 @@
           '<button id="btn-settings-go-claim" class="btn-primary">Claim account</button>' +
         '</div>';
       on($('btn-settings-go-claim'), 'click', function () {
+        state.claimReturnView = 'settings';
         navigate('claim');
       });
     } else {
@@ -1423,6 +1425,7 @@
         '</div>';
       on($('btn-settings-new-phrase'), 'click', function () {
         if (!confirm('This will replace your current recovery phrase. Your old phrase will stop working immediately. Make sure you\'re ready to save the new one before continuing.')) return;
+        state.claimReturnView = 'settings';
         navigate('claim');
       });
     }
@@ -1605,6 +1608,7 @@
     on($('claim-indicator'), 'click', function (e) {
       var dismissBtn = $('btn-dismiss-indicator');
       if (dismissBtn && dismissBtn.contains(e.target)) return;
+      state.claimReturnView = null;
       navigate('claim');
     });
     on($('btn-dismiss-indicator'), 'click', function (e) {
@@ -1615,7 +1619,9 @@
     });
 
     // Claim screen
-    on($('btn-claim-back'), 'click', function () { navigate('events'); });
+    on($('btn-claim-back'), 'click', function () {
+      navigate(state.claimReturnView || 'landing');
+    });
 
     on($('btn-regenerate-phrase'), 'click', function () {
       _currentPhrase = Data.generatePhrase();
