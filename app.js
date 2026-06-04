@@ -119,7 +119,7 @@
   };
 
   // ── Router ─────────────────────────────────────────────────────────────────
-  var TAB_VIEWS = { events: true, library: true, settings: true };
+  var TAB_VIEWS = { events: true, library: true };
 
   function navigate(view, params) {
     closeSheet(); // ensure sheet is closed on navigation
@@ -133,7 +133,7 @@
     // Show/hide tab bar (hide on detail and form views)
     var hideTabBar = (view === 'detail' || view === 'create' ||
                       view === 'product-form' || view === 'landing' ||
-                      view === 'claim' || view === 'recovery');
+                      view === 'claim' || view === 'recovery' || view === 'settings');
     var tabBar = $('tab-bar');
     if (tabBar) tabBar.style.display = hideTabBar ? 'none' : '';
 
@@ -1420,7 +1420,7 @@
       section.innerHTML =
         '<div class="form-card" style="margin-top:16px">' +
           '<p style="margin:0 0 4px;font-weight:600">Recovery phrase</p>' +
-          '<p style="margin:0 0 12px;color:var(--text-secondary);font-size:14px">Generate a new recovery phrase to link your account on another device. You\'ll need to save the new phrase — your old one will stop working.</p>' +
+          '<p style="margin:0 0 12px;color:var(--text-secondary);font-size:14px">For security reasons, your recovery phrase was never stored, so we can\'t show it to you. If you\'ve lost it, generate a new one below. Be sure to save it immediately, as your old phrase will stop working.</p>' +
           '<button id="btn-settings-new-phrase" class="btn-secondary">Generate new recovery phrase</button>' +
         '</div>';
       on($('btn-settings-new-phrase'), 'click', function () {
@@ -1601,6 +1601,18 @@
     // ── Tab bar — registered early so it works immediately after Get Started ────
     $$('.tab-btn').forEach(function (btn) {
       on(btn, 'click', function () { navigate(btn.dataset.tabView); });
+    });
+
+    // ── Settings gear buttons ──────────────────────────────────────────────────
+    function openSettings() {
+      state.settingsReturnView = state.view;
+      navigate('settings');
+    }
+    on($('btn-settings-events'), 'click', openSettings);
+    on($('btn-settings-library'), 'click', openSettings);
+    on($('btn-settings-nav'), 'click', openSettings);
+    on($('btn-settings-back'), 'click', function () {
+      navigate(state.settingsReturnView || 'events');
     });
 
     // Claim indicator: tapping the text/background opens claim screen;
