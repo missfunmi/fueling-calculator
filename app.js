@@ -1608,7 +1608,7 @@
     on($('claim-indicator'), 'click', function (e) {
       var dismissBtn = $('btn-dismiss-indicator');
       if (dismissBtn && dismissBtn.contains(e.target)) return;
-      state.claimReturnView = null;
+      state.claimReturnView = 'events';
       navigate('claim');
     });
     on($('btn-dismiss-indicator'), 'click', function (e) {
