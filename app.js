@@ -118,7 +118,7 @@
   };
 
   // ── Router ─────────────────────────────────────────────────────────────────
-  var TAB_VIEWS = { events: true, library: true };
+  var TAB_VIEWS = { events: true, library: true, settings: true };
 
   function navigate(view, params) {
     closeSheet(); // ensure sheet is closed on navigation
@@ -1400,7 +1400,36 @@
     if (dbtn) on(dbtn, 'click', function () { navigate('product-form', { editingProductId: null }); });
   }
 
+  function renderSettings() {
+    var isAnonymous = localStorage.getItem('fuelPlanner.isAnonymous') === 'true';
+    var section = $('settings-account-section');
+    if (!section) return;
+
+    if (isAnonymous) {
+      section.innerHTML =
+        '<div class="form-card" style="margin-top:16px">' +
+          '<p style="margin:0 0 12px">Claim your account to protect your data and get a recovery phrase for linking this account on another device.</p>' +
+          '<button id="btn-settings-go-claim" class="btn-primary">Claim account</button>' +
+        '</div>';
+      on($('btn-settings-go-claim'), 'click', function () {
+        navigate('claim');
+      });
+    } else {
+      section.innerHTML =
+        '<div class="form-card" style="margin-top:16px">' +
+          '<p style="margin:0 0 4px;font-weight:600">Recovery phrase</p>' +
+          '<p style="margin:0 0 12px;color:var(--text-secondary);font-size:14px">Generate a new recovery phrase to link your account on another device. You\'ll need to save the new phrase — your old one will stop working.</p>' +
+          '<button id="btn-settings-new-phrase" class="btn-secondary">Generate new recovery phrase</button>' +
+        '</div>';
+      on($('btn-settings-new-phrase'), 'click', function () {
+        if (!confirm('This will replace your current recovery phrase. Your old phrase will stop working immediately. Make sure you\'re ready to save the new one before continuing.')) return;
+        navigate('claim');
+      });
+    }
+  }
+
   renders.library = renderLibrary;
+  renders.settings = renderSettings;
 
   on($('btn-new-product'), 'click', function () {
     navigate('product-form', { editingProductId: null });

@@ -732,7 +732,8 @@ input[type="date"].form-input {
 
   /* Hide per-view headers on list views — top nav handles navigation */
   #view-events .app-header,
-  #view-library .app-header { display: none; }
+  #view-library .app-header,
+  #view-settings .app-header { display: none; }
 
   /* Center content with comfortable reading width */
   .view-body {
