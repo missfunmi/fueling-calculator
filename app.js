@@ -1651,6 +1651,7 @@
         await Data.saveClaim(hash);
         localStorage.setItem('fuelPlanner.isAnonymous', 'false');
         _refreshClaimIndicator();
+        state.claimReturnView = null;
         navigate('events');
         showToast('Recovery phrase saved!');
       } catch (e) {
