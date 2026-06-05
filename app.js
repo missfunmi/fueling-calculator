@@ -630,6 +630,84 @@
           : '<div style="padding:12px 16px;font-size:13px;color:var(--text-tertiary)">No items yet.</div>') +
       '</div>' +
       '<button class="btn-add-item" data-add-segment-id="' + seg.id + '">+ Add item</button>' +
+      executionPlanHTML(seg) +
+    '</div>';
+  }
+
+  function slotTimeLabel(slotIndex, intervalMinutes) {
+    var totalMinutes = (slotIndex + 1) * intervalMinutes;
+    var h = Math.floor(totalMinutes / 60);
+    var m = totalMinutes % 60;
+    return h + ':' + String(m).padStart(2, '0');
+  }
+
+  function executionPlanHTML(seg) {
+    var plan = Data.loadExecutionPlan(seg.id);
+    var hasPlan = plan && plan.length > 0;
+
+    // Staleness check: slot count mismatch means duration changed
+    var expectedSlots = Math.ceil((seg.durationHours || 1) * 60 / 15);
+    var isStale = hasPlan && plan.length !== expectedSlots;
+
+    // Check for orphaned itemIds (items removed since generation)
+    var itemIds = new Set((seg.items || []).map(function (i) { return i.id; }));
+    var hasOrphans = hasPlan && plan.some(function (slot) {
+      return (slot.assignments || []).some(function (a) { return !itemIds.has(a.itemId); });
+    });
+    var showStaleWarning = isStale || hasOrphans;
+
+    var headerHTML =
+      '<div class="exec-plan-header">' +
+        '<button class="exec-plan-toggle" data-exec-toggle="' + seg.id + '" aria-expanded="false">' +
+          (hasPlan ? '&#9660;' : '&#9654;') + ' Execution plan' +
+        '</button>' +
+        (hasPlan
+          ? '<div class="exec-plan-header-actions">' +
+              '<button class="exec-plan-copy-btn" data-exec-copy="' + seg.id + '" title="Copy execution plan" aria-label="Copy execution plan">' +
+                '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>' +
+              '</button>' +
+              '<button class="exec-plan-regen-btn" data-exec-regen="' + seg.id + '">Regenerate</button>' +
+            '</div>'
+          : '<button class="exec-plan-generate-btn" data-exec-generate="' + seg.id + '">Generate</button>') +
+      '</div>';
+
+    if (!hasPlan) {
+      return '<div class="exec-plan-panel" data-exec-panel="' + seg.id + '">' + headerHTML + '</div>';
+    }
+
+    var staleHTML = showStaleWarning
+      ? '<div class="exec-plan-stale-warning">Segment changed — plan may be out of date. Regenerate to refresh.</div>'
+      : '';
+
+    var slotsHTML = plan.map(function (slot) {
+      var slotCarbs = Data.calcSlotCarbs(slot, seg.items);
+      var carbLabel = slotCarbs > 0 ? '<span class="exec-slot-carbs">~' + Math.round(slotCarbs) + 'g</span>' : '';
+
+      var assignmentLabels = (slot.assignments || []).map(function (a) {
+        var item = (seg.items || []).find(function (i) { return i.id === a.itemId; });
+        if (!item) return '';
+        var fullName = escHtml((item.brand ? item.brand + ' ' : '') + item.name);
+        if (item.type === 'drink_powder') return 'Sip ' + fullName;
+        if (a.quantity === 0.5) return '½ ' + fullName;
+        return fullName;
+      }).filter(Boolean).join(' · ');
+
+      var isEmpty = !assignmentLabels;
+
+      return '<div class="exec-slot-row' + (isEmpty ? ' exec-slot-empty' : '') + '" ' +
+        'data-exec-slot="' + seg.id + ':' + slot.slotIndex + '">' +
+        '<span class="exec-slot-time">' + slotTimeLabel(slot.slotIndex, slot.intervalMinutes) + '</span>' +
+        '<span class="exec-slot-items">' + (isEmpty ? '—' : assignmentLabels) + '</span>' +
+        carbLabel +
+      '</div>';
+    }).join('');
+
+    return '<div class="exec-plan-panel" data-exec-panel="' + seg.id + '">' +
+      headerHTML +
+      '<div class="exec-plan-body hidden" data-exec-body="' + seg.id + '">' +
+        staleHTML +
+        '<div class="exec-slots-list">' + slotsHTML + '</div>' +
+      '</div>' +
     '</div>';
   }
 

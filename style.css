@@ -1098,3 +1098,97 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   padding: 4px 0;
 }
 
+/* ── Execution Plan Panel ─────────────────────────────────────────────────── */
+.exec-plan-panel {
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+}
+
+.exec-plan-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+}
+
+.exec-plan-toggle {
+  background: none;
+  border: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+}
+
+.exec-plan-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.exec-plan-generate-btn,
+.exec-plan-regen-btn {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.exec-plan-copy-btn {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+}
+
+.exec-plan-stale-warning {
+  font-size: 12px;
+  color: var(--warning, #b45309);
+  background: var(--warning-bg, #fef3c7);
+  padding: 6px 16px;
+  border-radius: 6px;
+  margin: 0 16px 8px;
+}
+
+.exec-plan-body { padding-bottom: 8px; }
+.exec-plan-body.hidden { display: none; }
+
+.exec-slots-list { padding: 0 16px; }
+
+.exec-slot-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  font-size: 13px;
+}
+.exec-slot-row:last-child { border-bottom: none; }
+.exec-slot-row:active { background: var(--surface-raised); }
+
+.exec-slot-empty .exec-slot-items { color: var(--text-tertiary); }
+
+.exec-slot-time {
+  min-width: 36px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.exec-slot-items { flex: 1; }
+
+.exec-slot-carbs {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
