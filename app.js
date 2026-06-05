@@ -1038,9 +1038,7 @@
     var copyBtn = segEl.querySelector('[data-exec-copy]');
     if (copyBtn) {
       on(copyBtn, 'click', function () {
-        var evt2 = state.currentEvent;
-        if (!evt2) return;
-        var seg2 = (evt2.segments || []).find(function (s) { return s.id === copyBtn.dataset.execCopy; });
+        var seg2 = (evt.segments || []).find(function (s) { return s.id === copyBtn.dataset.execCopy; });
         var plan = Data.loadExecutionPlan(copyBtn.dataset.execCopy);
         if (!seg2 || !plan) return;
         var text = Export.generateExecutionPlanText(seg2, plan);
@@ -1129,16 +1127,16 @@
       if (toggle) toggle.setAttribute('aria-expanded', 'true');
     }
 
+    if (forceRegenerate && Data.loadExecutionPlan(segId)) {
+      if (!confirm('Regenerate plan? Any manual edits will be replaced.')) return;
+    }
+
     var shortfall = Data.checkExecutionPlanTarget(seg);
     if (shortfall !== null) {
       if (!confirm(
         'This plan delivers ~' + shortfall + 'g/hr carbs against a ' +
         seg.targets.carbsPerHour + 'g/hr target.\nConsider adding more items. Generate anyway?'
       )) return;
-    }
-
-    if (forceRegenerate && Data.loadExecutionPlan(segId)) {
-      if (!confirm('Regenerate plan? Any manual edits will be replaced.')) return;
     }
 
     doGenerate();
