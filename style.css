@@ -1192,3 +1192,82 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   white-space: nowrap;
 }
 
+/* ── Slot editor sheet ────────────────────────────────────────────────────── */
+.slot-editor-body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 8px 16px;
+}
+
+.slot-editor-footer {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+}
+
+.slot-assignment-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+.slot-assignment-row:last-child { border-bottom: none; }
+
+.slot-assignment-label { flex: 1; }
+
+.slot-assignment-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.slot-assignment-actions button {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.slot-empty-label {
+  padding: 16px 0;
+  font-size: 13px;
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
+/* ── Slot picker sheet ────────────────────────────────────────────────────── */
+.slot-picker-body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.slot-picker-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  font-size: 14px;
+}
+.slot-picker-row:last-child { border-bottom: none; }
+.slot-picker-row:active { background: var(--border); }
+
+.slot-picker-time {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  min-width: 40px;
+}
+
+.slot-picker-summary {
+  flex: 1;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-left: 8px;
+}
+
