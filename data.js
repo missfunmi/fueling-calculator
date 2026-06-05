@@ -538,6 +538,104 @@
     };
   }
 
+  // ── Execution Plan ────────────────────────────────────────────────────────────
+
+  function generateExecutionPlan(segment) {
+    var slotCount = Math.ceil((segment.durationHours || 1) * 60 / 15);
+    var slots = [];
+    for (var i = 0; i < slotCount; i++) {
+      slots.push({ slotIndex: i, intervalMinutes: 15, assignments: [] });
+    }
+
+    var liquidItems = (segment.items || []).filter(function (item) {
+      return item.type === 'drink_powder' && item.quantity > 0;
+    });
+    var discreteItems = (segment.items || []).filter(function (item) {
+      return item.type !== 'drink_powder' && item.quantity > 0;
+    });
+
+    // Liquid: one fractional sip per slot
+    liquidItems.forEach(function (item) {
+      var fraction = Math.round((1 / slotCount) * 10000) / 10000;
+      slots.forEach(function (slot) {
+        slot.assignments.push({ itemId: item.id, quantity: fraction });
+      });
+    });
+
+    // Separate gels by caffeine content, bars, and other
+    var gelCaf = [], gelNonCaf = [], bars = [], other = [];
+    discreteItems.forEach(function (item) {
+      if (item.type === 'gel' && item.caffeinePerUnit > 0) {
+        for (var i = 0; i < item.quantity; i++) gelCaf.push({ itemId: item.id, quantity: 1 });
+      } else if (item.type === 'gel') {
+        for (var i = 0; i < item.quantity; i++) gelNonCaf.push({ itemId: item.id, quantity: 1 });
+      } else if (item.type === 'bar') {
+        var halves = Math.round(item.quantity * 2);
+        for (var i = 0; i < halves; i++) bars.push({ itemId: item.id, quantity: 0.5 });
+      } else {
+        for (var i = 0; i < item.quantity; i++) other.push({ itemId: item.id, quantity: 1 });
+      }
+    });
+
+    // Interleave caf and non-caf gels
+    var gels = [];
+    var maxLen = Math.max(gelCaf.length, gelNonCaf.length);
+    for (var i = 0; i < maxLen; i++) {
+      if (i < gelCaf.length)    gels.push(gelCaf[i]);
+      if (i < gelNonCaf.length) gels.push(gelNonCaf[i]);
+    }
+
+    function distributeUnits(units) {
+      units.forEach(function (unit, i) {
+        var idx = Math.floor(i * slotCount / units.length);
+        slots[idx].assignments.push(unit);
+      });
+    }
+
+    distributeUnits(gels);
+    distributeUnits(bars);
+    distributeUnits(other);
+
+    return slots;
+  }
+
+  // Returns the projected g/hr if it is >15% below target, otherwise null.
+  function checkExecutionPlanTarget(segment) {
+    var target = segment.targets && segment.targets.carbsPerHour;
+    if (!target) return null;
+    var totalCarbs = (segment.items || []).reduce(function (sum, item) {
+      return sum + (item.carbsPerUnit || 0) * (item.quantity || 0);
+    }, 0);
+    var projected = totalCarbs / (segment.durationHours || 1);
+    return projected < target * 0.85 ? Math.round(projected) : null;
+  }
+
+  function calcSlotCarbs(slot, items) {
+    var itemMap = {};
+    (items || []).forEach(function (item) { itemMap[item.id] = item; });
+    return (slot.assignments || []).reduce(function (sum, a) {
+      var item = itemMap[a.itemId];
+      return sum + (item ? (item.carbsPerUnit || 0) * a.quantity : 0);
+    }, 0);
+  }
+
+  function saveExecutionPlan(segmentId, plan) {
+    localStorage.setItem('fuelPlanner.execPlan.' + segmentId, JSON.stringify(plan));
+  }
+
+  function loadExecutionPlan(segmentId) {
+    try {
+      var raw = localStorage.getItem('fuelPlanner.execPlan.' + segmentId);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function deleteExecutionPlan(segmentId) {
+    localStorage.removeItem('fuelPlanner.execPlan.' + segmentId);
+  }
+
   // ── Exports ───────────────────────────────────────────────────────────────────
 
   exports.getUserId          = getUserId;
@@ -573,5 +671,11 @@
   exports.newEvent           = newEvent;
   exports.itemFromProduct    = itemFromProduct;
   exports.itemFromOneOff     = itemFromOneOff;
+  exports.generateExecutionPlan     = generateExecutionPlan;
+  exports.checkExecutionPlanTarget  = checkExecutionPlanTarget;
+  exports.calcSlotCarbs             = calcSlotCarbs;
+  exports.saveExecutionPlan         = saveExecutionPlan;
+  exports.loadExecutionPlan         = loadExecutionPlan;
+  exports.deleteExecutionPlan       = deleteExecutionPlan;
 
 })(typeof module !== 'undefined' ? module.exports : (window.Data = window.Data || {}));
