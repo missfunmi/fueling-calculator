@@ -262,6 +262,46 @@ function run() {
     assert.ok(!md.trim().endsWith('*'), 'should not end with stray italic marker');
   });
 
+  // ── Execution Plan ────────────────────────────────────────────────────────
+
+  console.log('\nExecution Plan — generateExecutionPlanText');
+
+  test('formats execution plan as readable text', function () {
+    var seg = {
+      name: 'Bike',
+      items: [
+        { id: 'g1', brand: 'Maurten', name: 'Gel 100', type: 'gel', carbsPerUnit: 25, quantity: 1 },
+        { id: 'dp1', brand: 'Skratch', name: 'Superfuel', type: 'drink_powder', carbsPerUnit: 100, quantity: 1 }
+      ]
+    };
+    var plan = [
+      { slotIndex: 0, intervalMinutes: 15, assignments: [{ itemId: 'g1', quantity: 1 }, { itemId: 'dp1', quantity: 0.25 }] },
+      { slotIndex: 1, intervalMinutes: 15, assignments: [{ itemId: 'dp1', quantity: 0.25 }] },
+      { slotIndex: 2, intervalMinutes: 15, assignments: [] },
+      { slotIndex: 3, intervalMinutes: 15, assignments: [{ itemId: 'dp1', quantity: 0.25 }] }
+    ];
+    var text = Export.generateExecutionPlanText(seg, plan);
+    assert.ok(text.includes('Bike — Execution Plan'));
+    assert.ok(text.includes('0:15'));
+    assert.ok(text.includes('Maurten Gel 100'));
+    assert.ok(text.includes('Sip Skratch Superfuel'));
+    assert.ok(text.includes('~50g carbs')); // 25 + 100*0.25 = 50
+    // Empty slot (0:45) should not appear
+    assert.ok(!text.includes('0:45'));
+  });
+
+  test('formats half-bar correctly', function () {
+    var seg = {
+      name: 'Bike',
+      items: [{ id: 'b1', brand: 'Maurten', name: 'Solid Bar', type: 'bar', carbsPerUnit: 45, quantity: 1 }]
+    };
+    var plan = [
+      { slotIndex: 0, intervalMinutes: 15, assignments: [{ itemId: 'b1', quantity: 0.5 }] }
+    ];
+    var text = Export.generateExecutionPlanText(seg, plan);
+    assert.ok(text.includes('½ Maurten Solid Bar'));
+  });
+
   // ── Summary ───────────────────────────────────────────────────────────────
 
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
