@@ -123,6 +123,8 @@
 
   function navigate(view, params) {
     closeSheet(); // ensure sheet is closed on navigation
+    closeSlotEditor();
+    $('slot-picker-overlay').classList.add('hidden');
     if (params) Object.assign(state, params);
     state.view = view;
 
@@ -1151,6 +1153,196 @@
     if (toggle) toggle.setAttribute('aria-expanded', String(isHidden));
   }
 
+  // Slot editor state
+  var _slotEditorSegId = null;
+  var _slotEditorSlotIndex = null;
+  var _slotEditorMoveAIdx = null; // index into the slot's assignments array
+
+  function openSlotEditor(segId, slotIndex) {
+    var evt = state.currentEvent;
+    if (!evt) return;
+    var seg = (evt.segments || []).find(function (s) { return s.id === segId; });
+    var plan = Data.loadExecutionPlan(segId);
+    if (!seg || !plan) return;
+    var slot = plan[slotIndex];
+    if (!slot) return;
+
+    _slotEditorSegId = segId;
+    _slotEditorSlotIndex = slotIndex;
+
+    $('slot-editor-title').textContent = slotTimeLabel(slotIndex, slot.intervalMinutes);
+    renderSlotEditorBody(seg, slot);
+    $('slot-editor-overlay').classList.remove('hidden');
+  }
+
+  function closeSlotEditor() {
+    $('slot-editor-overlay').classList.add('hidden');
+    _slotEditorSegId = null;
+    _slotEditorSlotIndex = null;
+    _slotEditorMoveAIdx = null;
+  }
+
+  function renderSlotEditorBody(seg, slot) {
+    var itemMap = {};
+    (seg.items || []).forEach(function (i) { itemMap[i.id] = i; });
+
+    var bodyEl = $('slot-editor-body');
+    if (!slot.assignments || !slot.assignments.length) {
+      bodyEl.innerHTML = '<div class="slot-empty-label">No items assigned. Tap + Add item below.</div>';
+      return;
+    }
+
+    bodyEl.innerHTML = slot.assignments.map(function (a, aIdx) {
+      var item = itemMap[a.itemId];
+      if (!item) return '';
+      var fullName = escHtml((item.brand ? item.brand + ' ' : '') + item.name);
+      var label = item.type === 'drink_powder' ? 'Sip ' + fullName
+                : a.quantity === 0.5 ? '½ ' + fullName
+                : fullName;
+      return '<div class="slot-assignment-row" data-assignment-idx="' + aIdx + '">' +
+        '<span class="slot-assignment-label">' + label + '</span>' +
+        '<div class="slot-assignment-actions">' +
+          '<button data-slot-move-idx="' + aIdx + '">Move</button>' +
+          '<button data-slot-remove-idx="' + aIdx + '">Remove</button>' +
+        '</div>' +
+      '</div>';
+    }).filter(Boolean).join('');
+
+    // Attach move/remove handlers
+    $$('[data-slot-move-idx]', bodyEl).forEach(function (btn) {
+      on(btn, 'click', function () {
+        var aIdx = parseInt(btn.dataset.slotMoveIdx, 10);
+        var plan = Data.loadExecutionPlan(_slotEditorSegId);
+        if (!plan) return;
+        _slotEditorMoveAIdx = aIdx;
+        openSlotPicker(seg, plan, _slotEditorSlotIndex);
+      });
+    });
+
+    $$('[data-slot-remove-idx]', bodyEl).forEach(function (btn) {
+      on(btn, 'click', function () {
+        var aIdx = parseInt(btn.dataset.slotRemoveIdx, 10);
+        var plan = Data.loadExecutionPlan(_slotEditorSegId);
+        if (!plan) return;
+        plan[_slotEditorSlotIndex].assignments.splice(aIdx, 1);
+        Data.saveExecutionPlan(_slotEditorSegId, plan);
+        refreshSlotEditorAndPanel(_slotEditorSegId, _slotEditorSlotIndex, seg, plan);
+      });
+    });
+  }
+
+  function refreshSlotEditorAndPanel(segId, slotIndex, seg, plan) {
+    // Update slot editor body
+    renderSlotEditorBody(seg, plan[slotIndex]);
+    // Re-render the segment panel in the detail view
+    var evt = state.currentEvent;
+    if (!evt) return;
+    var multiSeg = evt.segments.length > 1;
+    var segEl = document.querySelector('[data-segment-id="' + segId + '"]');
+    if (segEl) {
+      segEl.outerHTML = segmentSectionHTML(seg, multiSeg);
+      reattachSegmentHandlers(segId);
+    }
+    // Re-open body since re-render collapsed it
+    var body = document.querySelector('[data-exec-body="' + segId + '"]');
+    if (body) body.classList.remove('hidden');
+  }
+
+  function openSlotPicker(seg, plan, fromSlotIndex) {
+    var itemMap = {};
+    (seg.items || []).forEach(function (i) { itemMap[i.id] = i; });
+    var interval = plan[0] ? plan[0].intervalMinutes : 15;
+
+    var pickerBody = $('slot-picker-body');
+    // Reset header to "Move to slot"
+    var pickerHeader = $('slot-picker-sheet').querySelector('.sheet-header span');
+    if (pickerHeader) pickerHeader.textContent = 'Move to slot';
+
+    pickerBody.innerHTML = plan.map(function (slot, idx) {
+      if (idx === fromSlotIndex) return ''; // skip current slot
+      var summary = (slot.assignments || []).map(function (a) {
+        var item = itemMap[a.itemId];
+        return item ? escHtml((item.brand ? item.brand + ' ' : '') + item.name) : '';
+      }).filter(Boolean).join(', ') || '—';
+
+      return '<div class="slot-picker-row" data-pick-slot="' + idx + '">' +
+        '<span class="slot-picker-time">' + slotTimeLabel(idx, interval) + '</span>' +
+        '<span class="slot-picker-summary">' + summary + '</span>' +
+      '</div>';
+    }).filter(Boolean).join('');
+
+    $$('[data-pick-slot]', pickerBody).forEach(function (row) {
+      on(row, 'click', function () {
+        var toIdx = parseInt(row.dataset.pickSlot, 10);
+        var freshPlan = Data.loadExecutionPlan(_slotEditorSegId);
+        if (!freshPlan || _slotEditorMoveAIdx === null) return;
+
+        // Remove from source slot by index
+        var srcAssignments = freshPlan[_slotEditorSlotIndex].assignments;
+        var assignment = srcAssignments[_slotEditorMoveAIdx];
+        srcAssignments.splice(_slotEditorMoveAIdx, 1);
+
+        // Add to destination slot
+        freshPlan[toIdx].assignments.push(assignment);
+
+        Data.saveExecutionPlan(_slotEditorSegId, freshPlan);
+        _slotEditorMoveAIdx = null;
+
+        $('slot-picker-overlay').classList.add('hidden');
+        refreshSlotEditorAndPanel(_slotEditorSegId, _slotEditorSlotIndex, seg, freshPlan);
+      });
+    });
+
+    $('slot-picker-overlay').classList.remove('hidden');
+  }
+
+  function openSlotAddItemPicker(seg, slotIndex) {
+    var plan = Data.loadExecutionPlan(_slotEditorSegId);
+    if (!plan) return;
+
+    // Build assigned quantity map across all slots
+    var assignedQty = {};
+    plan.forEach(function (slot) {
+      (slot.assignments || []).forEach(function (a) {
+        assignedQty[a.itemId] = (assignedQty[a.itemId] || 0) + a.quantity;
+      });
+    });
+
+    var pickerBody = $('slot-picker-body');
+    var pickerHeader = $('slot-picker-sheet').querySelector('.sheet-header span');
+    if (pickerHeader) pickerHeader.textContent = 'Add item';
+
+    pickerBody.innerHTML = (seg.items || []).map(function (item) {
+      var totalAssigned = assignedQty[item.id] || 0;
+      var remaining = Math.round((item.quantity - totalAssigned) * 100) / 100;
+      var label = escHtml((item.brand ? item.brand + ' ' : '') + item.name);
+      var remainLabel = remaining > 0 ? remaining + ' remaining' : 'fully assigned';
+
+      return '<div class="slot-picker-row" data-add-item-id="' + item.id + '" data-add-item-type="' + escHtml(item.type) + '">' +
+        '<span class="slot-picker-time" style="min-width:unset;flex:1">' + label + '</span>' +
+        '<span class="slot-picker-summary" style="margin-left:0">' + remainLabel + '</span>' +
+      '</div>';
+    }).join('');
+
+    $$('[data-add-item-id]', pickerBody).forEach(function (row) {
+      on(row, 'click', function () {
+        var freshPlan = Data.loadExecutionPlan(_slotEditorSegId);
+        if (!freshPlan) return;
+        var isBar = row.dataset.addItemType === 'bar';
+        freshPlan[slotIndex].assignments.push({
+          itemId: row.dataset.addItemId,
+          quantity: isBar ? 0.5 : 1
+        });
+        Data.saveExecutionPlan(_slotEditorSegId, freshPlan);
+        $('slot-picker-overlay').classList.add('hidden');
+        if (pickerHeader) pickerHeader.textContent = 'Move to slot';
+        refreshSlotEditorAndPanel(_slotEditorSegId, slotIndex, seg, freshPlan);
+      });
+    });
+
+    $('slot-picker-overlay').classList.remove('hidden');
+  }
+
   function updateItemQty(eventId, segId, itemId, delta) {
     var evt = state.currentEvent;
     if (!evt || evt.id !== eventId) return;
@@ -1421,6 +1613,20 @@
     if (e.target === $('sheet-overlay')) closeSheet();
   });
   on($('btn-close-sheet'), 'click', closeSheet);
+  on($('btn-close-slot-editor'), 'click', closeSlotEditor);
+  on($('btn-close-slot-picker'), 'click', function () {
+    $('slot-picker-overlay').classList.add('hidden');
+    var pickerHeader = $('slot-picker-sheet').querySelector('.sheet-header span');
+    if (pickerHeader) pickerHeader.textContent = 'Move to slot';
+    _slotEditorMoveAIdx = null;
+  });
+  on($('btn-slot-add-item'), 'click', function () {
+    var evt = state.currentEvent;
+    if (!evt || _slotEditorSegId === null || _slotEditorSlotIndex === null) return;
+    var seg = (evt.segments || []).find(function (s) { return s.id === _slotEditorSegId; });
+    if (!seg) return;
+    openSlotAddItemPicker(seg, _slotEditorSlotIndex);
+  });
 
   // Sheet tab switching
   $$('.sheet-tab-btn').forEach(function (btn) {
