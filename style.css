@@ -1173,7 +1173,7 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   font-size: 13px;
 }
 .exec-slot-row:last-child { border-bottom: none; }
-.exec-slot-row:active { background: var(--surface-raised); }
+.exec-slot-row:active { background: var(--border); }
 
 .exec-slot-empty .exec-slot-items { color: var(--text-tertiary); }
 
