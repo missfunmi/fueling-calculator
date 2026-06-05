@@ -1012,6 +1012,52 @@
     $$('[data-inline]:not([data-inline="actual-duration"])', segEl).forEach(function (el) {
       on(el, 'click', function () { handleInlineEdit(el, evt.id); });
     });
+
+    // Execution plan handlers
+    var genBtn = segEl.querySelector('[data-exec-generate]');
+    if (genBtn) {
+      on(genBtn, 'click', function () {
+        handleExecutionPlanGenerate(genBtn.dataset.execGenerate, false);
+      });
+    }
+
+    var regenBtn = segEl.querySelector('[data-exec-regen]');
+    if (regenBtn) {
+      on(regenBtn, 'click', function () {
+        handleExecutionPlanGenerate(regenBtn.dataset.execRegen, true);
+      });
+    }
+
+    var toggleBtn = segEl.querySelector('[data-exec-toggle]');
+    if (toggleBtn) {
+      on(toggleBtn, 'click', function () {
+        handleExecutionPlanToggle(toggleBtn.dataset.execToggle);
+      });
+    }
+
+    var copyBtn = segEl.querySelector('[data-exec-copy]');
+    if (copyBtn) {
+      on(copyBtn, 'click', function () {
+        var evt2 = state.currentEvent;
+        if (!evt2) return;
+        var seg2 = (evt2.segments || []).find(function (s) { return s.id === copyBtn.dataset.execCopy; });
+        var plan = Data.loadExecutionPlan(copyBtn.dataset.execCopy);
+        if (!seg2 || !plan) return;
+        var text = Export.generateExecutionPlanText(seg2, plan);
+        navigator.clipboard.writeText(text).then(function () {
+          showToast('Execution plan copied!');
+        }).catch(function () {
+          showToast("Couldn't copy — try again.");
+        });
+      });
+    }
+
+    $$('[data-exec-slot]', segEl).forEach(function (row) {
+      on(row, 'click', function () {
+        var parts = row.dataset.execSlot.split(':');
+        openSlotEditor(parts[0], parseInt(parts[1], 10));
+      });
+    });
   }
 
   function reattachActualSegmentHandlers(segId) {
@@ -1058,6 +1104,53 @@
         });
       });
     });
+  }
+
+  function handleExecutionPlanGenerate(segId, forceRegenerate) {
+    var evt = state.currentEvent;
+    if (!evt) return;
+    var seg = (evt.segments || []).find(function (s) { return s.id === segId; });
+    if (!seg) return;
+
+    function doGenerate() {
+      var plan = Data.generateExecutionPlan(seg);
+      Data.saveExecutionPlan(segId, plan);
+      // Re-render this segment section only
+      var multiSeg = evt.segments.length > 1;
+      var segEl = document.querySelector('[data-segment-id="' + segId + '"]');
+      if (segEl) {
+        segEl.outerHTML = segmentSectionHTML(seg, multiSeg);
+        reattachSegmentHandlers(segId);
+      }
+      // Auto-expand the panel after generation
+      var body = document.querySelector('[data-exec-body="' + segId + '"]');
+      if (body) body.classList.remove('hidden');
+      var toggle = document.querySelector('[data-exec-toggle="' + segId + '"]');
+      if (toggle) toggle.setAttribute('aria-expanded', 'true');
+    }
+
+    var shortfall = Data.checkExecutionPlanTarget(seg);
+    if (shortfall !== null) {
+      if (!confirm(
+        'This plan delivers ~' + shortfall + 'g/hr carbs against a ' +
+        seg.targets.carbsPerHour + 'g/hr target.\nConsider adding more items. Generate anyway?'
+      )) return;
+    }
+
+    if (forceRegenerate && Data.loadExecutionPlan(segId)) {
+      if (!confirm('Regenerate plan? Any manual edits will be replaced.')) return;
+    }
+
+    doGenerate();
+  }
+
+  function handleExecutionPlanToggle(segId) {
+    var body = document.querySelector('[data-exec-body="' + segId + '"]');
+    var toggle = document.querySelector('[data-exec-toggle="' + segId + '"]');
+    if (!body) return;
+    var isHidden = body.classList.contains('hidden');
+    body.classList.toggle('hidden', !isHidden);
+    if (toggle) toggle.setAttribute('aria-expanded', String(isHidden));
   }
 
   function updateItemQty(eventId, segId, itemId, delta) {
