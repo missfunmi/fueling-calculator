@@ -128,6 +128,22 @@ After generation, `[Generate]` becomes `[Regenerate]`.
 - **Remove** → removes the assignment; item becomes available again in the Add picker.
 - **+ Add item** → shows items from `segment.items` with remaining unassigned quantity noted (e.g. "Gel (caf) — 1 remaining"). Tapping adds one unit to this slot.
 
+### Copy button
+
+Once a plan has been generated, a copy icon (two overlapping squares) appears in the execution plan header. Tapping it copies the plan to the clipboard as plain text in the familiar `offset → items` format, matching the style of the existing "Copy plan" button on the event detail view.
+
+Example copied output:
+```
+Bike — Execution Plan
+
+0:15  Gel (non-caf) · Superfuel sip (~47g carbs)
+0:30  Gel (caf) · Superfuel sip (~47g carbs)
+0:45  Superfuel sip (~14g carbs)
+...
+```
+
+The button is not shown before generation (no plan to copy).
+
 ### Regenerate confirmation
 
 When the user taps `[Regenerate]` and a plan already exists:
