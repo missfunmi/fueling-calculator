@@ -125,6 +125,8 @@
     closeSheet(); // ensure sheet is closed on navigation
     closeSlotEditor();
     $('slot-picker-overlay').classList.add('hidden');
+    var _pickerHeader = $('slot-picker-sheet') && $('slot-picker-sheet').querySelector('.sheet-header span');
+    if (_pickerHeader) _pickerHeader.textContent = 'Move to slot';
     if (params) Object.assign(state, params);
     state.view = view;
 
@@ -1232,15 +1234,16 @@
   }
 
   function refreshSlotEditorAndPanel(segId, slotIndex, seg, plan) {
-    // Update slot editor body
-    renderSlotEditorBody(seg, plan[slotIndex]);
-    // Re-render the segment panel in the detail view
     var evt = state.currentEvent;
     if (!evt) return;
+    // Re-fetch seg from live state so we always use the latest
+    var liveSeg = (evt.segments || []).find(function (s) { return s.id === segId; }) || seg;
+    // Update slot editor body
+    renderSlotEditorBody(liveSeg, plan[slotIndex]);
     var multiSeg = evt.segments.length > 1;
     var segEl = document.querySelector('[data-segment-id="' + segId + '"]');
     if (segEl) {
-      segEl.outerHTML = segmentSectionHTML(seg, multiSeg);
+      segEl.outerHTML = segmentSectionHTML(liveSeg, multiSeg);
       reattachSegmentHandlers(segId);
     }
     // Re-open body since re-render collapsed it
@@ -1328,10 +1331,13 @@
       on(row, 'click', function () {
         var freshPlan = Data.loadExecutionPlan(_slotEditorSegId);
         if (!freshPlan) return;
-        var isBar = row.dataset.addItemType === 'bar';
+        var itemType = row.dataset.addItemType;
+        var qty = itemType === 'bar' ? 0.5
+                : itemType === 'drink_powder' ? Math.round((1 / freshPlan.length) * 10000) / 10000
+                : 1;
         freshPlan[slotIndex].assignments.push({
           itemId: row.dataset.addItemId,
-          quantity: isBar ? 0.5 : 1
+          quantity: qty
         });
         Data.saveExecutionPlan(_slotEditorSegId, freshPlan);
         $('slot-picker-overlay').classList.add('hidden');
