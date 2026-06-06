@@ -658,7 +658,15 @@
     var hasOrphans = hasPlan && plan.some(function (slot) {
       return (slot.assignments || []).some(function (a) { return !itemIds.has(a.itemId); });
     });
-    var showStaleWarning = isStale || hasOrphans;
+    // Check for new items added to segment after plan was generated
+    var planItemIds = new Set();
+    if (hasPlan) {
+      plan.forEach(function (slot) {
+        (slot.assignments || []).forEach(function (a) { planItemIds.add(a.itemId); });
+      });
+    }
+    var hasNewItems = hasPlan && (seg.items || []).some(function (i) { return !planItemIds.has(i.id); });
+    var showStaleWarning = isStale || hasOrphans || hasNewItems;
 
     var headerHTML =
       '<div class="exec-plan-header">' +
@@ -1131,16 +1139,16 @@
       if (toggle) toggle.setAttribute('aria-expanded', 'true');
     }
 
-    if (forceRegenerate && Data.loadExecutionPlan(segId)) {
-      if (!confirm('Regenerate plan? Any manual edits will be replaced.')) return;
-    }
-
     var shortfall = Data.checkExecutionPlanTarget(seg);
     if (shortfall !== null) {
       if (!confirm(
         'This plan delivers ~' + shortfall + 'g/hr carbs against a ' +
         seg.targets.carbsPerHour + 'g/hr target.\nConsider adding more items. Generate anyway?'
       )) return;
+    }
+
+    if (forceRegenerate && Data.loadExecutionPlan(segId)) {
+      if (!confirm('Regenerate plan? Any manual edits will be replaced.')) return;
     }
 
     doGenerate();
