@@ -597,6 +597,181 @@ async function run() {
     );
   });
 
+  // ── Execution Plan ────────────────────────────────────────────────────────────
+
+  console.log('\nExecution Plan — generateExecutionPlan');
+
+  await test('generates correct slot count for 1h segment', async function () {
+    var seg = {
+      id: 'seg1', durationHours: 1,
+      targets: { carbsPerHour: 60, sodiumPerHour: 0, caffeinePerHour: 0 },
+      items: []
+    };
+    var plan = D.generateExecutionPlan(seg);
+    assert.strictEqual(plan.length, 4); // ceil(60/15) = 4
+  });
+
+  await test('generates correct slot count for 3.5h segment', async function () {
+    var seg = {
+      id: 'seg1', durationHours: 3.5,
+      targets: { carbsPerHour: 90, sodiumPerHour: 0, caffeinePerHour: 0 },
+      items: []
+    };
+    var plan = D.generateExecutionPlan(seg);
+    assert.strictEqual(plan.length, 14); // ceil(210/15) = 14
+  });
+
+  await test('distributes 4 gels evenly across 8 slots', async function () {
+    var seg = {
+      id: 'seg1', durationHours: 2,
+      targets: { carbsPerHour: 60, sodiumPerHour: 0, caffeinePerHour: 0 },
+      items: [
+        { id: 'g1', type: 'gel', carbsPerUnit: 25, sodiumPerUnit: 0, caffeinePerUnit: 0, quantity: 4 }
+      ]
+    };
+    var plan = D.generateExecutionPlan(seg);
+    var assigned = plan.filter(function(s) { return s.assignments.length > 0; });
+    assert.strictEqual(assigned.length, 4);
+    assert.strictEqual(plan[0].assignments[0].itemId, 'g1');
+    assert.strictEqual(plan[0].assignments[0].quantity, 1);
+  });
+
+  await test('interleaves caf and non-caf gels', async function () {
+    var seg = {
+      id: 'seg1', durationHours: 2,
+      targets: { carbsPerHour: 60, sodiumPerHour: 0, caffeinePerHour: 0 },
+      items: [
+        { id: 'gcaf', type: 'gel', carbsPerUnit: 25, sodiumPerUnit: 0, caffeinePerUnit: 75, quantity: 2 },
+        { id: 'gnon', type: 'gel', carbsPerUnit: 25, sodiumPerUnit: 0, caffeinePerUnit: 0, quantity: 2 }
+      ]
+    };
+    var plan = D.generateExecutionPlan(seg);
+    var nonEmpty = plan.filter(function(s) { return s.assignments.length > 0; });
+    assert.strictEqual(nonEmpty.length, 4);
+    // First slot should have a caf gel
+    assert.strictEqual(nonEmpty[0].assignments[0].itemId, 'gcaf');
+    // Second slot should have a non-caf gel
+    assert.strictEqual(nonEmpty[1].assignments[0].itemId, 'gnon');
+  });
+
+  await test('splits bars into half-unit assignments', async function () {
+    var seg = {
+      id: 'seg1', durationHours: 2,
+      targets: { carbsPerHour: 40, sodiumPerHour: 0, caffeinePerHour: 0 },
+      items: [
+        { id: 'b1', type: 'bar', carbsPerUnit: 45, sodiumPerUnit: 0, caffeinePerUnit: 0, quantity: 2 }
+      ]
+    };
+    var plan = D.generateExecutionPlan(seg);
+    var allAssignments = plan.reduce(function(acc, s) { return acc.concat(s.assignments); }, []);
+    assert.strictEqual(allAssignments.length, 4); // 2 bars × 2 halves = 4
+    assert.strictEqual(allAssignments[0].quantity, 0.5);
+  });
+
+  await test('distributes drink_powder as one sip per slot', async function () {
+    var seg = {
+      id: 'seg1', durationHours: 1,
+      targets: { carbsPerHour: 80, sodiumPerHour: 0, caffeinePerHour: 0 },
+      items: [
+        { id: 'dp1', type: 'drink_powder', carbsPerUnit: 80, sodiumPerUnit: 0, caffeinePerUnit: 0, quantity: 1 }
+      ]
+    };
+    var plan = D.generateExecutionPlan(seg);
+    // Every slot gets a sip
+    assert.strictEqual(plan.length, 4);
+    plan.forEach(function(slot) {
+      assert.strictEqual(slot.assignments.length, 1);
+      assert.strictEqual(slot.assignments[0].itemId, 'dp1');
+      assert.ok(Math.abs(slot.assignments[0].quantity - 0.25) < 0.001); // 1/4 per slot
+    });
+  });
+
+  await test('skips items with quantity 0', async function () {
+    var seg = {
+      id: 'seg1', durationHours: 1,
+      targets: { carbsPerHour: 60, sodiumPerHour: 0, caffeinePerHour: 0 },
+      items: [
+        { id: 'g1', type: 'gel', carbsPerUnit: 25, sodiumPerUnit: 0, caffeinePerUnit: 0, quantity: 0 }
+      ]
+    };
+    var plan = D.generateExecutionPlan(seg);
+    var allAssignments = plan.reduce(function(acc, s) { return acc.concat(s.assignments); }, []);
+    assert.strictEqual(allAssignments.length, 0);
+  });
+
+  console.log('\nExecution Plan — checkExecutionPlanTarget');
+
+  await test('returns projected rate when >15% below target', async function () {
+    var seg = {
+      id: 'seg1', durationHours: 1,
+      targets: { carbsPerHour: 100, sodiumPerHour: 0, caffeinePerHour: 0 },
+      items: [
+        { id: 'g1', type: 'gel', carbsPerUnit: 25, sodiumPerUnit: 0, caffeinePerUnit: 0, quantity: 2 }
+      ]
+    };
+    var result = D.checkExecutionPlanTarget(seg);
+    assert.strictEqual(result, 50); // 50g/hr, well below 85g threshold
+  });
+
+  await test('returns null when within 15% of target', async function () {
+    var seg = {
+      id: 'seg1', durationHours: 1,
+      targets: { carbsPerHour: 100, sodiumPerHour: 0, caffeinePerHour: 0 },
+      items: [
+        { id: 'g1', type: 'gel', carbsPerUnit: 25, sodiumPerUnit: 0, caffeinePerUnit: 0, quantity: 4 }
+      ]
+    };
+    var result = D.checkExecutionPlanTarget(seg);
+    assert.strictEqual(result, null); // 100g/hr = exactly on target
+  });
+
+  await test('returns null when no target set', async function () {
+    var seg = {
+      id: 'seg1', durationHours: 1,
+      targets: { carbsPerHour: 0, sodiumPerHour: 0, caffeinePerHour: 0 },
+      items: [
+        { id: 'g1', type: 'gel', carbsPerUnit: 25, sodiumPerUnit: 0, caffeinePerUnit: 0, quantity: 2 }
+      ]
+    };
+    assert.strictEqual(D.checkExecutionPlanTarget(seg), null);
+  });
+
+  console.log('\nExecution Plan — calcSlotCarbs');
+
+  await test('calculates carbs for a slot', async function () {
+    var items = [
+      { id: 'g1', carbsPerUnit: 25, quantity: 1 },
+      { id: 'dp1', carbsPerUnit: 80, quantity: 1 }
+    ];
+    var slot = { assignments: [{ itemId: 'g1', quantity: 1 }, { itemId: 'dp1', quantity: 0.25 }] };
+    var carbs = D.calcSlotCarbs(slot, items);
+    assert.strictEqual(carbs, 45); // 25 + 80*0.25 = 45
+  });
+
+  await test('returns 0 for empty slot', async function () {
+    var slot = { assignments: [] };
+    assert.strictEqual(D.calcSlotCarbs(slot, []), 0);
+  });
+
+  console.log('\nExecution Plan — localStorage persistence');
+
+  await test('saveExecutionPlan and loadExecutionPlan round-trip', async function () {
+    var plan = [{ slotIndex: 0, intervalMinutes: 15, assignments: [{ itemId: 'g1', quantity: 1 }] }];
+    D.saveExecutionPlan('seg-abc', plan);
+    var loaded = D.loadExecutionPlan('seg-abc');
+    assert.deepStrictEqual(loaded, plan);
+  });
+
+  await test('loadExecutionPlan returns null for unknown segment', async function () {
+    assert.strictEqual(D.loadExecutionPlan('unknown-seg'), null);
+  });
+
+  await test('deleteExecutionPlan removes the plan', async function () {
+    D.saveExecutionPlan('seg-del', [{ slotIndex: 0, intervalMinutes: 15, assignments: [] }]);
+    D.deleteExecutionPlan('seg-del');
+    assert.strictEqual(D.loadExecutionPlan('seg-del'), null);
+  });
+
   // ── Summary ───────────────────────────────────────────────────────────────────
 
   console.log('\n' + passed + ' passed, ' + failed + ' failed');

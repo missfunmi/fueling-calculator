@@ -159,10 +159,48 @@
     return lines.join('\n') + '\n';
   }
 
+  // ── Execution Plan ──────────────────────────────────────────────────────────
+
+  function generateExecutionPlanText(seg, plan) {
+    var itemMap = {};
+    (seg.items || []).forEach(function (item) { itemMap[item.id] = item; });
+
+    var lines = [(seg.name || 'Segment') + ' — Execution Plan', ''];
+
+    (plan || []).forEach(function (slot) {
+      if (!slot.assignments || !slot.assignments.length) return;
+
+      var totalMinutes = slot.slotIndex * slot.intervalMinutes + slot.intervalMinutes;
+      var h = Math.floor(totalMinutes / 60);
+      var m = totalMinutes % 60;
+      var timeLabel = h + ':' + String(m).padStart(2, '0');
+
+      var slotCarbs = slot.assignments.reduce(function (sum, a) {
+        var item = itemMap[a.itemId];
+        return sum + (item ? (item.carbsPerUnit || 0) * a.quantity : 0);
+      }, 0);
+
+      var itemLabels = slot.assignments.map(function (a) {
+        var item = itemMap[a.itemId];
+        if (!item) return '';
+        var fullName = (item.brand ? item.brand + ' ' : '') + item.name;
+        if (item.type === 'drink_powder') return 'Sip ' + fullName;
+        if (a.quantity === 0.5) return '½ ' + fullName;
+        return fullName;
+      }).filter(Boolean).join(' · ');
+
+      var carbNote = slotCarbs > 0 ? '  (~' + Math.round(slotCarbs) + 'g carbs)' : '';
+      lines.push(timeLabel + '  ' + itemLabels + carbNote);
+    });
+
+    return lines.join('\n');
+  }
+
   // ── Public API ──────────────────────────────────────────────────────────────
 
   window.Export = {
-    generateEventMarkdown: generateEventMarkdown
+    generateEventMarkdown: generateEventMarkdown,
+    generateExecutionPlanText: generateExecutionPlanText
   };
 
 })();
