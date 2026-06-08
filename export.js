@@ -29,7 +29,7 @@
 
   // ── Planned segment block ───────────────────────────────────────────────────
 
-  function plannedSegmentMd(seg) {
+  function plannedSegmentMd(seg, execPlan) {
     var showCaff = segmentHasCaffeine(seg);
     var tgt = seg.targets || {};
     var durationLabel = window._App.formatHM(seg.durationHours);
@@ -58,6 +58,15 @@
       lines.push(row);
     });
     lines.push('');
+
+    // Execution plan (if provided)
+    if (execPlan) {
+      lines.push('');
+      lines.push('**Execution Plan:**');
+      var planLines = generateExecutionPlanText(seg, execPlan).split('\n');
+      // Skip the "Segment — Execution Plan" header line and the blank line after it
+      planLines.slice(2).forEach(function (l) { lines.push(l); });
+    }
 
     // Totals
     var totals = window.Data.calcSegmentTotals(seg);
@@ -120,7 +129,8 @@
 
   // ── Main function ───────────────────────────────────────────────────────────
 
-  function generateEventMarkdown(evt) {
+  // execPlans is an optional object keyed by segment id containing the saved plan array.
+  function generateEventMarkdown(evt, execPlans) {
     var typeLabel = (window._App.EVENT_TYPE_LABELS[evt.type] || evt.type);
     var lines = [
       '# ' + evt.name,
@@ -131,7 +141,8 @@
 
     evt.segments.forEach(function (seg) {
       lines.push('');
-      lines.push(plannedSegmentMd(seg));
+      var execPlan = execPlans && execPlans[seg.id] ? execPlans[seg.id] : null;
+      lines.push(plannedSegmentMd(seg, execPlan));
     });
 
     // Actuals section — omit entirely if no actuals logged

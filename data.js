@@ -547,11 +547,13 @@
       slots.push({ slotIndex: i, intervalMinutes: 15, assignments: [] });
     }
 
+    // 'liquid' items (e.g. electrolyte boosters) are treated the same as 'drink_powder' —
+    // they go in a bottle and are consumed as a continuous sip, not as discrete units.
     var liquidItems = (segment.items || []).filter(function (item) {
-      return item.type === 'drink_powder' && item.quantity > 0;
+      return (item.type === 'drink_powder' || item.type === 'liquid') && item.quantity > 0;
     });
     var discreteItems = (segment.items || []).filter(function (item) {
-      return item.type !== 'drink_powder' && item.quantity > 0;
+      return item.type !== 'drink_powder' && item.type !== 'liquid' && item.quantity > 0;
     });
 
     // Liquid: build drink_group assignments — one merged sip per slot per group.
@@ -609,16 +611,26 @@
       if (i < gelNonCaf.length) gels.push(gelNonCaf[i]);
     }
 
-    function distributeUnits(units) {
-      units.forEach(function (unit, i) {
-        var idx = Math.floor(i * slotCount / units.length);
-        slots[idx].assignments.push(unit);
+    // Combine all discrete items into a single round-robin interleaved pool.
+    // Round-robin across [gels, bars, other] prevents any two items from the same
+    // category from being placed adjacently, and a single distribution pass
+    // prevents slot collisions that occurred when each category was distributed
+    // independently.
+    var discretePool = [];
+    var categories = [gels, bars, other].filter(function (c) { return c.length > 0; });
+    var poolMax = categories.reduce(function (m, c) { return Math.max(m, c.length); }, 0);
+    for (var i = 0; i < poolMax; i++) {
+      categories.forEach(function (cat) {
+        if (i < cat.length) discretePool.push(cat[i]);
       });
     }
 
-    distributeUnits(gels);
-    distributeUnits(bars);
-    distributeUnits(other);
+    // Use the (i + 0.5) centering formula so items are spread evenly across all
+    // slots rather than packing into the front of the segment.
+    discretePool.forEach(function (unit, i) {
+      var idx = Math.floor((i + 0.5) * slotCount / discretePool.length);
+      slots[idx].assignments.push(unit);
+    });
 
     return slots;
   }
