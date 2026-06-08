@@ -554,11 +554,35 @@
       return item.type !== 'drink_powder' && item.quantity > 0;
     });
 
-    // Liquid: one fractional sip per slot
-    liquidItems.forEach(function (item) {
-      var fraction = Math.round((1 / slotCount) * 10000) / 10000;
+    // Liquid: build drink_group assignments — one merged sip per slot per group.
+    // Uses segment.bottleGroups (Option B) if defined; otherwise auto-merges all
+    // drink_powder items into a single implicit group (Option A).
+    var bottleGroups = (segment.bottleGroups && segment.bottleGroups.length)
+      ? segment.bottleGroups.map(function (g) {
+          return {
+            groupId:   g.id,
+            groupName: g.name || null,
+            items: liquidItems.filter(function (item) { return g.itemIds.indexOf(item.id) !== -1; })
+          };
+        }).filter(function (g) { return g.items.length > 0; })
+      : (liquidItems.length
+          ? [{ groupId: '__auto__', groupName: null, items: liquidItems }]
+          : []);
+
+    bottleGroups.forEach(function (group) {
+      var totalCarbs  = group.items.reduce(function (s, item) { return s + (item.carbsPerUnit  || 0) * (item.quantity || 0); }, 0);
+      var totalSodium = group.items.reduce(function (s, item) { return s + (item.sodiumPerUnit || 0) * (item.quantity || 0); }, 0);
+      var carbsPerSlot  = Math.round((totalCarbs  / slotCount) * 100) / 100;
+      var sodiumPerSlot = Math.round((totalSodium / slotCount) * 100) / 100;
       slots.forEach(function (slot) {
-        slot.assignments.push({ itemId: item.id, quantity: fraction });
+        slot.assignments.push({
+          type:         'drink_group',
+          groupId:      group.groupId,
+          groupName:    group.groupName,
+          itemIds:      group.items.map(function (item) { return item.id; }),
+          carbsPerSlot: carbsPerSlot,
+          sodiumPerSlot: sodiumPerSlot
+        });
       });
     });
 
@@ -614,6 +638,7 @@
     var itemMap = {};
     (items || []).forEach(function (item) { itemMap[item.id] = item; });
     return (slot.assignments || []).reduce(function (sum, a) {
+      if (a.type === 'drink_group') return sum + (a.carbsPerSlot || 0);
       var item = itemMap[a.itemId];
       return sum + (item ? (item.carbsPerUnit || 0) * a.quantity : 0);
     }, 0);

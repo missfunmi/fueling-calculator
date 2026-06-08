@@ -266,28 +266,56 @@ function run() {
 
   console.log('\nExecution Plan — generateExecutionPlanText');
 
-  test('formats execution plan as readable text', function () {
+  test('formats execution plan with drink_group as merged sip cue', function () {
     var seg = {
       name: 'Bike',
       items: [
         { id: 'g1', brand: 'Maurten', name: 'Gel 100', type: 'gel', carbsPerUnit: 25, quantity: 1 },
-        { id: 'dp1', brand: 'Skratch', name: 'Superfuel', type: 'drink_powder', carbsPerUnit: 100, quantity: 1 }
+        { id: 'dp1', brand: 'Skratch', name: 'Superfuel', type: 'drink_powder', carbsPerUnit: 100, quantity: 1 },
+        { id: 'dp2', brand: 'Skratch', name: 'Electrolyte Booster', type: 'drink_powder', carbsPerUnit: 0, quantity: 1 }
       ]
     };
     var plan = [
-      { slotIndex: 0, intervalMinutes: 15, assignments: [{ itemId: 'g1', quantity: 1 }, { itemId: 'dp1', quantity: 0.25 }] },
-      { slotIndex: 1, intervalMinutes: 15, assignments: [{ itemId: 'dp1', quantity: 0.25 }] },
+      { slotIndex: 0, intervalMinutes: 15, assignments: [
+          { itemId: 'g1', quantity: 1 },
+          { type: 'drink_group', groupId: '__auto__', groupName: null, itemIds: ['dp1', 'dp2'], carbsPerSlot: 25, sodiumPerSlot: 100 }
+        ]
+      },
+      { slotIndex: 1, intervalMinutes: 15, assignments: [
+          { type: 'drink_group', groupId: '__auto__', groupName: null, itemIds: ['dp1', 'dp2'], carbsPerSlot: 25, sodiumPerSlot: 100 }
+        ]
+      },
       { slotIndex: 2, intervalMinutes: 15, assignments: [] },
-      { slotIndex: 3, intervalMinutes: 15, assignments: [{ itemId: 'dp1', quantity: 0.25 }] }
+      { slotIndex: 3, intervalMinutes: 15, assignments: [
+          { type: 'drink_group', groupId: '__auto__', groupName: null, itemIds: ['dp1', 'dp2'], carbsPerSlot: 25, sodiumPerSlot: 100 }
+        ]
+      }
     ];
     var text = Export.generateExecutionPlanText(seg, plan);
     assert.ok(text.includes('Bike — Execution Plan'));
     assert.ok(text.includes('0:15'));
     assert.ok(text.includes('Maurten Gel 100'));
-    assert.ok(text.includes('Sip Skratch Superfuel'));
-    assert.ok(text.includes('~50g carbs')); // 25 + 100*0.25 = 50
+    assert.ok(text.includes('Sip'), 'should include Sip cue for drink group');
+    assert.ok(!text.includes('Sip Skratch Superfuel'), 'should not list individual powder brands');
+    assert.ok(text.includes('~50g carbs'), '25 from gel + 25 from drink_group');
     // Empty slot (0:45) should not appear
     assert.ok(!text.includes('0:45'));
+  });
+
+  test('formats execution plan with named bottle group', function () {
+    var seg = {
+      name: 'Bike',
+      items: [{ id: 'dp1', brand: 'Skratch', name: 'Superfuel', type: 'drink_powder', carbsPerUnit: 100, quantity: 1 }]
+    };
+    var plan = [
+      { slotIndex: 0, intervalMinutes: 15, assignments: [
+          { type: 'drink_group', groupId: 'b1', groupName: 'Bottle 1', itemIds: ['dp1'], carbsPerSlot: 25, sodiumPerSlot: 100 }
+        ]
+      }
+    ];
+    var text = Export.generateExecutionPlanText(seg, plan);
+    assert.ok(text.includes('Sip Bottle 1'));
+    assert.ok(text.includes('~25g carbs'));
   });
 
   test('formats half-bar correctly', function () {

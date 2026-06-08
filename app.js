@@ -656,13 +656,19 @@
     // Check for orphaned itemIds (items removed since generation)
     var itemIds = new Set((seg.items || []).map(function (i) { return i.id; }));
     var hasOrphans = hasPlan && plan.some(function (slot) {
-      return (slot.assignments || []).some(function (a) { return !itemIds.has(a.itemId); });
+      return (slot.assignments || []).some(function (a) {
+        if (a.type === 'drink_group') return (a.itemIds || []).some(function (id) { return !itemIds.has(id); });
+        return !itemIds.has(a.itemId);
+      });
     });
     // Check for new items added to segment after plan was generated
     var planItemIds = new Set();
     if (hasPlan) {
       plan.forEach(function (slot) {
-        (slot.assignments || []).forEach(function (a) { planItemIds.add(a.itemId); });
+        (slot.assignments || []).forEach(function (a) {
+          if (a.type === 'drink_group') { (a.itemIds || []).forEach(function (id) { planItemIds.add(id); }); }
+          else { planItemIds.add(a.itemId); }
+        });
       });
     }
     var hasNewItems = hasPlan && (seg.items || []).some(function (i) { return !planItemIds.has(i.id); });
@@ -696,10 +702,12 @@
       var carbLabel = slotCarbs > 0 ? '<span class="exec-slot-carbs">~' + Math.round(slotCarbs) + 'g</span>' : '';
 
       var assignmentLabels = (slot.assignments || []).map(function (a) {
+        if (a.type === 'drink_group') {
+          return a.groupName ? 'Sip ' + escHtml(a.groupName) : 'Sip';
+        }
         var item = (seg.items || []).find(function (i) { return i.id === a.itemId; });
         if (!item) return '';
         var fullName = escHtml((item.brand ? item.brand + ' ' : '') + item.name);
-        if (item.type === 'drink_powder') return 'Sip ' + fullName;
         if (a.quantity === 0.5) return '½ ' + fullName;
         return fullName;
       }).filter(Boolean).join(' · ');
@@ -969,6 +977,36 @@
         });
       });
     }
+
+    // Execution plan handlers (also wired in reattachSegmentHandlers for segment-level re-renders)
+    $$('[data-exec-generate]', $('detail-body')).forEach(function (btn) {
+      on(btn, 'click', function () { handleExecutionPlanGenerate(btn.dataset.execGenerate, false); });
+    });
+    $$('[data-exec-regen]', $('detail-body')).forEach(function (btn) {
+      on(btn, 'click', function () { handleExecutionPlanGenerate(btn.dataset.execRegen, true); });
+    });
+    $$('[data-exec-toggle]', $('detail-body')).forEach(function (btn) {
+      on(btn, 'click', function () { handleExecutionPlanToggle(btn.dataset.execToggle); });
+    });
+    $$('[data-exec-copy]', $('detail-body')).forEach(function (btn) {
+      on(btn, 'click', function () {
+        var seg2 = (evt.segments || []).find(function (s) { return s.id === btn.dataset.execCopy; });
+        var plan = Data.loadExecutionPlan(btn.dataset.execCopy);
+        if (!seg2 || !plan) return;
+        var text = Export.generateExecutionPlanText(seg2, plan);
+        navigator.clipboard.writeText(text).then(function () {
+          showToast('Execution plan copied!');
+        }).catch(function () {
+          showToast("Couldn't copy — try again.");
+        });
+      });
+    });
+    $$('[data-exec-slot]', $('detail-body')).forEach(function (row) {
+      on(row, 'click', function () {
+        var parts = row.dataset.execSlot.split(':');
+        openSlotEditor(parts[0], parseInt(parts[1], 10));
+      });
+    });
   }
 
   function refreshSummaryCards() {
@@ -1203,12 +1241,15 @@
     }
 
     bodyEl.innerHTML = slot.assignments.map(function (a, aIdx) {
-      var item = itemMap[a.itemId];
-      if (!item) return '';
-      var fullName = escHtml((item.brand ? item.brand + ' ' : '') + item.name);
-      var label = item.type === 'drink_powder' ? 'Sip ' + fullName
-                : a.quantity === 0.5 ? '½ ' + fullName
-                : fullName;
+      var label;
+      if (a.type === 'drink_group') {
+        label = a.groupName ? 'Sip ' + escHtml(a.groupName) : 'Sip';
+      } else {
+        var item = itemMap[a.itemId];
+        if (!item) return '';
+        var fullName = escHtml((item.brand ? item.brand + ' ' : '') + item.name);
+        label = a.quantity === 0.5 ? '½ ' + fullName : fullName;
+      }
       return '<div class="slot-assignment-row" data-assignment-idx="' + aIdx + '">' +
         '<span class="slot-assignment-label">' + label + '</span>' +
         '<div class="slot-assignment-actions">' +
@@ -1272,6 +1313,7 @@
     pickerBody.innerHTML = plan.map(function (slot, idx) {
       if (idx === fromSlotIndex) return ''; // skip current slot
       var summary = (slot.assignments || []).map(function (a) {
+        if (a.type === 'drink_group') return a.groupName ? escHtml(a.groupName) : 'Sip';
         var item = itemMap[a.itemId];
         return item ? escHtml((item.brand ? item.brand + ' ' : '') + item.name) : '';
       }).filter(Boolean).join(', ') || '—';
@@ -1311,10 +1353,12 @@
     var plan = Data.loadExecutionPlan(_slotEditorSegId);
     if (!plan) return;
 
-    // Build assigned quantity map across all slots
+    // Build assigned quantity map across all slots (drink_group assignments excluded —
+    // their quantities are managed as pre-calculated carb/sodium totals, not per-item units)
     var assignedQty = {};
     plan.forEach(function (slot) {
       (slot.assignments || []).forEach(function (a) {
+        if (a.type === 'drink_group') return;
         assignedQty[a.itemId] = (assignedQty[a.itemId] || 0) + a.quantity;
       });
     });
@@ -1323,11 +1367,24 @@
     var pickerHeader = $('slot-picker-sheet').querySelector('.sheet-header span');
     if (pickerHeader) pickerHeader.textContent = 'Add item';
 
+    // Build set of item IDs already in a drink_group (so we can label them correctly)
+    var inLiquidMix = new Set();
+    plan.forEach(function (slot) {
+      (slot.assignments || []).forEach(function (a) {
+        if (a.type === 'drink_group') (a.itemIds || []).forEach(function (id) { inLiquidMix.add(id); });
+      });
+    });
+
     pickerBody.innerHTML = (seg.items || []).map(function (item) {
-      var totalAssigned = assignedQty[item.id] || 0;
-      var remaining = Math.round((item.quantity - totalAssigned) * 100) / 100;
       var label = escHtml((item.brand ? item.brand + ' ' : '') + item.name);
-      var remainLabel = remaining > 0 ? remaining + ' remaining' : 'fully assigned';
+      var remainLabel;
+      if (item.type === 'drink_powder') {
+        remainLabel = inLiquidMix.has(item.id) ? 'in liquid mix' : 'not yet in mix';
+      } else {
+        var totalAssigned = assignedQty[item.id] || 0;
+        var remaining = Math.round((item.quantity - totalAssigned) * 100) / 100;
+        remainLabel = remaining > 0 ? remaining + ' remaining' : 'fully assigned';
+      }
 
       return '<div class="slot-picker-row" data-add-item-id="' + item.id + '" data-add-item-type="' + escHtml(item.type) + '">' +
         '<span class="slot-picker-time" style="min-width:unset;flex:1">' + label + '</span>' +
@@ -1340,13 +1397,34 @@
         var freshPlan = Data.loadExecutionPlan(_slotEditorSegId);
         if (!freshPlan) return;
         var itemType = row.dataset.addItemType;
-        var qty = itemType === 'bar' ? 0.5
-                : itemType === 'drink_powder' ? Math.round((1 / freshPlan.length) * 10000) / 10000
-                : 1;
-        freshPlan[slotIndex].assignments.push({
-          itemId: row.dataset.addItemId,
-          quantity: qty
-        });
+        if (itemType === 'drink_powder') {
+          // Drink powders belong to a drink_group. Add the item to the auto group in every slot.
+          var newItemId = row.dataset.addItemId;
+          var newItem = (seg.items || []).find(function (i) { return i.id === newItemId; });
+          var addCarbs  = newItem ? (newItem.carbsPerUnit  || 0) * (newItem.quantity || 0) / freshPlan.length : 0;
+          var addSodium = newItem ? (newItem.sodiumPerUnit || 0) * (newItem.quantity || 0) / freshPlan.length : 0;
+          freshPlan.forEach(function (s) {
+            var group = (s.assignments || []).find(function (a) { return a.type === 'drink_group' && a.groupId === '__auto__'; });
+            if (group) {
+              if (group.itemIds.indexOf(newItemId) === -1) group.itemIds.push(newItemId);
+              group.carbsPerSlot  = Math.round((group.carbsPerSlot  + addCarbs)  * 100) / 100;
+              group.sodiumPerSlot = Math.round((group.sodiumPerSlot + addSodium) * 100) / 100;
+            } else {
+              s.assignments.push({
+                type: 'drink_group', groupId: '__auto__', groupName: null,
+                itemIds: [newItemId],
+                carbsPerSlot:  Math.round(addCarbs  * 100) / 100,
+                sodiumPerSlot: Math.round(addSodium * 100) / 100
+              });
+            }
+          });
+        } else {
+          var qty = itemType === 'bar' ? 0.5 : 1;
+          freshPlan[slotIndex].assignments.push({
+            itemId: row.dataset.addItemId,
+            quantity: qty
+          });
+        }
         Data.saveExecutionPlan(_slotEditorSegId, freshPlan);
         $('slot-picker-overlay').classList.add('hidden');
         if (pickerHeader) pickerHeader.textContent = 'Move to slot';
