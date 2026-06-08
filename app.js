@@ -722,11 +722,25 @@
       '</div>';
     }).join('');
 
+    // Footer: total carbs across all slots vs. target
+    var planTotalCarbs = plan.reduce(function (sum, slot) {
+      return sum + Data.calcSlotCarbs(slot, seg.items);
+    }, 0);
+    var planCarbsPerHr = seg.durationHours > 0 ? planTotalCarbs / seg.durationHours : 0;
+    var targetCarbs = seg.targets && seg.targets.carbsPerHour ? seg.targets.carbsPerHour : 0;
+    var footerClass = targetCarbs > 0 && planCarbsPerHr < targetCarbs * 0.85 ? ' exec-plan-footer-warn' : '';
+    var footerHTML = '<div class="exec-plan-footer' + footerClass + '">' +
+      '~' + Math.round(planTotalCarbs) + 'g carbs total · ' +
+      '~' + Math.round(planCarbsPerHr) + 'g/hr' +
+      (targetCarbs > 0 ? ' <span class="exec-plan-footer-target">(target: ' + targetCarbs + 'g/hr)</span>' : '') +
+    '</div>';
+
     return '<div class="exec-plan-panel" data-exec-panel="' + seg.id + '">' +
       headerHTML +
       '<div class="exec-plan-body hidden" data-exec-body="' + seg.id + '">' +
         staleHTML +
         '<div class="exec-slots-list">' + slotsHTML + '</div>' +
+        footerHTML +
       '</div>' +
     '</div>';
   }
@@ -969,7 +983,13 @@
     var copyPlanBtn = $('btn-copy-plan');
     if (copyPlanBtn) {
       on(copyPlanBtn, 'click', function () {
-        var md = Export.generateEventMarkdown(evt);
+        // Collect any saved execution plans keyed by segment id
+        var execPlans = {};
+        (evt.segments || []).forEach(function (seg) {
+          var plan = Data.loadExecutionPlan(seg.id);
+          if (plan) execPlans[seg.id] = plan;
+        });
+        var md = Export.generateEventMarkdown(evt, Object.keys(execPlans).length ? execPlans : null);
         navigator.clipboard.writeText(md).then(function () {
           showToast('Plan copied!');
         }).catch(function () {
@@ -1378,7 +1398,7 @@
     pickerBody.innerHTML = (seg.items || []).map(function (item) {
       var label = escHtml((item.brand ? item.brand + ' ' : '') + item.name);
       var remainLabel;
-      if (item.type === 'drink_powder') {
+      if (item.type === 'drink_powder' || item.type === 'liquid') {
         remainLabel = inLiquidMix.has(item.id) ? 'in liquid mix' : 'not yet in mix';
       } else {
         var totalAssigned = assignedQty[item.id] || 0;
@@ -1397,8 +1417,8 @@
         var freshPlan = Data.loadExecutionPlan(_slotEditorSegId);
         if (!freshPlan) return;
         var itemType = row.dataset.addItemType;
-        if (itemType === 'drink_powder') {
-          // Drink powders belong to a drink_group. Add the item to the auto group in every slot.
+        if (itemType === 'drink_powder' || itemType === 'liquid') {
+          // Liquid items (drink_powder + liquid) belong to a drink_group. Add to auto group in every slot.
           var newItemId = row.dataset.addItemId;
           var newItem = (seg.items || []).find(function (i) { return i.id === newItemId; });
           var addCarbs  = newItem ? (newItem.carbsPerUnit  || 0) * (newItem.quantity || 0) / freshPlan.length : 0;

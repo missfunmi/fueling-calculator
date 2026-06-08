@@ -621,7 +621,7 @@ async function run() {
     assert.strictEqual(plan.length, 14); // ceil(210/15) = 14
   });
 
-  await test('distributes 4 gels evenly across 8 slots', async function () {
+  await test('distributes 4 gels evenly across 8 slots (centered in buckets)', async function () {
     var seg = {
       id: 'seg1', durationHours: 2,
       targets: { carbsPerHour: 60, sodiumPerHour: 0, caffeinePerHour: 0 },
@@ -632,8 +632,15 @@ async function run() {
     var plan = D.generateExecutionPlan(seg);
     var assigned = plan.filter(function(s) { return s.assignments.length > 0; });
     assert.strictEqual(assigned.length, 4);
-    assert.strictEqual(plan[0].assignments[0].itemId, 'g1');
-    assert.strictEqual(plan[0].assignments[0].quantity, 1);
+    // (i+0.5) formula: item 0 -> slot 1, item 1 -> slot 3, item 2 -> slot 5, item 3 -> slot 7
+    assert.strictEqual(plan[1].assignments[0].itemId, 'g1');
+    assert.strictEqual(plan[1].assignments[0].quantity, 1);
+    assert.strictEqual(plan[3].assignments[0].itemId, 'g1');
+    assert.strictEqual(plan[5].assignments[0].itemId, 'g1');
+    assert.strictEqual(plan[7].assignments[0].itemId, 'g1');
+    // No two gels in the same slot
+    var maxPerSlot = Math.max.apply(null, plan.map(function(s) { return s.assignments.length; }));
+    assert.strictEqual(maxPerSlot, 1);
   });
 
   await test('interleaves caf and non-caf gels', async function () {
