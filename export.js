@@ -176,15 +176,19 @@
       var timeLabel = h + ':' + String(m).padStart(2, '0');
 
       var slotCarbs = slot.assignments.reduce(function (sum, a) {
+        if (a.type === 'drink_group') return sum + (a.carbsPerSlot || 0);
         var item = itemMap[a.itemId];
         return sum + (item ? (item.carbsPerUnit || 0) * a.quantity : 0);
       }, 0);
 
       var itemLabels = slot.assignments.map(function (a) {
+        if (a.type === 'drink_group') {
+          var label = a.groupName ? 'Sip ' + a.groupName : 'Sip';
+          return label;
+        }
         var item = itemMap[a.itemId];
         if (!item) return '';
         var fullName = (item.brand ? item.brand + ' ' : '') + item.name;
-        if (item.type === 'drink_powder') return 'Sip ' + fullName;
         if (a.quantity === 0.5) return '½ ' + fullName;
         return fullName;
       }).filter(Boolean).join(' · ');

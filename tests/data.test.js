@@ -668,7 +668,7 @@ async function run() {
     assert.strictEqual(allAssignments[0].quantity, 0.5);
   });
 
-  await test('distributes drink_powder as one sip per slot', async function () {
+  await test('distributes drink_powder as one drink_group sip per slot', async function () {
     var seg = {
       id: 'seg1', durationHours: 1,
       targets: { carbsPerHour: 80, sodiumPerHour: 0, caffeinePerHour: 0 },
@@ -677,12 +677,62 @@ async function run() {
       ]
     };
     var plan = D.generateExecutionPlan(seg);
-    // Every slot gets a sip
     assert.strictEqual(plan.length, 4);
     plan.forEach(function(slot) {
       assert.strictEqual(slot.assignments.length, 1);
-      assert.strictEqual(slot.assignments[0].itemId, 'dp1');
-      assert.ok(Math.abs(slot.assignments[0].quantity - 0.25) < 0.001); // 1/4 per slot
+      var a = slot.assignments[0];
+      assert.strictEqual(a.type, 'drink_group');
+      assert.strictEqual(a.groupId, '__auto__');
+      assert.deepStrictEqual(a.itemIds, ['dp1']);
+      assert.ok(Math.abs(a.carbsPerSlot - 20) < 0.1); // 80g / 4 slots = 20g per slot
+    });
+  });
+
+  await test('merges multiple drink_powders into a single drink_group per slot', async function () {
+    var seg = {
+      id: 'seg1', durationHours: 1,
+      targets: { carbsPerHour: 100, sodiumPerHour: 0, caffeinePerHour: 0 },
+      items: [
+        { id: 'dp1', type: 'drink_powder', carbsPerUnit: 100, sodiumPerUnit: 400, caffeinePerUnit: 0, quantity: 1 },
+        { id: 'dp2', type: 'drink_powder', carbsPerUnit: 0,   sodiumPerUnit: 400, caffeinePerUnit: 0, quantity: 1 }
+      ]
+    };
+    var plan = D.generateExecutionPlan(seg);
+    assert.strictEqual(plan.length, 4);
+    plan.forEach(function(slot) {
+      var groups = slot.assignments.filter(function(a) { return a.type === 'drink_group'; });
+      assert.strictEqual(groups.length, 1, 'exactly one drink_group per slot');
+      var g = groups[0];
+      assert.ok(g.itemIds.indexOf('dp1') !== -1);
+      assert.ok(g.itemIds.indexOf('dp2') !== -1);
+      assert.ok(Math.abs(g.carbsPerSlot - 25) < 0.1);   // 100g / 4 slots
+      assert.ok(Math.abs(g.sodiumPerSlot - 200) < 0.1); // 800mg / 4 slots
+    });
+  });
+
+  await test('uses segment.bottleGroups for explicit bottle grouping when defined', async function () {
+    var seg = {
+      id: 'seg1', durationHours: 1,
+      targets: { carbsPerHour: 100, sodiumPerHour: 0, caffeinePerHour: 0 },
+      bottleGroups: [
+        { id: 'b1', name: 'Bottle 1', itemIds: ['dp1'] },
+        { id: 'b2', name: 'Bottle 2', itemIds: ['dp2'] }
+      ],
+      items: [
+        { id: 'dp1', type: 'drink_powder', carbsPerUnit: 80, sodiumPerUnit: 400, caffeinePerUnit: 0, quantity: 1 },
+        { id: 'dp2', type: 'drink_powder', carbsPerUnit: 20, sodiumPerUnit: 400, caffeinePerUnit: 0, quantity: 1 }
+      ]
+    };
+    var plan = D.generateExecutionPlan(seg);
+    plan.forEach(function(slot) {
+      var groups = slot.assignments.filter(function(a) { return a.type === 'drink_group'; });
+      assert.strictEqual(groups.length, 2, 'two separate groups for two bottles');
+      var b1 = groups.find(function(g) { return g.groupId === 'b1'; });
+      var b2 = groups.find(function(g) { return g.groupId === 'b2'; });
+      assert.ok(b1 && b1.groupName === 'Bottle 1');
+      assert.ok(b2 && b2.groupName === 'Bottle 2');
+      assert.ok(Math.abs(b1.carbsPerSlot - 20) < 0.1);
+      assert.ok(Math.abs(b2.carbsPerSlot - 5) < 0.1);
     });
   });
 
@@ -738,14 +788,23 @@ async function run() {
 
   console.log('\nExecution Plan — calcSlotCarbs');
 
-  await test('calculates carbs for a slot', async function () {
-    var items = [
-      { id: 'g1', carbsPerUnit: 25, quantity: 1 },
-      { id: 'dp1', carbsPerUnit: 80, quantity: 1 }
-    ];
-    var slot = { assignments: [{ itemId: 'g1', quantity: 1 }, { itemId: 'dp1', quantity: 0.25 }] };
+  await test('calculates carbs for a slot with discrete items', async function () {
+    var items = [{ id: 'g1', carbsPerUnit: 25, quantity: 1 }];
+    var slot = { assignments: [{ itemId: 'g1', quantity: 1 }] };
     var carbs = D.calcSlotCarbs(slot, items);
-    assert.strictEqual(carbs, 45); // 25 + 80*0.25 = 45
+    assert.strictEqual(carbs, 25);
+  });
+
+  await test('uses carbsPerSlot directly for drink_group assignments', async function () {
+    var items = [{ id: 'g1', carbsPerUnit: 25, quantity: 1 }];
+    var slot = {
+      assignments: [
+        { itemId: 'g1', quantity: 1 },
+        { type: 'drink_group', groupId: '__auto__', groupName: null, itemIds: ['dp1'], carbsPerSlot: 20, sodiumPerSlot: 100 }
+      ]
+    };
+    var carbs = D.calcSlotCarbs(slot, items);
+    assert.strictEqual(carbs, 45); // 25 (gel) + 20 (drink_group)
   });
 
   await test('returns 0 for empty slot', async function () {
