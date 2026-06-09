@@ -293,13 +293,14 @@ function run() {
     ];
     var text = Export.generateExecutionPlanText(seg, plan);
     assert.ok(text.includes('Bike — Execution Plan'));
-    assert.ok(text.includes('0:15'));
+    assert.ok(text.includes('0:00'), 'slot 0 should be labeled 0:00');
+    assert.ok(text.includes('0:15'), 'slot 1 should be labeled 0:15');
     assert.ok(text.includes('Maurten Gel 100'));
     assert.ok(text.includes('Sip'), 'should include Sip cue for drink group');
     assert.ok(!text.includes('Sip Skratch Superfuel'), 'should not list individual powder brands');
     assert.ok(text.includes('~50g carbs'), '25 from gel + 25 from drink_group');
-    // Empty slot (0:45) should not appear
-    assert.ok(!text.includes('0:45'));
+    // Empty slot (slot 2 = 0:30) should not appear
+    assert.ok(!text.includes('0:30'));
   });
 
   test('formats execution plan with named bottle group', function () {

@@ -181,7 +181,7 @@
     (plan || []).forEach(function (slot) {
       if (!slot.assignments || !slot.assignments.length) return;
 
-      var totalMinutes = slot.slotIndex * slot.intervalMinutes + slot.intervalMinutes;
+      var totalMinutes = slot.slotIndex * slot.intervalMinutes;
       var h = Math.floor(totalMinutes / 60);
       var m = totalMinutes % 60;
       var timeLabel = h + ':' + String(m).padStart(2, '0');
