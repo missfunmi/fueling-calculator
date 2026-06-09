@@ -639,7 +639,7 @@
   }
 
   function slotTimeLabel(slotIndex, intervalMinutes) {
-    var totalMinutes = (slotIndex + 1) * intervalMinutes;
+    var totalMinutes = slotIndex * intervalMinutes;
     var h = Math.floor(totalMinutes / 60);
     var m = totalMinutes % 60;
     return h + ':' + String(m).padStart(2, '0');

@@ -608,7 +608,7 @@ async function run() {
       items: []
     };
     var plan = D.generateExecutionPlan(seg);
-    assert.strictEqual(plan.length, 4); // ceil(60/15) = 4
+    assert.strictEqual(plan.length, 5); // ceil(60/15) + 1 = 5 (0:00..1:00)
   });
 
   await test('generates correct slot count for 3.5h segment', async function () {
@@ -618,10 +618,10 @@ async function run() {
       items: []
     };
     var plan = D.generateExecutionPlan(seg);
-    assert.strictEqual(plan.length, 14); // ceil(210/15) = 14
+    assert.strictEqual(plan.length, 15); // ceil(210/15) + 1 = 15 (0:00..3:30)
   });
 
-  await test('distributes 4 gels evenly across 8 slots (centered in buckets)', async function () {
+  await test('distributes 4 gels evenly across 9 slots (centered in buckets)', async function () {
     var seg = {
       id: 'seg1', durationHours: 2,
       targets: { carbsPerHour: 60, sodiumPerHour: 0, caffeinePerHour: 0 },
@@ -684,14 +684,14 @@ async function run() {
       ]
     };
     var plan = D.generateExecutionPlan(seg);
-    assert.strictEqual(plan.length, 4);
+    assert.strictEqual(plan.length, 5); // 0:00..1:00
     plan.forEach(function(slot) {
       assert.strictEqual(slot.assignments.length, 1);
       var a = slot.assignments[0];
       assert.strictEqual(a.type, 'drink_group');
       assert.strictEqual(a.groupId, '__auto__');
       assert.deepStrictEqual(a.itemIds, ['dp1']);
-      assert.ok(Math.abs(a.carbsPerSlot - 20) < 0.1); // 80g / 4 slots = 20g per slot
+      assert.ok(Math.abs(a.carbsPerSlot - 16) < 0.1); // 80g / 5 slots = 16g per slot
     });
   });
 
@@ -705,15 +705,15 @@ async function run() {
       ]
     };
     var plan = D.generateExecutionPlan(seg);
-    assert.strictEqual(plan.length, 4);
+    assert.strictEqual(plan.length, 5); // 0:00..1:00
     plan.forEach(function(slot) {
       var groups = slot.assignments.filter(function(a) { return a.type === 'drink_group'; });
       assert.strictEqual(groups.length, 1, 'exactly one drink_group per slot');
       var g = groups[0];
       assert.ok(g.itemIds.indexOf('dp1') !== -1);
       assert.ok(g.itemIds.indexOf('dp2') !== -1);
-      assert.ok(Math.abs(g.carbsPerSlot - 25) < 0.1);   // 100g / 4 slots
-      assert.ok(Math.abs(g.sodiumPerSlot - 200) < 0.1); // 800mg / 4 slots
+      assert.ok(Math.abs(g.carbsPerSlot - 20) < 0.1);   // 100g / 5 slots
+      assert.ok(Math.abs(g.sodiumPerSlot - 160) < 0.1); // 800mg / 5 slots
     });
   });
 
@@ -738,8 +738,8 @@ async function run() {
       var b2 = groups.find(function(g) { return g.groupId === 'b2'; });
       assert.ok(b1 && b1.groupName === 'Bottle 1');
       assert.ok(b2 && b2.groupName === 'Bottle 2');
-      assert.ok(Math.abs(b1.carbsPerSlot - 20) < 0.1);
-      assert.ok(Math.abs(b2.carbsPerSlot - 5) < 0.1);
+      assert.ok(Math.abs(b1.carbsPerSlot - 16) < 0.1); // 80g / 5 slots
+      assert.ok(Math.abs(b2.carbsPerSlot - 4) < 0.1);  // 20g / 5 slots
     });
   });
 
