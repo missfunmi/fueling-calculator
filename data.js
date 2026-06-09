@@ -117,12 +117,19 @@
 
   // ── Normalisation ────────────────────────────────────────────────────────────
 
+  // Canonicalise item type to lowercase_with_underscores so "Drink Powder",
+  // "drink powder", and "drink_powder" all compare equal.
+  function normalizeItemType(type) {
+    if (!type) return 'other';
+    return type.toLowerCase().replace(/\s+/g, '_');
+  }
+
   function dbToProduct(row) {
     return {
       id:              row.id,
       brand:           row.brand || '',
       name:            row.name,
-      type:            row.type,
+      type:            normalizeItemType(row.type),
       carbsPerUnit:    row.carbs_per_unit    || 0,
       sodiumPerUnit:   row.sodium_per_unit   || 0,
       caffeinePerUnit: row.caffeine_per_unit || 0
@@ -173,7 +180,7 @@
                   productId:       itm.product_id || null,
                   name:            itm.name,
                   brand:           itm.brand || '',
-                  type:            itm.type,
+                  type:            normalizeItemType(itm.type),
                   carbsPerUnit:    itm.carbs_per_unit    || 0,
                   sodiumPerUnit:   itm.sodium_per_unit   || 0,
                   caffeinePerUnit: itm.caffeine_per_unit || 0,
@@ -516,7 +523,7 @@
       productId:       product.id,
       name:            product.name,
       brand:           product.brand || '',
-      type:            product.type,
+      type:            normalizeItemType(product.type),
       carbsPerUnit:    Number(product.carbsPerUnit)    || 0,
       sodiumPerUnit:   Number(product.sodiumPerUnit)   || 0,
       caffeinePerUnit: Number(product.caffeinePerUnit) || 0,
@@ -530,7 +537,7 @@
       productId:       null,
       name:            fields.name,
       brand:           fields.brand || '',
-      type:            fields.type || 'other',
+      type:            normalizeItemType(fields.type),
       carbsPerUnit:    Number(fields.carbsPerUnit)    || 0,
       sodiumPerUnit:   Number(fields.sodiumPerUnit)   || 0,
       caffeinePerUnit: Number(fields.caffeinePerUnit) || 0,
