@@ -166,6 +166,7 @@
             id:            seg.id,
             name:          seg.name,
             durationHours: seg.duration_hours,
+            executionPlan: seg.execution_plan || null,
             targets: {
               carbsPerHour:    seg.carbs_per_hour    || 0,
               sodiumPerHour:   seg.sodium_per_hour   || 0,
@@ -279,7 +280,13 @@
       'GET',
       'events?id=eq.' + id + '&user_id=eq.' + getUserId() + '&select=*,segments(*,items(*))'
     );
-    return rows.length ? dbToEvent(rows[0]) : null;
+    if (!rows.length) return null;
+    var evt = dbToEvent(rows[0]);
+    // Seed localStorage from DB so execution plans work across devices
+    (evt.segments || []).forEach(function (seg) {
+      if (seg.executionPlan) saveExecutionPlan(seg.id, seg.executionPlan, true);
+    });
+    return evt;
   }
 
   async function saveEvent(evt) {
@@ -664,8 +671,12 @@
     }, 0);
   }
 
-  function saveExecutionPlan(segmentId, plan) {
+  function saveExecutionPlan(segmentId, plan, skipDb) {
     localStorage.setItem('fuelPlanner.execPlan.' + segmentId, JSON.stringify(plan));
+    if (!skipDb) {
+      supabaseRequest('PATCH', 'segments?id=eq.' + segmentId, { execution_plan: plan }, 'return=minimal')
+        .catch(function () {});
+    }
   }
 
   function loadExecutionPlan(segmentId) {
