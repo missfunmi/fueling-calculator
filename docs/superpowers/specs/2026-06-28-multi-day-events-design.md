@@ -41,9 +41,16 @@ One new field:
 
 ### DB
 
-- Add `end_date` (text, nullable) column to the `events` table.
-- Add `date` (text, nullable) column to the `segments` table.
-- Pass both through the `save_event` RPC and map in `dbToEvent` / `eventToDb`.
+Migration file: `migrations/0001_multi_day_events.sql`
+
+```sql
+ALTER TABLE events  ADD COLUMN IF NOT EXISTS end_date text;
+ALTER TABLE segments ADD COLUMN IF NOT EXISTS date text;
+```
+
+**Existing rows:** both columns default to `NULL`, which `dbToEvent` maps to `""` via the existing `|| ''` fallback pattern. Existing events deserialize as single-day with no end date and no segment dates — no backfill required, no visible change for existing data.
+
+The `save_event` RPC and `dbToEvent` / `eventToDb` mappings are updated to pass `end_date` and segment `date` through.
 
 ---
 
