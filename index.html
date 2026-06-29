@@ -123,8 +123,11 @@
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label for="ef-date">Date</label>
-              <input id="ef-date" class="form-input" type="date">
+              <label for="ef-category">Category</label>
+              <select id="ef-category" class="form-input">
+                <option value="single">Single-day</option>
+                <option value="multi">Multi-day</option>
+              </select>
             </div>
             <div class="form-group">
               <label for="ef-type">Type</label>
@@ -133,8 +136,20 @@
                 <option value="run">Run</option>
                 <option value="triathlon">Triathlon</option>
                 <option value="swim">Swim</option>
+                <option value="vacation">Vacation</option>
+                <option value="training_camp">Training Camp</option>
                 <option value="other">Other</option>
               </select>
+            </div>
+          </div>
+          <div class="form-row ef-date-row">
+            <div class="form-group">
+              <label for="ef-date">Date</label>
+              <div class="date-range-wrap">
+                <input id="ef-date" class="form-input" type="date">
+                <span class="date-range-sep" aria-hidden="true">—</span>
+                <input id="ef-end-date" class="form-input ef-end-date-hidden" type="date">
+              </div>
             </div>
           </div>
           <div class="form-group">
