@@ -253,6 +253,102 @@ async function run() {
     assert.deepStrictEqual(seg.items, []);
   });
 
+  // ── Multi-day events (new fields) ──────────────────────────────────────────────
+
+  await test('dbToEvent: category defaults to single when missing', function () {
+    var row = {
+      id: 'e1', name: 'Test', date: '2026-06-28', type: 'ride',
+      notes: null, post_event_notes: null, actuals: null,
+      segments: []
+    };
+    var evt = D.dbToEvent(row);
+    assert.strictEqual(evt.category, 'single');
+    assert.strictEqual(evt.endDate, '');
+  });
+
+  await test('dbToEvent: category and endDate round-trip from row', function () {
+    var row = {
+      id: 'e2', name: 'Tour', date: '2026-06-28', type: 'ride',
+      category: 'multi', end_date: '2026-07-04',
+      notes: null, post_event_notes: null, actuals: null,
+      segments: []
+    };
+    var evt = D.dbToEvent(row);
+    assert.strictEqual(evt.category, 'multi');
+    assert.strictEqual(evt.endDate, '2026-07-04');
+  });
+
+  await test('dbToEvent: segment date round-trips from row', function () {
+    var row = {
+      id: 'e3', name: 'Camp', date: '2026-06-28', type: 'training_camp',
+      category: 'multi', end_date: '2026-07-02',
+      notes: null, post_event_notes: null, actuals: null,
+      segments: [{
+        id: 's1', name: 'Day 1', duration_hours: 3, sort_order: 0,
+        date: '2026-06-28',
+        carbs_per_hour: 80, sodium_per_hour: 500, caffeine_per_hour: 0,
+        items: []
+      }]
+    };
+    var evt = D.dbToEvent(row);
+    assert.strictEqual(evt.segments[0].date, '2026-06-28');
+  });
+
+  await test('dbToEvent: segment date defaults to empty string when missing', function () {
+    var row = {
+      id: 'e4', name: 'Ride', date: '2026-06-28', type: 'ride',
+      notes: null, post_event_notes: null, actuals: null,
+      segments: [{
+        id: 's1', name: 'Bike', duration_hours: 2, sort_order: 0,
+        carbs_per_hour: 80, sodium_per_hour: 500, caffeine_per_hour: 0,
+        items: []
+      }]
+    };
+    var evt = D.dbToEvent(row);
+    assert.strictEqual(evt.segments[0].date, '');
+  });
+
+  await test('eventToDb: passes category and end_date through', function () {
+    var evt = {
+      id: 'e5', name: 'Tour', date: '2026-06-28', type: 'ride',
+      category: 'multi', endDate: '2026-07-04',
+      notes: '', segments: []
+    };
+    var row = D.eventToDb(evt);
+    assert.strictEqual(row.category, 'multi');
+    assert.strictEqual(row.end_date, '2026-07-04');
+  });
+
+  await test('eventToDb: passes segment date through', function () {
+    var seg = {
+      id: 's1', name: 'Day 1', durationHours: 3, date: '2026-06-28',
+      targets: { carbsPerHour: 80, sodiumPerHour: 500, caffeinePerHour: 0 },
+      items: []
+    };
+    var evt = {
+      id: 'e6', name: 'Camp', date: '2026-06-28', type: 'training_camp',
+      category: 'multi', endDate: '2026-07-02', notes: '', segments: [seg]
+    };
+    var row = D.eventToDb(evt);
+    assert.strictEqual(row.segments[0].date, '2026-06-28');
+  });
+
+  await test('newEvent: includes category single and empty endDate', function () {
+    var evt = D.newEvent('Test');
+    assert.strictEqual(evt.category, 'single');
+    assert.strictEqual(evt.endDate, '');
+  });
+
+  await test('newSegment: includes empty date by default', function () {
+    var seg = D.newSegment('Bike', 2);
+    assert.strictEqual(seg.date, '');
+  });
+
+  await test('newSegment: accepts a pre-fill date', function () {
+    var seg = D.newSegment('Day 1', 3, '2026-06-28');
+    assert.strictEqual(seg.date, '2026-06-28');
+  });
+
   // ── Calculations ──────────────────────────────────────────────────────────────
 
   console.log('\nCalculations');

@@ -147,6 +147,8 @@
       id:             row.id,
       name:           row.name,
       date:           row.date || '',
+      endDate:        row.end_date || '',
+      category:       row.category || 'single',
       type:           row.type || 'other',
       notes:          row.notes || '',
       postEventNotes: row.post_event_notes || '',
@@ -158,6 +160,7 @@
           return {
             id:            seg.id,
             name:          seg.name,
+            date:          seg.date || '',
             durationHours: seg.duration_hours,
             targets: {
               carbsPerHour:    seg.carbs_per_hour    || 0,
@@ -188,16 +191,19 @@
   // eventToDb produces the shape expected by the save_event Postgres RPC function
   function eventToDb(evt) {
     return {
-      id:      evt.id,
-      user_id: getUserId(),
-      name:    evt.name,
-      date:    evt.date || '',
-      type:    evt.type || 'other',
-      notes:   evt.notes || null,
+      id:       evt.id,
+      user_id:  getUserId(),
+      name:     evt.name,
+      date:     evt.date || '',
+      end_date: evt.endDate || null,
+      category: evt.category || 'single',
+      type:     evt.type || 'other',
+      notes:    evt.notes || null,
       segments: (evt.segments || []).map(function (seg, si) {
         return {
           id:            seg.id,
           name:          seg.name,
+          date:          seg.date || null,
           durationHours: seg.durationHours,
           sortOrder:     si,
           targets: {
@@ -487,10 +493,11 @@
 
   // ── Factories ─────────────────────────────────────────────────────────────────
 
-  function newSegment(name, durationHours) {
+  function newSegment(name, durationHours, date) {
     return {
       id:            generateId(),
       name:          name || 'Segment',
+      date:          date || '',
       durationHours: durationHours || 1,
       targets:       { carbsPerHour: 80, sodiumPerHour: 500, caffeinePerHour: 0 },
       items:         []
@@ -502,6 +509,8 @@
       id:             generateId(),
       name:           name || 'New Event',
       date:           new Date().toISOString().slice(0, 10),
+      endDate:        '',
+      category:       'single',
       type:           'ride',
       notes:          '',
       postEventNotes: '',
@@ -569,6 +578,8 @@
   exports.calcActualEventTotals   = calcActualEventTotals;
   exports.calcActualEventRates    = calcActualEventRates;
   exports.calcEventGoalRates      = calcEventGoalRates;
+  exports.dbToEvent          = dbToEvent;
+  exports.eventToDb          = eventToDb;
   exports.newSegment         = newSegment;
   exports.newEvent           = newEvent;
   exports.itemFromProduct    = itemFromProduct;
