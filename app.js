@@ -173,7 +173,7 @@
   var renders = {};
 
   // ── Segment form HTML helper (used by renderCreate) ────────────────────────
-  function segmentFormHTML(seg, idx, total, isMultiDay) {
+  function segmentFormHTML(seg, idx, total, isMultiDay, startDate, endDate) {
     var canDelete = total > 1;
     return '<div class="form-card" data-seg-draft-id="' + seg.id + '">' +
       '<div class="form-section-header" style="margin-bottom:10px">' +
@@ -190,7 +190,10 @@
         (isMultiDay
           ? '<div class="form-group">' +
               '<label>Date</label>' +
-              '<input class="form-input seg-date" type="date" value="' + escHtml(seg.date || '') + '">' +
+              '<input class="form-input seg-date" type="date" value="' + escHtml(seg.date || '') + '"' +
+                (startDate ? ' min="' + escHtml(startDate) + '"' : '') +
+                (endDate   ? ' max="' + escHtml(endDate)   + '"' : '') +
+              '>' +
             '</div>'
           : '') +
         '<div class="form-group">' +
@@ -352,14 +355,23 @@
   // draftSegments is rebuilt each time the create view opens
   var draftSegments = [];
 
+  function nextDay(dateStr) {
+    if (!dateStr) return '';
+    var d = new Date(dateStr + 'T00:00:00');
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().slice(0, 10);
+  }
+
   function _applyMultiDayToggle(isMulti) {
     var endDateInput = $('ef-end-date');
     if (!endDateInput) return;
     if (isMulti) {
       endDateInput.classList.remove('ef-end-date-hidden');
+      endDateInput.min = nextDay($('ef-date').value);
     } else {
       endDateInput.classList.add('ef-end-date-hidden');
       endDateInput.value = '';
+      endDateInput.min = '';
     }
   }
 
@@ -396,6 +408,17 @@
       renderSegmentForms();
     };
 
+    $('ef-date').onchange = function () {
+      if ($('ef-category').value === 'multi') {
+        var endDateInput = $('ef-end-date');
+        endDateInput.min = nextDay(this.value);
+        if (endDateInput.value && endDateInput.value <= this.value) {
+          endDateInput.value = '';
+        }
+      }
+      renderSegmentForms();
+    };
+
     draftSegments = evt
       ? evt.segments.map(function (s) { return JSON.parse(JSON.stringify(s)); })
       : [Data.newSegment('', 1)];
@@ -426,8 +449,10 @@
   function renderSegmentForms() {
     var $list = $('segments-form-list');
     var isMultiDay = $('ef-category') && $('ef-category').value === 'multi';
+    var startDate = isMultiDay ? ($('ef-date').value || '') : '';
+    var endDate   = isMultiDay ? ($('ef-end-date').value || '') : '';
     $list.innerHTML = draftSegments.map(function (seg, i) {
-      return segmentFormHTML(seg, i, draftSegments.length, isMultiDay);
+      return segmentFormHTML(seg, i, draftSegments.length, isMultiDay, startDate, endDate);
     }).join('');
 
     // Wire remove buttons
@@ -462,15 +487,27 @@
     var name = $('ef-name').value.trim();
     if (!name) { $('ef-name').focus(); return; }
 
-    var category = $('ef-category').value;
-    var endDate  = $('ef-end-date').value;
+    var category  = $('ef-category').value;
+    var startDate = $('ef-date').value;
+    var endDate   = $('ef-end-date').value;
     if (category === 'multi' && !endDate) {
       showToast('Multi-day events require an end date.');
       return;
     }
-    if (category === 'multi' && endDate < $('ef-date').value) {
-      showToast('End date must be on or after the start date.');
+    if (category === 'multi' && endDate <= startDate) {
+      showToast('End date must be after the start date.');
       return;
+    }
+    if (category === 'multi' && startDate) {
+      var segCards2 = $$('[data-seg-draft-id]');
+      for (var si = 0; si < segCards2.length; si++) {
+        var segDateEl2 = segCards2[si].querySelector('.seg-date');
+        if (!segDateEl2 || !segDateEl2.value) continue;
+        if (segDateEl2.value < startDate || segDateEl2.value > endDate) {
+          showToast('Segment dates must be within the event date range.');
+          return;
+        }
+      }
     }
 
     var segCards = $$('[data-seg-draft-id]');
