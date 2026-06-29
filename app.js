@@ -115,7 +115,7 @@
 
   var EVENT_TYPE_LABELS = {
     ride: 'Ride', run: 'Run', triathlon: 'Triathlon',
-    swim: 'Swim', other: 'Other'
+    swim: 'Swim', vacation: 'Vacation', training_camp: 'Training Camp', other: 'Other'
   };
 
   // ── Router ─────────────────────────────────────────────────────────────────
@@ -173,7 +173,7 @@
   var renders = {};
 
   // ── Segment form HTML helper (used by renderCreate) ────────────────────────
-  function segmentFormHTML(seg, idx, total) {
+  function segmentFormHTML(seg, idx, total, isMultiDay) {
     var canDelete = total > 1;
     return '<div class="form-card" data-seg-draft-id="' + seg.id + '">' +
       '<div class="form-section-header" style="margin-bottom:10px">' +
@@ -187,6 +187,12 @@
         '<input class="form-input seg-name" type="text" value="' + escHtml(seg.name) + '" placeholder="e.g. Bike">' +
       '</div>' +
       '<div class="form-row">' +
+        (isMultiDay
+          ? '<div class="form-group">' +
+              '<label>Date</label>' +
+              '<input class="form-input seg-date" type="date" value="' + escHtml(seg.date || '') + '">' +
+            '</div>'
+          : '') +
         '<div class="form-group">' +
           '<label>Duration</label>' +
           '<input class="form-input seg-duration" type="text" inputmode="text" value="' + formatDuration(seg.durationHours) + '" placeholder="e.g. 1:45 or 1h45m">' +
@@ -333,6 +339,17 @@
   // draftSegments is rebuilt each time the create view opens
   var draftSegments = [];
 
+  function _applyMultiDayToggle(isMulti) {
+    var endDateInput = $('ef-end-date');
+    if (!endDateInput) return;
+    if (isMulti) {
+      endDateInput.classList.remove('ef-end-date-hidden');
+    } else {
+      endDateInput.classList.add('ef-end-date-hidden');
+      endDateInput.value = '';
+    }
+  }
+
   async function renderCreate() {
     var isEdit = !!state.currentEventId;
     var evt = null;
@@ -350,10 +367,21 @@
     $('btn-save-event').textContent = isEdit ? 'Save Changes' : 'Save Event';
     $('btn-delete-event').style.display = isEdit ? '' : 'none';
 
-    $('ef-name').value  = evt ? evt.name : '';
-    $('ef-date').value  = evt ? (evt.date || '') : new Date().toISOString().slice(0, 10);
-    $('ef-type').value  = evt ? evt.type : 'ride';
-    $('ef-notes').value = evt ? (evt.notes || '') : '';
+    $('ef-name').value     = evt ? evt.name : '';
+    $('ef-date').value     = evt ? (evt.date || '') : new Date().toISOString().slice(0, 10);
+    $('ef-category').value = evt ? (evt.category || 'single') : 'single';
+    $('ef-type').value     = evt ? evt.type : 'ride';
+    $('ef-notes').value    = evt ? (evt.notes || '') : '';
+
+    var endDateInput = $('ef-end-date');
+    endDateInput.value = evt ? (evt.endDate || '') : '';
+    _applyMultiDayToggle($('ef-category').value === 'multi');
+
+    $('ef-category').onchange = function () {
+      syncDraftSegmentsFromDOM();
+      _applyMultiDayToggle(this.value === 'multi');
+      renderSegmentForms();
+    };
 
     draftSegments = evt
       ? evt.segments.map(function (s) { return JSON.parse(JSON.stringify(s)); })
@@ -377,13 +405,16 @@
       if (!isNaN(sodium)) seg.targets.sodiumPerHour = sodium;
       var caff = parseFloat(card.querySelector('.seg-caffeine-target').value);
       if (!isNaN(caff)) seg.targets.caffeinePerHour = caff;
+      var segDateEl = card.querySelector('.seg-date');
+      if (segDateEl) seg.date = segDateEl.value;
     });
   }
 
   function renderSegmentForms() {
     var $list = $('segments-form-list');
+    var isMultiDay = $('ef-category') && $('ef-category').value === 'multi';
     $list.innerHTML = draftSegments.map(function (seg, i) {
-      return segmentFormHTML(seg, i, draftSegments.length);
+      return segmentFormHTML(seg, i, draftSegments.length, isMultiDay);
     }).join('');
 
     // Wire remove buttons
@@ -404,7 +435,9 @@
 
   on($('btn-add-segment'), 'click', function () {
     syncDraftSegmentsFromDOM();
-    draftSegments.push(Data.newSegment('', 1));
+    var isMulti = $('ef-category') && $('ef-category').value === 'multi';
+    var startDate = isMulti ? ($('ef-date').value || '') : '';
+    draftSegments.push(Data.newSegment('', 1, startDate));
     renderSegmentForms();
     // Scroll to new segment
     var cards = $$('[data-seg-draft-id]');
@@ -416,13 +449,22 @@
     var name = $('ef-name').value.trim();
     if (!name) { $('ef-name').focus(); return; }
 
+    var category = $('ef-category').value;
+    var endDate  = $('ef-end-date').value;
+    if (category === 'multi' && endDate && endDate < $('ef-date').value) {
+      showToast('End date must be on or after the start date.');
+      return;
+    }
+
     var segCards = $$('[data-seg-draft-id]');
     var segments = Array.from(segCards).map(function (card) {
       var id = card.dataset.segDraftId;
       var existing = draftSegments.find(function (s) { return s.id === id; });
+      var segDateEl = card.querySelector('.seg-date');
       return {
         id:            id,
         name:          card.querySelector('.seg-name').value.trim() || name,
+        date:          segDateEl ? segDateEl.value : '',
         durationHours: parseDuration(card.querySelector('.seg-duration').value) || 1,
         targets: {
           carbsPerHour:    parseFloat(card.querySelector('.seg-carbs-target').value)    || 0,
@@ -443,6 +485,8 @@
       evt = Object.assign({}, base, {
         name:     name,
         date:     $('ef-date').value,
+        endDate:  $('ef-end-date').value,
+        category: $('ef-category').value,
         type:     $('ef-type').value,
         notes:    $('ef-notes').value.trim(),
         segments: segments
@@ -450,6 +494,8 @@
     } else {
       evt = Object.assign(Data.newEvent(name), {
         date:     $('ef-date').value,
+        endDate:  $('ef-end-date').value,
+        category: $('ef-category').value,
         type:     $('ef-type').value,
         notes:    $('ef-notes').value.trim(),
         segments: segments
