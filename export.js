@@ -29,7 +29,7 @@
 
   // ── Planned segment block ───────────────────────────────────────────────────
 
-  function plannedSegmentMd(seg) {
+  function plannedSegmentMd(seg, execPlan) {
     var showCaff = segmentHasCaffeine(seg);
     var tgt = seg.targets || {};
     var durationLabel = window._App.formatHM(seg.durationHours);
@@ -58,6 +58,15 @@
       lines.push(row);
     });
     lines.push('');
+
+    // Execution plan (if provided)
+    if (execPlan) {
+      lines.push('');
+      lines.push('**Execution Plan:**');
+      var planLines = generateExecutionPlanText(seg, execPlan).split('\n');
+      // Skip the "Segment — Execution Plan" header line and the blank line after it
+      planLines.slice(2).forEach(function (l) { lines.push(l); });
+    }
 
     // Totals
     var totals = window.Data.calcSegmentTotals(seg);
@@ -120,7 +129,8 @@
 
   // ── Main function ───────────────────────────────────────────────────────────
 
-  function generateEventMarkdown(evt) {
+  // execPlans is an optional object keyed by segment id containing the saved plan array.
+  function generateEventMarkdown(evt, execPlans) {
     var typeLabel = (window._App.EVENT_TYPE_LABELS[evt.type] || evt.type);
     var lines = [
       '# ' + evt.name,
@@ -131,7 +141,8 @@
 
     evt.segments.forEach(function (seg) {
       lines.push('');
-      lines.push(plannedSegmentMd(seg));
+      var execPlan = execPlans && execPlans[seg.id] ? execPlans[seg.id] : null;
+      lines.push(plannedSegmentMd(seg, execPlan));
     });
 
     // Actuals section — omit entirely if no actuals logged
@@ -159,10 +170,52 @@
     return lines.join('\n') + '\n';
   }
 
+  // ── Execution Plan ──────────────────────────────────────────────────────────
+
+  function generateExecutionPlanText(seg, plan) {
+    var itemMap = {};
+    (seg.items || []).forEach(function (item) { itemMap[item.id] = item; });
+
+    var lines = [(seg.name || 'Segment') + ' — Execution Plan', ''];
+
+    (plan || []).forEach(function (slot) {
+      if (!slot.assignments || !slot.assignments.length) return;
+
+      var totalMinutes = slot.slotIndex * slot.intervalMinutes;
+      var h = Math.floor(totalMinutes / 60);
+      var m = totalMinutes % 60;
+      var timeLabel = h + ':' + String(m).padStart(2, '0');
+
+      var slotCarbs = slot.assignments.reduce(function (sum, a) {
+        if (a.type === 'drink_group') return sum + (a.carbsPerSlot || 0);
+        var item = itemMap[a.itemId];
+        return sum + (item ? (item.carbsPerUnit || 0) * a.quantity : 0);
+      }, 0);
+
+      var itemLabels = slot.assignments.map(function (a) {
+        if (a.type === 'drink_group') {
+          var label = a.groupName ? 'Sip ' + a.groupName : 'Sip';
+          return label;
+        }
+        var item = itemMap[a.itemId];
+        if (!item) return '';
+        var fullName = (item.brand ? item.brand + ' ' : '') + item.name;
+        if (a.quantity === 0.5) return '½ ' + fullName;
+        return fullName;
+      }).filter(Boolean).join(' · ');
+
+      var carbNote = slotCarbs > 0 ? '  (~' + Math.round(slotCarbs) + 'g carbs)' : '';
+      lines.push(timeLabel + '  ' + itemLabels + carbNote);
+    });
+
+    return lines.join('\n');
+  }
+
   // ── Public API ──────────────────────────────────────────────────────────────
 
   window.Export = {
-    generateEventMarkdown: generateEventMarkdown
+    generateEventMarkdown: generateEventMarkdown,
+    generateExecutionPlanText: generateExecutionPlanText
   };
 
 })();

@@ -123,6 +123,10 @@
 
   function navigate(view, params) {
     closeSheet(); // ensure sheet is closed on navigation
+    closeSlotEditor();
+    $('slot-picker-overlay').classList.add('hidden');
+    var _pickerHeader = $('slot-picker-sheet') && $('slot-picker-sheet').querySelector('.sheet-header span');
+    if (_pickerHeader) _pickerHeader.textContent = 'Move to slot';
     if (params) Object.assign(state, params);
     state.view = view;
 
@@ -737,6 +741,114 @@
           : '<div style="padding:12px 16px;font-size:13px;color:var(--text-tertiary)">No items yet.</div>') +
       '</div>' +
       '<button class="btn-add-item" data-add-segment-id="' + seg.id + '">+ Add item</button>' +
+      executionPlanHTML(seg) +
+    '</div>';
+  }
+
+  function slotTimeLabel(slotIndex, intervalMinutes) {
+    var totalMinutes = slotIndex * intervalMinutes;
+    var h = Math.floor(totalMinutes / 60);
+    var m = totalMinutes % 60;
+    return h + ':' + String(m).padStart(2, '0');
+  }
+
+  function executionPlanHTML(seg) {
+    var plan = Data.loadExecutionPlan(seg.id);
+    var hasPlan = plan && plan.length > 0;
+
+    // Staleness check: slot count mismatch means duration changed
+    var expectedSlots = Math.ceil((seg.durationHours || 1) * 60 / 15) + 1;
+    var isStale = hasPlan && plan.length !== expectedSlots;
+
+    // Check for orphaned itemIds (items removed since generation)
+    var itemIds = new Set((seg.items || []).map(function (i) { return i.id; }));
+    var hasOrphans = hasPlan && plan.some(function (slot) {
+      return (slot.assignments || []).some(function (a) {
+        if (a.type === 'drink_group') return (a.itemIds || []).some(function (id) { return !itemIds.has(id); });
+        return !itemIds.has(a.itemId);
+      });
+    });
+    // Check for new items added to segment after plan was generated
+    var planItemIds = new Set();
+    if (hasPlan) {
+      plan.forEach(function (slot) {
+        (slot.assignments || []).forEach(function (a) {
+          if (a.type === 'drink_group') { (a.itemIds || []).forEach(function (id) { planItemIds.add(id); }); }
+          else { planItemIds.add(a.itemId); }
+        });
+      });
+    }
+    var hasNewItems = hasPlan && (seg.items || []).some(function (i) { return !planItemIds.has(i.id); });
+    var showStaleWarning = isStale || hasOrphans || hasNewItems;
+
+    var headerHTML =
+      '<div class="exec-plan-header">' +
+        '<button class="exec-plan-toggle" data-exec-toggle="' + seg.id + '" aria-expanded="false">' +
+          (hasPlan ? '&#9660;' : '&#9654;') + ' Execution plan' +
+        '</button>' +
+        (hasPlan
+          ? '<div class="exec-plan-header-actions">' +
+              '<button class="exec-plan-copy-btn" data-exec-copy="' + seg.id + '" title="Copy execution plan" aria-label="Copy execution plan">' +
+                '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>' +
+              '</button>' +
+              '<button class="exec-plan-regen-btn" data-exec-regen="' + seg.id + '">Regenerate</button>' +
+            '</div>'
+          : '<button class="exec-plan-generate-btn" data-exec-generate="' + seg.id + '">Generate</button>') +
+      '</div>';
+
+    if (!hasPlan) {
+      return '<div class="exec-plan-panel" data-exec-panel="' + seg.id + '">' + headerHTML + '</div>';
+    }
+
+    var staleHTML = showStaleWarning
+      ? '<div class="exec-plan-stale-warning">Segment changed — plan may be out of date. Regenerate to refresh.</div>'
+      : '';
+
+    var slotsHTML = plan.map(function (slot) {
+      var slotCarbs = Data.calcSlotCarbs(slot, seg.items);
+      var carbLabel = slotCarbs > 0 ? '<span class="exec-slot-carbs">~' + Math.round(slotCarbs) + 'g</span>' : '';
+
+      var assignmentLabels = (slot.assignments || []).map(function (a) {
+        if (a.type === 'drink_group') {
+          return a.groupName ? 'Sip ' + escHtml(a.groupName) : 'Sip';
+        }
+        var item = (seg.items || []).find(function (i) { return i.id === a.itemId; });
+        if (!item) return '';
+        var fullName = escHtml((item.brand ? item.brand + ' ' : '') + item.name);
+        if (a.quantity === 0.5) return '½ ' + fullName;
+        return fullName;
+      }).filter(Boolean).join(' · ');
+
+      var isEmpty = !assignmentLabels;
+
+      return '<div class="exec-slot-row' + (isEmpty ? ' exec-slot-empty' : '') + '" ' +
+        'data-exec-slot="' + seg.id + ':' + slot.slotIndex + '">' +
+        '<span class="exec-slot-time">' + slotTimeLabel(slot.slotIndex, slot.intervalMinutes) + '</span>' +
+        '<span class="exec-slot-items">' + (isEmpty ? '—' : assignmentLabels) + '</span>' +
+        carbLabel +
+      '</div>';
+    }).join('');
+
+    // Footer: total carbs across all slots vs. target
+    var planTotalCarbs = plan.reduce(function (sum, slot) {
+      return sum + Data.calcSlotCarbs(slot, seg.items);
+    }, 0);
+    var planCarbsPerHr = seg.durationHours > 0 ? planTotalCarbs / seg.durationHours : 0;
+    var targetCarbs = seg.targets && seg.targets.carbsPerHour ? seg.targets.carbsPerHour : 0;
+    var footerClass = targetCarbs > 0 && planCarbsPerHr < targetCarbs * 0.85 ? ' exec-plan-footer-warn' : '';
+    var footerHTML = '<div class="exec-plan-footer' + footerClass + '">' +
+      '~' + Math.round(planTotalCarbs) + 'g carbs total · ' +
+      '~' + Math.round(planCarbsPerHr) + 'g/hr' +
+      (targetCarbs > 0 ? ' <span class="exec-plan-footer-target">(target: ' + targetCarbs + 'g/hr)</span>' : '') +
+    '</div>';
+
+    return '<div class="exec-plan-panel" data-exec-panel="' + seg.id + '">' +
+      headerHTML +
+      '<div class="exec-plan-body hidden" data-exec-body="' + seg.id + '">' +
+        staleHTML +
+        '<div class="exec-slots-list">' + slotsHTML + '</div>' +
+        footerHTML +
+      '</div>' +
     '</div>';
   }
 
@@ -978,7 +1090,13 @@
     var copyPlanBtn = $('btn-copy-plan');
     if (copyPlanBtn) {
       on(copyPlanBtn, 'click', function () {
-        var md = Export.generateEventMarkdown(evt);
+        // Collect any saved execution plans keyed by segment id
+        var execPlans = {};
+        (evt.segments || []).forEach(function (seg) {
+          var plan = Data.loadExecutionPlan(seg.id);
+          if (plan) execPlans[seg.id] = plan;
+        });
+        var md = Export.generateEventMarkdown(evt, Object.keys(execPlans).length ? execPlans : null);
         navigator.clipboard.writeText(md).then(function () {
           showToast('Plan copied!');
         }).catch(function () {
@@ -986,6 +1104,36 @@
         });
       });
     }
+
+    // Execution plan handlers (also wired in reattachSegmentHandlers for segment-level re-renders)
+    $$('[data-exec-generate]', $('detail-body')).forEach(function (btn) {
+      on(btn, 'click', function () { handleExecutionPlanGenerate(btn.dataset.execGenerate, false); });
+    });
+    $$('[data-exec-regen]', $('detail-body')).forEach(function (btn) {
+      on(btn, 'click', function () { handleExecutionPlanGenerate(btn.dataset.execRegen, true); });
+    });
+    $$('[data-exec-toggle]', $('detail-body')).forEach(function (btn) {
+      on(btn, 'click', function () { handleExecutionPlanToggle(btn.dataset.execToggle); });
+    });
+    $$('[data-exec-copy]', $('detail-body')).forEach(function (btn) {
+      on(btn, 'click', function () {
+        var seg2 = (evt.segments || []).find(function (s) { return s.id === btn.dataset.execCopy; });
+        var plan = Data.loadExecutionPlan(btn.dataset.execCopy);
+        if (!seg2 || !plan) return;
+        var text = Export.generateExecutionPlanText(seg2, plan);
+        navigator.clipboard.writeText(text).then(function () {
+          showToast('Execution plan copied!');
+        }).catch(function () {
+          showToast("Couldn't copy — try again.");
+        });
+      });
+    });
+    $$('[data-exec-slot]', $('detail-body')).forEach(function (row) {
+      on(row, 'click', function () {
+        var parts = row.dataset.execSlot.split(':');
+        openSlotEditor(parts[0], parseInt(parts[1], 10));
+      });
+    });
   }
 
   function refreshSummaryCards() {
@@ -1042,6 +1190,50 @@
     $$('[data-inline]:not([data-inline="actual-duration"])', segEl).forEach(function (el) {
       on(el, 'click', function () { handleInlineEdit(el, evt.id); });
     });
+
+    // Execution plan handlers
+    var genBtn = segEl.querySelector('[data-exec-generate]');
+    if (genBtn) {
+      on(genBtn, 'click', function () {
+        handleExecutionPlanGenerate(genBtn.dataset.execGenerate, false);
+      });
+    }
+
+    var regenBtn = segEl.querySelector('[data-exec-regen]');
+    if (regenBtn) {
+      on(regenBtn, 'click', function () {
+        handleExecutionPlanGenerate(regenBtn.dataset.execRegen, true);
+      });
+    }
+
+    var toggleBtn = segEl.querySelector('[data-exec-toggle]');
+    if (toggleBtn) {
+      on(toggleBtn, 'click', function () {
+        handleExecutionPlanToggle(toggleBtn.dataset.execToggle);
+      });
+    }
+
+    var copyBtn = segEl.querySelector('[data-exec-copy]');
+    if (copyBtn) {
+      on(copyBtn, 'click', function () {
+        var seg2 = (evt.segments || []).find(function (s) { return s.id === copyBtn.dataset.execCopy; });
+        var plan = Data.loadExecutionPlan(copyBtn.dataset.execCopy);
+        if (!seg2 || !plan) return;
+        var text = Export.generateExecutionPlanText(seg2, plan);
+        navigator.clipboard.writeText(text).then(function () {
+          showToast('Execution plan copied!');
+        }).catch(function () {
+          showToast("Couldn't copy — try again.");
+        });
+      });
+    }
+
+    $$('[data-exec-slot]', segEl).forEach(function (row) {
+      on(row, 'click', function () {
+        var parts = row.dataset.execSlot.split(':');
+        openSlotEditor(parts[0], parseInt(parts[1], 10));
+      });
+    });
   }
 
   function reattachActualSegmentHandlers(segId) {
@@ -1088,6 +1280,287 @@
         });
       });
     });
+  }
+
+  function handleExecutionPlanGenerate(segId, forceRegenerate) {
+    var evt = state.currentEvent;
+    if (!evt) return;
+    var seg = (evt.segments || []).find(function (s) { return s.id === segId; });
+    if (!seg) return;
+
+    function doGenerate() {
+      var plan = Data.generateExecutionPlan(seg);
+      Data.saveExecutionPlan(segId, plan);
+      // Re-render this segment section only
+      var multiSeg = evt.segments.length > 1;
+      var segEl = document.querySelector('[data-segment-id="' + segId + '"]');
+      if (segEl) {
+        segEl.outerHTML = segmentSectionHTML(seg, multiSeg);
+        reattachSegmentHandlers(segId);
+      }
+      // Auto-expand the panel after generation
+      var body = document.querySelector('[data-exec-body="' + segId + '"]');
+      if (body) body.classList.remove('hidden');
+      var toggle = document.querySelector('[data-exec-toggle="' + segId + '"]');
+      if (toggle) toggle.setAttribute('aria-expanded', 'true');
+    }
+
+    var shortfall = Data.checkExecutionPlanTarget(seg);
+    if (shortfall !== null) {
+      if (!confirm(
+        'This plan delivers ~' + shortfall + 'g/hr carbs against a ' +
+        seg.targets.carbsPerHour + 'g/hr target.\nConsider adding more items. Generate anyway?'
+      )) return;
+    }
+
+    if (forceRegenerate && Data.loadExecutionPlan(segId)) {
+      if (!confirm('Regenerate plan? Any manual edits will be replaced.')) return;
+    }
+
+    doGenerate();
+  }
+
+  function handleExecutionPlanToggle(segId) {
+    var body = document.querySelector('[data-exec-body="' + segId + '"]');
+    var toggle = document.querySelector('[data-exec-toggle="' + segId + '"]');
+    if (!body) return;
+    var isHidden = body.classList.contains('hidden');
+    body.classList.toggle('hidden', !isHidden);
+    if (toggle) toggle.setAttribute('aria-expanded', String(isHidden));
+  }
+
+  // Slot editor state
+  var _slotEditorSegId = null;
+  var _slotEditorSlotIndex = null;
+  var _slotEditorMoveAIdx = null; // index into the slot's assignments array
+
+  function openSlotEditor(segId, slotIndex) {
+    var evt = state.currentEvent;
+    if (!evt) return;
+    var seg = (evt.segments || []).find(function (s) { return s.id === segId; });
+    var plan = Data.loadExecutionPlan(segId);
+    if (!seg || !plan) return;
+    var slot = plan[slotIndex];
+    if (!slot) return;
+
+    _slotEditorSegId = segId;
+    _slotEditorSlotIndex = slotIndex;
+
+    $('slot-editor-title').textContent = slotTimeLabel(slotIndex, slot.intervalMinutes);
+    renderSlotEditorBody(seg, slot);
+    $('slot-editor-overlay').classList.remove('hidden');
+  }
+
+  function closeSlotEditor() {
+    $('slot-editor-overlay').classList.add('hidden');
+    _slotEditorSegId = null;
+    _slotEditorSlotIndex = null;
+    _slotEditorMoveAIdx = null;
+  }
+
+  function renderSlotEditorBody(seg, slot) {
+    var itemMap = {};
+    (seg.items || []).forEach(function (i) { itemMap[i.id] = i; });
+
+    var bodyEl = $('slot-editor-body');
+    if (!slot.assignments || !slot.assignments.length) {
+      bodyEl.innerHTML = '<div class="slot-empty-label">No items assigned. Tap + Add item below.</div>';
+      return;
+    }
+
+    bodyEl.innerHTML = slot.assignments.map(function (a, aIdx) {
+      var label;
+      if (a.type === 'drink_group') {
+        label = a.groupName ? 'Sip ' + escHtml(a.groupName) : 'Sip';
+      } else {
+        var item = itemMap[a.itemId];
+        if (!item) return '';
+        var fullName = escHtml((item.brand ? item.brand + ' ' : '') + item.name);
+        label = a.quantity === 0.5 ? '½ ' + fullName : fullName;
+      }
+      return '<div class="slot-assignment-row" data-assignment-idx="' + aIdx + '">' +
+        '<span class="slot-assignment-label">' + label + '</span>' +
+        '<div class="slot-assignment-actions">' +
+          '<button data-slot-move-idx="' + aIdx + '">Move</button>' +
+          '<button data-slot-remove-idx="' + aIdx + '">Remove</button>' +
+        '</div>' +
+      '</div>';
+    }).filter(Boolean).join('');
+
+    // Attach move/remove handlers
+    $$('[data-slot-move-idx]', bodyEl).forEach(function (btn) {
+      on(btn, 'click', function () {
+        var aIdx = parseInt(btn.dataset.slotMoveIdx, 10);
+        var plan = Data.loadExecutionPlan(_slotEditorSegId);
+        if (!plan) return;
+        _slotEditorMoveAIdx = aIdx;
+        openSlotPicker(seg, plan, _slotEditorSlotIndex);
+      });
+    });
+
+    $$('[data-slot-remove-idx]', bodyEl).forEach(function (btn) {
+      on(btn, 'click', function () {
+        var aIdx = parseInt(btn.dataset.slotRemoveIdx, 10);
+        var plan = Data.loadExecutionPlan(_slotEditorSegId);
+        if (!plan) return;
+        plan[_slotEditorSlotIndex].assignments.splice(aIdx, 1);
+        Data.saveExecutionPlan(_slotEditorSegId, plan);
+        refreshSlotEditorAndPanel(_slotEditorSegId, _slotEditorSlotIndex, seg, plan);
+      });
+    });
+  }
+
+  function refreshSlotEditorAndPanel(segId, slotIndex, seg, plan) {
+    var evt = state.currentEvent;
+    if (!evt) return;
+    // Re-fetch seg from live state so we always use the latest
+    var liveSeg = (evt.segments || []).find(function (s) { return s.id === segId; }) || seg;
+    // Update slot editor body
+    renderSlotEditorBody(liveSeg, plan[slotIndex]);
+    var multiSeg = evt.segments.length > 1;
+    var segEl = document.querySelector('[data-segment-id="' + segId + '"]');
+    if (segEl) {
+      segEl.outerHTML = segmentSectionHTML(liveSeg, multiSeg);
+      reattachSegmentHandlers(segId);
+    }
+    // Re-open body since re-render collapsed it
+    var body = document.querySelector('[data-exec-body="' + segId + '"]');
+    if (body) body.classList.remove('hidden');
+  }
+
+  function openSlotPicker(seg, plan, fromSlotIndex) {
+    var itemMap = {};
+    (seg.items || []).forEach(function (i) { itemMap[i.id] = i; });
+    var interval = plan[0] ? plan[0].intervalMinutes : 15;
+
+    var pickerBody = $('slot-picker-body');
+    // Reset header to "Move to slot"
+    var pickerHeader = $('slot-picker-sheet').querySelector('.sheet-header span');
+    if (pickerHeader) pickerHeader.textContent = 'Move to slot';
+
+    pickerBody.innerHTML = plan.map(function (slot, idx) {
+      if (idx === fromSlotIndex) return ''; // skip current slot
+      var summary = (slot.assignments || []).map(function (a) {
+        if (a.type === 'drink_group') return a.groupName ? escHtml(a.groupName) : 'Sip';
+        var item = itemMap[a.itemId];
+        return item ? escHtml((item.brand ? item.brand + ' ' : '') + item.name) : '';
+      }).filter(Boolean).join(', ') || '—';
+
+      return '<div class="slot-picker-row" data-pick-slot="' + idx + '">' +
+        '<span class="slot-picker-time">' + slotTimeLabel(idx, interval) + '</span>' +
+        '<span class="slot-picker-summary">' + summary + '</span>' +
+      '</div>';
+    }).filter(Boolean).join('');
+
+    $$('[data-pick-slot]', pickerBody).forEach(function (row) {
+      on(row, 'click', function () {
+        var toIdx = parseInt(row.dataset.pickSlot, 10);
+        var freshPlan = Data.loadExecutionPlan(_slotEditorSegId);
+        if (!freshPlan || _slotEditorMoveAIdx === null) return;
+
+        // Remove from source slot by index
+        var srcAssignments = freshPlan[_slotEditorSlotIndex].assignments;
+        var assignment = srcAssignments[_slotEditorMoveAIdx];
+        srcAssignments.splice(_slotEditorMoveAIdx, 1);
+
+        // Add to destination slot
+        freshPlan[toIdx].assignments.push(assignment);
+
+        Data.saveExecutionPlan(_slotEditorSegId, freshPlan);
+        _slotEditorMoveAIdx = null;
+
+        $('slot-picker-overlay').classList.add('hidden');
+        refreshSlotEditorAndPanel(_slotEditorSegId, _slotEditorSlotIndex, seg, freshPlan);
+      });
+    });
+
+    $('slot-picker-overlay').classList.remove('hidden');
+  }
+
+  function openSlotAddItemPicker(seg, slotIndex) {
+    var plan = Data.loadExecutionPlan(_slotEditorSegId);
+    if (!plan) return;
+
+    // Build assigned quantity map across all slots (drink_group assignments excluded —
+    // their quantities are managed as pre-calculated carb/sodium totals, not per-item units)
+    var assignedQty = {};
+    plan.forEach(function (slot) {
+      (slot.assignments || []).forEach(function (a) {
+        if (a.type === 'drink_group') return;
+        assignedQty[a.itemId] = (assignedQty[a.itemId] || 0) + a.quantity;
+      });
+    });
+
+    var pickerBody = $('slot-picker-body');
+    var pickerHeader = $('slot-picker-sheet').querySelector('.sheet-header span');
+    if (pickerHeader) pickerHeader.textContent = 'Add item';
+
+    // Build set of item IDs already in a drink_group (so we can label them correctly)
+    var inLiquidMix = new Set();
+    plan.forEach(function (slot) {
+      (slot.assignments || []).forEach(function (a) {
+        if (a.type === 'drink_group') (a.itemIds || []).forEach(function (id) { inLiquidMix.add(id); });
+      });
+    });
+
+    pickerBody.innerHTML = (seg.items || []).map(function (item) {
+      var label = escHtml((item.brand ? item.brand + ' ' : '') + item.name);
+      var remainLabel;
+      if (item.type === 'drink_powder' || item.type === 'liquid') {
+        remainLabel = inLiquidMix.has(item.id) ? 'in liquid mix' : 'not yet in mix';
+      } else {
+        var totalAssigned = assignedQty[item.id] || 0;
+        var remaining = Math.round((item.quantity - totalAssigned) * 100) / 100;
+        remainLabel = remaining > 0 ? remaining + ' remaining' : 'fully assigned';
+      }
+
+      return '<div class="slot-picker-row" data-add-item-id="' + item.id + '" data-add-item-type="' + escHtml(item.type) + '">' +
+        '<span class="slot-picker-time" style="min-width:unset;flex:1">' + label + '</span>' +
+        '<span class="slot-picker-summary" style="margin-left:0">' + remainLabel + '</span>' +
+      '</div>';
+    }).join('');
+
+    $$('[data-add-item-id]', pickerBody).forEach(function (row) {
+      on(row, 'click', function () {
+        var freshPlan = Data.loadExecutionPlan(_slotEditorSegId);
+        if (!freshPlan) return;
+        var itemType = row.dataset.addItemType;
+        if (itemType === 'drink_powder' || itemType === 'liquid') {
+          // Liquid items (drink_powder + liquid) belong to a drink_group. Add to auto group in every slot.
+          var newItemId = row.dataset.addItemId;
+          var newItem = (seg.items || []).find(function (i) { return i.id === newItemId; });
+          var addCarbs  = newItem ? (newItem.carbsPerUnit  || 0) * (newItem.quantity || 0) / freshPlan.length : 0;
+          var addSodium = newItem ? (newItem.sodiumPerUnit || 0) * (newItem.quantity || 0) / freshPlan.length : 0;
+          freshPlan.forEach(function (s) {
+            var group = (s.assignments || []).find(function (a) { return a.type === 'drink_group' && a.groupId === '__auto__'; });
+            if (group) {
+              if (group.itemIds.indexOf(newItemId) === -1) group.itemIds.push(newItemId);
+              group.carbsPerSlot  = Math.round((group.carbsPerSlot  + addCarbs)  * 100) / 100;
+              group.sodiumPerSlot = Math.round((group.sodiumPerSlot + addSodium) * 100) / 100;
+            } else {
+              s.assignments.push({
+                type: 'drink_group', groupId: '__auto__', groupName: null,
+                itemIds: [newItemId],
+                carbsPerSlot:  Math.round(addCarbs  * 100) / 100,
+                sodiumPerSlot: Math.round(addSodium * 100) / 100
+              });
+            }
+          });
+        } else {
+          var qty = itemType === 'bar' ? 0.5 : 1;
+          freshPlan[slotIndex].assignments.push({
+            itemId: row.dataset.addItemId,
+            quantity: qty
+          });
+        }
+        Data.saveExecutionPlan(_slotEditorSegId, freshPlan);
+        $('slot-picker-overlay').classList.add('hidden');
+        if (pickerHeader) pickerHeader.textContent = 'Move to slot';
+        refreshSlotEditorAndPanel(_slotEditorSegId, slotIndex, seg, freshPlan);
+      });
+    });
+
+    $('slot-picker-overlay').classList.remove('hidden');
   }
 
   function updateItemQty(eventId, segId, itemId, delta) {
@@ -1360,6 +1833,20 @@
     if (e.target === $('sheet-overlay')) closeSheet();
   });
   on($('btn-close-sheet'), 'click', closeSheet);
+  on($('btn-close-slot-editor'), 'click', closeSlotEditor);
+  on($('btn-close-slot-picker'), 'click', function () {
+    $('slot-picker-overlay').classList.add('hidden');
+    var pickerHeader = $('slot-picker-sheet').querySelector('.sheet-header span');
+    if (pickerHeader) pickerHeader.textContent = 'Move to slot';
+    _slotEditorMoveAIdx = null;
+  });
+  on($('btn-slot-add-item'), 'click', function () {
+    var evt = state.currentEvent;
+    if (!evt || _slotEditorSegId === null || _slotEditorSlotIndex === null) return;
+    var seg = (evt.segments || []).find(function (s) { return s.id === _slotEditorSegId; });
+    if (!seg) return;
+    openSlotAddItemPicker(seg, _slotEditorSlotIndex);
+  });
 
   // Sheet tab switching
   $$('.sheet-tab-btn').forEach(function (btn) {

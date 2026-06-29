@@ -303,6 +303,33 @@
   </div>
 </div>
 
+<!-- ── Bottom sheet: Slot editor ──────────────────────────────────── -->
+<div id="slot-editor-overlay" class="sheet-overlay hidden">
+  <div id="slot-editor-sheet" class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <span id="slot-editor-title">0:15</span>
+      <button id="btn-close-slot-editor" class="sheet-close" type="button" aria-label="Close">&#215;</button>
+    </div>
+    <div id="slot-editor-body" class="slot-editor-body"></div>
+    <div class="slot-editor-footer">
+      <button id="btn-slot-add-item" class="btn-secondary" type="button">+ Add item</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Bottom sheet: Slot picker (Move to slot) ─────────────────── -->
+<div id="slot-picker-overlay" class="sheet-overlay hidden">
+  <div id="slot-picker-sheet" class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <span>Move to slot</span>
+      <button id="btn-close-slot-picker" class="sheet-close" type="button" aria-label="Close">&#215;</button>
+    </div>
+    <div id="slot-picker-body" class="slot-picker-body"></div>
+  </div>
+</div>
+
 <!-- ── Bottom tab bar ──────────────────────────────────────────── -->
 <nav class="tab-bar" id="tab-bar">
   <button class="tab-btn active" data-tab-view="events">Events</button>

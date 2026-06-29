@@ -262,6 +262,75 @@ function run() {
     assert.ok(!md.trim().endsWith('*'), 'should not end with stray italic marker');
   });
 
+  // ── Execution Plan ────────────────────────────────────────────────────────
+
+  console.log('\nExecution Plan — generateExecutionPlanText');
+
+  test('formats execution plan with drink_group as merged sip cue', function () {
+    var seg = {
+      name: 'Bike',
+      items: [
+        { id: 'g1', brand: 'Maurten', name: 'Gel 100', type: 'gel', carbsPerUnit: 25, quantity: 1 },
+        { id: 'dp1', brand: 'Skratch', name: 'Superfuel', type: 'drink_powder', carbsPerUnit: 100, quantity: 1 },
+        { id: 'dp2', brand: 'Skratch', name: 'Electrolyte Booster', type: 'drink_powder', carbsPerUnit: 0, quantity: 1 }
+      ]
+    };
+    var plan = [
+      { slotIndex: 0, intervalMinutes: 15, assignments: [
+          { itemId: 'g1', quantity: 1 },
+          { type: 'drink_group', groupId: '__auto__', groupName: null, itemIds: ['dp1', 'dp2'], carbsPerSlot: 25, sodiumPerSlot: 100 }
+        ]
+      },
+      { slotIndex: 1, intervalMinutes: 15, assignments: [
+          { type: 'drink_group', groupId: '__auto__', groupName: null, itemIds: ['dp1', 'dp2'], carbsPerSlot: 25, sodiumPerSlot: 100 }
+        ]
+      },
+      { slotIndex: 2, intervalMinutes: 15, assignments: [] },
+      { slotIndex: 3, intervalMinutes: 15, assignments: [
+          { type: 'drink_group', groupId: '__auto__', groupName: null, itemIds: ['dp1', 'dp2'], carbsPerSlot: 25, sodiumPerSlot: 100 }
+        ]
+      }
+    ];
+    var text = Export.generateExecutionPlanText(seg, plan);
+    assert.ok(text.includes('Bike — Execution Plan'));
+    assert.ok(text.includes('0:00'), 'slot 0 should be labeled 0:00');
+    assert.ok(text.includes('0:15'), 'slot 1 should be labeled 0:15');
+    assert.ok(text.includes('Maurten Gel 100'));
+    assert.ok(text.includes('Sip'), 'should include Sip cue for drink group');
+    assert.ok(!text.includes('Sip Skratch Superfuel'), 'should not list individual powder brands');
+    assert.ok(text.includes('~50g carbs'), '25 from gel + 25 from drink_group');
+    // Empty slot (slot 2 = 0:30) should not appear
+    assert.ok(!text.includes('0:30'));
+  });
+
+  test('formats execution plan with named bottle group', function () {
+    var seg = {
+      name: 'Bike',
+      items: [{ id: 'dp1', brand: 'Skratch', name: 'Superfuel', type: 'drink_powder', carbsPerUnit: 100, quantity: 1 }]
+    };
+    var plan = [
+      { slotIndex: 0, intervalMinutes: 15, assignments: [
+          { type: 'drink_group', groupId: 'b1', groupName: 'Bottle 1', itemIds: ['dp1'], carbsPerSlot: 25, sodiumPerSlot: 100 }
+        ]
+      }
+    ];
+    var text = Export.generateExecutionPlanText(seg, plan);
+    assert.ok(text.includes('Sip Bottle 1'));
+    assert.ok(text.includes('~25g carbs'));
+  });
+
+  test('formats half-bar correctly', function () {
+    var seg = {
+      name: 'Bike',
+      items: [{ id: 'b1', brand: 'Maurten', name: 'Solid Bar', type: 'bar', carbsPerUnit: 45, quantity: 1 }]
+    };
+    var plan = [
+      { slotIndex: 0, intervalMinutes: 15, assignments: [{ itemId: 'b1', quantity: 0.5 }] }
+    ];
+    var text = Export.generateExecutionPlanText(seg, plan);
+    assert.ok(text.includes('½ Maurten Solid Bar'));
+  });
+
   // ── Summary ───────────────────────────────────────────────────────────────
 
   console.log('\n' + passed + ' passed, ' + failed + ' failed');

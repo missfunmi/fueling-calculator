@@ -117,12 +117,19 @@
 
   // ── Normalisation ────────────────────────────────────────────────────────────
 
+  // Canonicalise item type to lowercase_with_underscores so "Drink Powder",
+  // "drink powder", and "drink_powder" all compare equal.
+  function normalizeItemType(type) {
+    if (!type) return 'other';
+    return type.toLowerCase().replace(/\s+/g, '_');
+  }
+
   function dbToProduct(row) {
     return {
       id:              row.id,
       brand:           row.brand || '',
       name:            row.name,
-      type:            row.type,
+      type:            normalizeItemType(row.type),
       carbsPerUnit:    row.carbs_per_unit    || 0,
       sodiumPerUnit:   row.sodium_per_unit   || 0,
       caffeinePerUnit: row.caffeine_per_unit || 0
@@ -162,6 +169,7 @@
             name:          seg.name,
             date:          seg.date || '',
             durationHours: seg.duration_hours,
+            executionPlan: seg.execution_plan || null,
             targets: {
               carbsPerHour:    seg.carbs_per_hour    || 0,
               sodiumPerHour:   seg.sodium_per_hour   || 0,
@@ -176,7 +184,7 @@
                   productId:       itm.product_id || null,
                   name:            itm.name,
                   brand:           itm.brand || '',
-                  type:            itm.type,
+                  type:            normalizeItemType(itm.type),
                   carbsPerUnit:    itm.carbs_per_unit    || 0,
                   sodiumPerUnit:   itm.sodium_per_unit   || 0,
                   caffeinePerUnit: itm.caffeine_per_unit || 0,
@@ -278,7 +286,13 @@
       'GET',
       'events?id=eq.' + id + '&user_id=eq.' + getUserId() + '&select=*,segments(*,items(*))'
     );
-    return rows.length ? dbToEvent(rows[0]) : null;
+    if (!rows.length) return null;
+    var evt = dbToEvent(rows[0]);
+    // Seed localStorage from DB so execution plans work across devices
+    (evt.segments || []).forEach(function (seg) {
+      if (seg.executionPlan) saveExecutionPlan(seg.id, seg.executionPlan, true);
+    });
+    return evt;
   }
 
   async function saveEvent(evt) {
@@ -525,7 +539,7 @@
       productId:       product.id,
       name:            product.name,
       brand:           product.brand || '',
-      type:            product.type,
+      type:            normalizeItemType(product.type),
       carbsPerUnit:    Number(product.carbsPerUnit)    || 0,
       sodiumPerUnit:   Number(product.sodiumPerUnit)   || 0,
       caffeinePerUnit: Number(product.caffeinePerUnit) || 0,
@@ -539,12 +553,152 @@
       productId:       null,
       name:            fields.name,
       brand:           fields.brand || '',
-      type:            fields.type || 'other',
+      type:            normalizeItemType(fields.type),
       carbsPerUnit:    Number(fields.carbsPerUnit)    || 0,
       sodiumPerUnit:   Number(fields.sodiumPerUnit)   || 0,
       caffeinePerUnit: Number(fields.caffeinePerUnit) || 0,
       quantity:        1
     };
+  }
+
+  // ── Execution Plan ────────────────────────────────────────────────────────────
+
+  function generateExecutionPlan(segment) {
+    // +1 so slot 0 = 0:00 (segment start) and the last slot = segment end time.
+    var slotCount = Math.ceil((segment.durationHours || 1) * 60 / 15) + 1;
+    var slots = [];
+    for (var i = 0; i < slotCount; i++) {
+      slots.push({ slotIndex: i, intervalMinutes: 15, assignments: [] });
+    }
+
+    // 'liquid' items (e.g. electrolyte boosters) are treated the same as 'drink_powder' —
+    // they go in a bottle and are consumed as a continuous sip, not as discrete units.
+    var liquidItems = (segment.items || []).filter(function (item) {
+      return (item.type === 'drink_powder' || item.type === 'liquid') && item.quantity > 0;
+    });
+    var discreteItems = (segment.items || []).filter(function (item) {
+      return item.type !== 'drink_powder' && item.type !== 'liquid' && item.quantity > 0;
+    });
+
+    // Liquid: build drink_group assignments — one merged sip per slot per group.
+    // Uses segment.bottleGroups (Option B) if defined; otherwise auto-merges all
+    // drink_powder items into a single implicit group (Option A).
+    var bottleGroups = (segment.bottleGroups && segment.bottleGroups.length)
+      ? segment.bottleGroups.map(function (g) {
+          return {
+            groupId:   g.id,
+            groupName: g.name || null,
+            items: liquidItems.filter(function (item) { return g.itemIds.indexOf(item.id) !== -1; })
+          };
+        }).filter(function (g) { return g.items.length > 0; })
+      : (liquidItems.length
+          ? [{ groupId: '__auto__', groupName: null, items: liquidItems }]
+          : []);
+
+    bottleGroups.forEach(function (group) {
+      var totalCarbs  = group.items.reduce(function (s, item) { return s + (item.carbsPerUnit  || 0) * (item.quantity || 0); }, 0);
+      var totalSodium = group.items.reduce(function (s, item) { return s + (item.sodiumPerUnit || 0) * (item.quantity || 0); }, 0);
+      var carbsPerSlot  = Math.round((totalCarbs  / slotCount) * 100) / 100;
+      var sodiumPerSlot = Math.round((totalSodium / slotCount) * 100) / 100;
+      slots.forEach(function (slot) {
+        slot.assignments.push({
+          type:         'drink_group',
+          groupId:      group.groupId,
+          groupName:    group.groupName,
+          itemIds:      group.items.map(function (item) { return item.id; }),
+          carbsPerSlot: carbsPerSlot,
+          sodiumPerSlot: sodiumPerSlot
+        });
+      });
+    });
+
+    // Separate gels by caffeine content, bars, and other
+    var gelCaf = [], gelNonCaf = [], bars = [], other = [];
+    discreteItems.forEach(function (item) {
+      if (item.type === 'gel' && item.caffeinePerUnit > 0) {
+        for (var i = 0; i < item.quantity; i++) gelCaf.push({ itemId: item.id, quantity: 1 });
+      } else if (item.type === 'gel') {
+        for (var i = 0; i < item.quantity; i++) gelNonCaf.push({ itemId: item.id, quantity: 1 });
+      } else if (item.type === 'bar') {
+        var halves = Math.round(item.quantity * 2);
+        for (var i = 0; i < halves; i++) bars.push({ itemId: item.id, quantity: 0.5 });
+      } else {
+        for (var i = 0; i < item.quantity; i++) other.push({ itemId: item.id, quantity: 1 });
+      }
+    });
+
+    // Interleave caf and non-caf gels
+    var gels = [];
+    var maxLen = Math.max(gelCaf.length, gelNonCaf.length);
+    for (var i = 0; i < maxLen; i++) {
+      if (i < gelCaf.length)    gels.push(gelCaf[i]);
+      if (i < gelNonCaf.length) gels.push(gelNonCaf[i]);
+    }
+
+    // Combine all discrete items into a single round-robin interleaved pool.
+    // Round-robin across [gels, bars, other] prevents any two items from the same
+    // category from being placed adjacently, and a single distribution pass
+    // prevents slot collisions that occurred when each category was distributed
+    // independently.
+    var discretePool = [];
+    var categories = [gels, bars, other].filter(function (c) { return c.length > 0; });
+    var poolMax = categories.reduce(function (m, c) { return Math.max(m, c.length); }, 0);
+    for (var i = 0; i < poolMax; i++) {
+      categories.forEach(function (cat) {
+        if (i < cat.length) discretePool.push(cat[i]);
+      });
+    }
+
+    // Use the (i + 0.5) centering formula so items are spread evenly across all
+    // slots rather than packing into the front of the segment.
+    discretePool.forEach(function (unit, i) {
+      var idx = Math.floor((i + 0.5) * slotCount / discretePool.length);
+      slots[idx].assignments.push(unit);
+    });
+
+    return slots;
+  }
+
+  // Returns the projected g/hr if it is >15% below target, otherwise null.
+  function checkExecutionPlanTarget(segment) {
+    var target = segment.targets && segment.targets.carbsPerHour;
+    if (!target) return null;
+    var totalCarbs = (segment.items || []).reduce(function (sum, item) {
+      return sum + (item.carbsPerUnit || 0) * (item.quantity || 0);
+    }, 0);
+    var projected = totalCarbs / (segment.durationHours || 1);
+    return projected < target * 0.85 ? Math.round(projected) : null;
+  }
+
+  function calcSlotCarbs(slot, items) {
+    var itemMap = {};
+    (items || []).forEach(function (item) { itemMap[item.id] = item; });
+    return (slot.assignments || []).reduce(function (sum, a) {
+      if (a.type === 'drink_group') return sum + (a.carbsPerSlot || 0);
+      var item = itemMap[a.itemId];
+      return sum + (item ? (item.carbsPerUnit || 0) * a.quantity : 0);
+    }, 0);
+  }
+
+  function saveExecutionPlan(segmentId, plan, skipDb) {
+    localStorage.setItem('fuelPlanner.execPlan.' + segmentId, JSON.stringify(plan));
+    if (!skipDb) {
+      supabaseRequest('PATCH', 'segments?id=eq.' + segmentId, { execution_plan: plan }, 'return=minimal')
+        .catch(function () {});
+    }
+  }
+
+  function loadExecutionPlan(segmentId) {
+    try {
+      var raw = localStorage.getItem('fuelPlanner.execPlan.' + segmentId);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function deleteExecutionPlan(segmentId) {
+    localStorage.removeItem('fuelPlanner.execPlan.' + segmentId);
   }
 
   // ── Exports ───────────────────────────────────────────────────────────────────
@@ -584,5 +738,11 @@
   exports.newEvent           = newEvent;
   exports.itemFromProduct    = itemFromProduct;
   exports.itemFromOneOff     = itemFromOneOff;
+  exports.generateExecutionPlan     = generateExecutionPlan;
+  exports.checkExecutionPlanTarget  = checkExecutionPlanTarget;
+  exports.calcSlotCarbs             = calcSlotCarbs;
+  exports.saveExecutionPlan         = saveExecutionPlan;
+  exports.loadExecutionPlan         = loadExecutionPlan;
+  exports.deleteExecutionPlan       = deleteExecutionPlan;
 
 })(typeof module !== 'undefined' ? module.exports : (window.Data = window.Data || {}));

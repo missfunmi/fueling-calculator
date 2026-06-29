@@ -1124,5 +1124,189 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 /* When end date is visible, show the separator */
 .date-range-wrap:has(#ef-end-date:not(.ef-end-date-hidden)) .date-range-sep {
   display: block;
+/* ── Execution Plan Panel ─────────────────────────────────────────────────── */
+.exec-plan-panel {
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+}
+
+.exec-plan-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+}
+
+.exec-plan-toggle {
+  background: none;
+  border: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+}
+
+.exec-plan-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.exec-plan-generate-btn,
+.exec-plan-regen-btn {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.exec-plan-copy-btn {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+}
+
+.exec-plan-stale-warning {
+  font-size: 12px;
+  color: var(--warning, #b45309);
+  background: var(--warning-bg, #fef3c7);
+  padding: 6px 16px;
+  border-radius: 6px;
+  margin: 0 16px 8px;
+}
+
+.exec-plan-body { padding-bottom: 8px; }
+.exec-plan-body.hidden { display: none; }
+
+.exec-slots-list { padding: 0 16px; }
+
+.exec-slot-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  font-size: 13px;
+}
+.exec-slot-row:last-child { border-bottom: none; }
+.exec-slot-row:active { background: var(--border); }
+
+.exec-slot-empty .exec-slot-items { color: var(--text-tertiary); }
+
+.exec-slot-time {
+  min-width: 36px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.exec-slot-items { flex: 1; }
+
+.exec-slot-carbs {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.exec-plan-footer {
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.exec-plan-footer-warn {
+  color: var(--warning, #c67b00);
+}
+.exec-plan-footer-target {
+  color: var(--text-tertiary);
+}
+
+/* ── Slot editor sheet ────────────────────────────────────────────────────── */
+.slot-editor-body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 8px 16px;
+}
+
+.slot-editor-footer {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+}
+
+.slot-assignment-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+.slot-assignment-row:last-child { border-bottom: none; }
+
+.slot-assignment-label { flex: 1; }
+
+.slot-assignment-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.slot-assignment-actions button {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.slot-empty-label {
+  padding: 16px 0;
+  font-size: 13px;
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
+/* ── Slot picker sheet ────────────────────────────────────────────────────── */
+.slot-picker-body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.slot-picker-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  font-size: 14px;
+}
+.slot-picker-row:last-child { border-bottom: none; }
+.slot-picker-row:active { background: var(--border); }
+
+.slot-picker-time {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  min-width: 40px;
+}
+
+.slot-picker-summary {
+  flex: 1;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-left: 8px;
 }
 

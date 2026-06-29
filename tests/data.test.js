@@ -693,6 +693,247 @@ async function run() {
     );
   });
 
+  // ── Execution Plan ────────────────────────────────────────────────────────────
+
+  console.log('\nExecution Plan — generateExecutionPlan');
+
+  await test('generates correct slot count for 1h segment', async function () {
+    var seg = {
+      id: 'seg1', durationHours: 1,
+      targets: { carbsPerHour: 60, sodiumPerHour: 0, caffeinePerHour: 0 },
+      items: []
+    };
+    var plan = D.generateExecutionPlan(seg);
+    assert.strictEqual(plan.length, 5); // ceil(60/15) + 1 = 5 (0:00..1:00)
+  });
+
+  await test('generates correct slot count for 3.5h segment', async function () {
+    var seg = {
+      id: 'seg1', durationHours: 3.5,
+      targets: { carbsPerHour: 90, sodiumPerHour: 0, caffeinePerHour: 0 },
+      items: []
+    };
+    var plan = D.generateExecutionPlan(seg);
+    assert.strictEqual(plan.length, 15); // ceil(210/15) + 1 = 15 (0:00..3:30)
+  });
+
+  await test('distributes 4 gels evenly across 9 slots (centered in buckets)', async function () {
+    var seg = {
+      id: 'seg1', durationHours: 2,
+      targets: { carbsPerHour: 60, sodiumPerHour: 0, caffeinePerHour: 0 },
+      items: [
+        { id: 'g1', type: 'gel', carbsPerUnit: 25, sodiumPerUnit: 0, caffeinePerUnit: 0, quantity: 4 }
+      ]
+    };
+    var plan = D.generateExecutionPlan(seg);
+    var assigned = plan.filter(function(s) { return s.assignments.length > 0; });
+    assert.strictEqual(assigned.length, 4);
+    // (i+0.5) formula: item 0 -> slot 1, item 1 -> slot 3, item 2 -> slot 5, item 3 -> slot 7
+    assert.strictEqual(plan[1].assignments[0].itemId, 'g1');
+    assert.strictEqual(plan[1].assignments[0].quantity, 1);
+    assert.strictEqual(plan[3].assignments[0].itemId, 'g1');
+    assert.strictEqual(plan[5].assignments[0].itemId, 'g1');
+    assert.strictEqual(plan[7].assignments[0].itemId, 'g1');
+    // No two gels in the same slot
+    var maxPerSlot = Math.max.apply(null, plan.map(function(s) { return s.assignments.length; }));
+    assert.strictEqual(maxPerSlot, 1);
+  });
+
+  await test('interleaves caf and non-caf gels', async function () {
+    var seg = {
+      id: 'seg1', durationHours: 2,
+      targets: { carbsPerHour: 60, sodiumPerHour: 0, caffeinePerHour: 0 },
+      items: [
+        { id: 'gcaf', type: 'gel', carbsPerUnit: 25, sodiumPerUnit: 0, caffeinePerUnit: 75, quantity: 2 },
+        { id: 'gnon', type: 'gel', carbsPerUnit: 25, sodiumPerUnit: 0, caffeinePerUnit: 0, quantity: 2 }
+      ]
+    };
+    var plan = D.generateExecutionPlan(seg);
+    var nonEmpty = plan.filter(function(s) { return s.assignments.length > 0; });
+    assert.strictEqual(nonEmpty.length, 4);
+    // First slot should have a caf gel
+    assert.strictEqual(nonEmpty[0].assignments[0].itemId, 'gcaf');
+    // Second slot should have a non-caf gel
+    assert.strictEqual(nonEmpty[1].assignments[0].itemId, 'gnon');
+  });
+
+  await test('splits bars into half-unit assignments', async function () {
+    var seg = {
+      id: 'seg1', durationHours: 2,
+      targets: { carbsPerHour: 40, sodiumPerHour: 0, caffeinePerHour: 0 },
+      items: [
+        { id: 'b1', type: 'bar', carbsPerUnit: 45, sodiumPerUnit: 0, caffeinePerUnit: 0, quantity: 2 }
+      ]
+    };
+    var plan = D.generateExecutionPlan(seg);
+    var allAssignments = plan.reduce(function(acc, s) { return acc.concat(s.assignments); }, []);
+    assert.strictEqual(allAssignments.length, 4); // 2 bars × 2 halves = 4
+    assert.strictEqual(allAssignments[0].quantity, 0.5);
+  });
+
+  await test('distributes drink_powder as one drink_group sip per slot', async function () {
+    var seg = {
+      id: 'seg1', durationHours: 1,
+      targets: { carbsPerHour: 80, sodiumPerHour: 0, caffeinePerHour: 0 },
+      items: [
+        { id: 'dp1', type: 'drink_powder', carbsPerUnit: 80, sodiumPerUnit: 0, caffeinePerUnit: 0, quantity: 1 }
+      ]
+    };
+    var plan = D.generateExecutionPlan(seg);
+    assert.strictEqual(plan.length, 5); // 0:00..1:00
+    plan.forEach(function(slot) {
+      assert.strictEqual(slot.assignments.length, 1);
+      var a = slot.assignments[0];
+      assert.strictEqual(a.type, 'drink_group');
+      assert.strictEqual(a.groupId, '__auto__');
+      assert.deepStrictEqual(a.itemIds, ['dp1']);
+      assert.ok(Math.abs(a.carbsPerSlot - 16) < 0.1); // 80g / 5 slots = 16g per slot
+    });
+  });
+
+  await test('merges multiple drink_powders into a single drink_group per slot', async function () {
+    var seg = {
+      id: 'seg1', durationHours: 1,
+      targets: { carbsPerHour: 100, sodiumPerHour: 0, caffeinePerHour: 0 },
+      items: [
+        { id: 'dp1', type: 'drink_powder', carbsPerUnit: 100, sodiumPerUnit: 400, caffeinePerUnit: 0, quantity: 1 },
+        { id: 'dp2', type: 'drink_powder', carbsPerUnit: 0,   sodiumPerUnit: 400, caffeinePerUnit: 0, quantity: 1 }
+      ]
+    };
+    var plan = D.generateExecutionPlan(seg);
+    assert.strictEqual(plan.length, 5); // 0:00..1:00
+    plan.forEach(function(slot) {
+      var groups = slot.assignments.filter(function(a) { return a.type === 'drink_group'; });
+      assert.strictEqual(groups.length, 1, 'exactly one drink_group per slot');
+      var g = groups[0];
+      assert.ok(g.itemIds.indexOf('dp1') !== -1);
+      assert.ok(g.itemIds.indexOf('dp2') !== -1);
+      assert.ok(Math.abs(g.carbsPerSlot - 20) < 0.1);   // 100g / 5 slots
+      assert.ok(Math.abs(g.sodiumPerSlot - 160) < 0.1); // 800mg / 5 slots
+    });
+  });
+
+  await test('uses segment.bottleGroups for explicit bottle grouping when defined', async function () {
+    var seg = {
+      id: 'seg1', durationHours: 1,
+      targets: { carbsPerHour: 100, sodiumPerHour: 0, caffeinePerHour: 0 },
+      bottleGroups: [
+        { id: 'b1', name: 'Bottle 1', itemIds: ['dp1'] },
+        { id: 'b2', name: 'Bottle 2', itemIds: ['dp2'] }
+      ],
+      items: [
+        { id: 'dp1', type: 'drink_powder', carbsPerUnit: 80, sodiumPerUnit: 400, caffeinePerUnit: 0, quantity: 1 },
+        { id: 'dp2', type: 'drink_powder', carbsPerUnit: 20, sodiumPerUnit: 400, caffeinePerUnit: 0, quantity: 1 }
+      ]
+    };
+    var plan = D.generateExecutionPlan(seg);
+    plan.forEach(function(slot) {
+      var groups = slot.assignments.filter(function(a) { return a.type === 'drink_group'; });
+      assert.strictEqual(groups.length, 2, 'two separate groups for two bottles');
+      var b1 = groups.find(function(g) { return g.groupId === 'b1'; });
+      var b2 = groups.find(function(g) { return g.groupId === 'b2'; });
+      assert.ok(b1 && b1.groupName === 'Bottle 1');
+      assert.ok(b2 && b2.groupName === 'Bottle 2');
+      assert.ok(Math.abs(b1.carbsPerSlot - 16) < 0.1); // 80g / 5 slots
+      assert.ok(Math.abs(b2.carbsPerSlot - 4) < 0.1);  // 20g / 5 slots
+    });
+  });
+
+  await test('skips items with quantity 0', async function () {
+    var seg = {
+      id: 'seg1', durationHours: 1,
+      targets: { carbsPerHour: 60, sodiumPerHour: 0, caffeinePerHour: 0 },
+      items: [
+        { id: 'g1', type: 'gel', carbsPerUnit: 25, sodiumPerUnit: 0, caffeinePerUnit: 0, quantity: 0 }
+      ]
+    };
+    var plan = D.generateExecutionPlan(seg);
+    var allAssignments = plan.reduce(function(acc, s) { return acc.concat(s.assignments); }, []);
+    assert.strictEqual(allAssignments.length, 0);
+  });
+
+  console.log('\nExecution Plan — checkExecutionPlanTarget');
+
+  await test('returns projected rate when >15% below target', async function () {
+    var seg = {
+      id: 'seg1', durationHours: 1,
+      targets: { carbsPerHour: 100, sodiumPerHour: 0, caffeinePerHour: 0 },
+      items: [
+        { id: 'g1', type: 'gel', carbsPerUnit: 25, sodiumPerUnit: 0, caffeinePerUnit: 0, quantity: 2 }
+      ]
+    };
+    var result = D.checkExecutionPlanTarget(seg);
+    assert.strictEqual(result, 50); // 50g/hr, well below 85g threshold
+  });
+
+  await test('returns null when within 15% of target', async function () {
+    var seg = {
+      id: 'seg1', durationHours: 1,
+      targets: { carbsPerHour: 100, sodiumPerHour: 0, caffeinePerHour: 0 },
+      items: [
+        { id: 'g1', type: 'gel', carbsPerUnit: 25, sodiumPerUnit: 0, caffeinePerUnit: 0, quantity: 4 }
+      ]
+    };
+    var result = D.checkExecutionPlanTarget(seg);
+    assert.strictEqual(result, null); // 100g/hr = exactly on target
+  });
+
+  await test('returns null when no target set', async function () {
+    var seg = {
+      id: 'seg1', durationHours: 1,
+      targets: { carbsPerHour: 0, sodiumPerHour: 0, caffeinePerHour: 0 },
+      items: [
+        { id: 'g1', type: 'gel', carbsPerUnit: 25, sodiumPerUnit: 0, caffeinePerUnit: 0, quantity: 2 }
+      ]
+    };
+    assert.strictEqual(D.checkExecutionPlanTarget(seg), null);
+  });
+
+  console.log('\nExecution Plan — calcSlotCarbs');
+
+  await test('calculates carbs for a slot with discrete items', async function () {
+    var items = [{ id: 'g1', carbsPerUnit: 25, quantity: 1 }];
+    var slot = { assignments: [{ itemId: 'g1', quantity: 1 }] };
+    var carbs = D.calcSlotCarbs(slot, items);
+    assert.strictEqual(carbs, 25);
+  });
+
+  await test('uses carbsPerSlot directly for drink_group assignments', async function () {
+    var items = [{ id: 'g1', carbsPerUnit: 25, quantity: 1 }];
+    var slot = {
+      assignments: [
+        { itemId: 'g1', quantity: 1 },
+        { type: 'drink_group', groupId: '__auto__', groupName: null, itemIds: ['dp1'], carbsPerSlot: 20, sodiumPerSlot: 100 }
+      ]
+    };
+    var carbs = D.calcSlotCarbs(slot, items);
+    assert.strictEqual(carbs, 45); // 25 (gel) + 20 (drink_group)
+  });
+
+  await test('returns 0 for empty slot', async function () {
+    var slot = { assignments: [] };
+    assert.strictEqual(D.calcSlotCarbs(slot, []), 0);
+  });
+
+  console.log('\nExecution Plan — localStorage persistence');
+
+  await test('saveExecutionPlan and loadExecutionPlan round-trip', async function () {
+    var plan = [{ slotIndex: 0, intervalMinutes: 15, assignments: [{ itemId: 'g1', quantity: 1 }] }];
+    D.saveExecutionPlan('seg-abc', plan);
+    var loaded = D.loadExecutionPlan('seg-abc');
+    assert.deepStrictEqual(loaded, plan);
+  });
+
+  await test('loadExecutionPlan returns null for unknown segment', async function () {
+    assert.strictEqual(D.loadExecutionPlan('unknown-seg'), null);
+  });
+
+  await test('deleteExecutionPlan removes the plan', async function () {
+    D.saveExecutionPlan('seg-del', [{ slotIndex: 0, intervalMinutes: 15, assignments: [] }]);
+    D.deleteExecutionPlan('seg-del');
+    assert.strictEqual(D.loadExecutionPlan('seg-del'), null);
+  });
+
   // ── Summary ───────────────────────────────────────────────────────────────────
 
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
