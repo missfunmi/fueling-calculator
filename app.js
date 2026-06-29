@@ -566,7 +566,8 @@
 
     state.currentEvent = evt;
 
-    var canAddActuals = isEventPastOrToday(evt.date);
+    var archiveDate = (evt.category === 'multi' && evt.endDate) ? evt.endDate : evt.date;
+    var canAddActuals = isEventPastOrToday(archiveDate);
     var showActuals   = canAddActuals && Object.keys(evt.actuals).length > 0;
 
     $('detail-event-name').textContent = evt.name;
@@ -582,7 +583,13 @@
     $('detail-summary').innerHTML =
       '<div class="event-meta-row">' +
         '<span class="type-badge">' + (EVENT_TYPE_LABELS[evt.type] || escHtml(evt.type)) + '</span>' +
-        (evt.date ? '<span class="event-meta-date">' + escHtml(evt.date) + '</span>' : '') +
+        (evt.date
+          ? '<span class="event-meta-date">' +
+              (evt.category === 'multi' && evt.endDate
+                ? escHtml(evt.date) + ' — ' + escHtml(evt.endDate)
+                : escHtml(evt.date)) +
+            '</span>'
+          : '') +
       '</div>' +
       '<div class="summary-cards">' +
         metricCardHTML('carbs',    Math.round(totals.carbs) + 'g',  fmt(rates.carbs, 'g/hr avg'),
@@ -606,7 +613,7 @@
         var html = segmentSectionHTML(seg, multiSeg);
         if (showActuals) {
           var actualSeg = evt.actuals[seg.id] || { durationHours: null, items: [] };
-          html += actualSegmentSectionHTML(seg, actualSeg);
+          html += actualSegmentSectionHTML(seg, actualSeg, evt.category === 'multi');
         }
         return html;
       }).join('') +
@@ -756,7 +763,7 @@
     '</div>';
   }
 
-  function actualSegmentSectionHTML(seg, actualSeg) {
+  function actualSegmentSectionHTML(seg, actualSeg, isMultiDay) {
     var dh = actualSeg.durationHours;
     var dhLabel = formatHM(dh);
 
@@ -783,6 +790,9 @@
         '<span class="actual-pill">ACTUAL</span>' +
         '<span class="actual-section-title">' + escHtml(seg.name) + '</span>' +
       '</div>' +
+      (isMultiDay && seg.date
+        ? '<div class="actual-duration-row">Date: <span>' + escHtml(seg.date) + '</span></div>'
+        : '') +
       '<div class="actual-duration-row">' +
         'Duration: <span class="actual-duration-value editable" data-inline="actual-duration">' +
         dhLabel +
@@ -945,7 +955,8 @@
     if (!evt) return;
     var totals  = Data.calcEventTotals(evt);
     var rates   = Data.calcEventRates(evt);
-    var showAct = isEventPastOrToday(evt.date) && Object.keys(evt.actuals || {}).length > 0;
+    var archiveDate = (evt.category === 'multi' && evt.endDate) ? evt.endDate : evt.date;
+    var showAct = isEventPastOrToday(archiveDate) && Object.keys(evt.actuals || {}).length > 0;
     var actTotals = showAct ? Data.calcActualEventTotals(evt) : null;
     var actRates  = showAct ? Data.calcActualEventRates(evt)  : null;
     var goalRates = showAct ? Data.calcEventGoalRates(evt)    : null;
