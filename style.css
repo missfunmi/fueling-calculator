@@ -1098,6 +1098,32 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   padding: 4px 0;
 }
 
+/* ── Multi-day date range ─────────────────────────────────────────────────── */
+.date-range-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.date-range-wrap .form-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.date-range-sep {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+  display: none;
+}
+
+.ef-end-date-hidden {
+  display: none;
+}
+
+/* When end date is visible, show the separator */
+.date-range-wrap:has(#ef-end-date:not(.ef-end-date-hidden)) .date-range-sep {
+  display: block;
 /* ── Execution Plan Panel ─────────────────────────────────────────────────── */
 .exec-plan-panel {
   border-top: 1px solid var(--border);

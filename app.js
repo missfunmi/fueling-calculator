@@ -115,7 +115,7 @@
 
   var EVENT_TYPE_LABELS = {
     ride: 'Ride', run: 'Run', triathlon: 'Triathlon',
-    swim: 'Swim', other: 'Other'
+    swim: 'Swim', vacation: 'Vacation', training_camp: 'Training Camp', other: 'Other'
   };
 
   // ── Router ─────────────────────────────────────────────────────────────────
@@ -177,7 +177,7 @@
   var renders = {};
 
   // ── Segment form HTML helper (used by renderCreate) ────────────────────────
-  function segmentFormHTML(seg, idx, total) {
+  function segmentFormHTML(seg, idx, total, isMultiDay, startDate, endDate) {
     var canDelete = total > 1;
     return '<div class="form-card" data-seg-draft-id="' + seg.id + '">' +
       '<div class="form-section-header" style="margin-bottom:10px">' +
@@ -191,6 +191,15 @@
         '<input class="form-input seg-name" type="text" value="' + escHtml(seg.name) + '" placeholder="e.g. Bike">' +
       '</div>' +
       '<div class="form-row">' +
+        (isMultiDay
+          ? '<div class="form-group">' +
+              '<label>Date</label>' +
+              '<input class="form-input seg-date" type="date" value="' + escHtml(seg.date || '') + '"' +
+                (startDate ? ' min="' + escHtml(startDate) + '"' : '') +
+                (endDate   ? ' max="' + escHtml(endDate)   + '"' : '') +
+              '>' +
+            '</div>'
+          : '') +
         '<div class="form-group">' +
           '<label>Duration</label>' +
           '<input class="form-input seg-duration" type="text" inputmode="text" value="' + formatDuration(seg.durationHours) + '" placeholder="e.g. 1:45 or 1h45m">' +
@@ -238,7 +247,11 @@
         '<span class="type-badge">' + (EVENT_TYPE_LABELS[evt.type] || escHtml(evt.type)) + '</span>' +
       '</div>' +
       '<div class="event-card-meta">' +
-        (evt.date ? escHtml(evt.date) + ' · ' : '') +
+        (evt.date
+          ? (evt.category === 'multi' && evt.endDate
+              ? escHtml(evt.date) + ' — ' + escHtml(evt.endDate)
+              : escHtml(evt.date)) + ' · '
+          : '') +
         hLabel + ' · ' +
         Math.round(totals.carbs) + 'g carbs · ' +
         Math.round(totals.sodium) + 'mg Na' +
@@ -267,8 +280,17 @@
     }
 
     var today = new Date().toISOString().slice(0, 10);
-    var upcoming = events.filter(function (evt) { return !evt.date || evt.date >= today; });
-    var past     = events.filter(function (evt) { return evt.date && evt.date < today; });
+    function eventArchiveDate(evt) {
+      return (evt.category === 'multi' && evt.endDate) ? evt.endDate : evt.date;
+    }
+    var upcoming = events.filter(function (evt) {
+      var d = eventArchiveDate(evt);
+      return !d || d >= today;
+    });
+    var past = events.filter(function (evt) {
+      var d = eventArchiveDate(evt);
+      return d && d < today;
+    });
 
     var html = upcoming.map(eventCardHTML).join('');
 
@@ -337,6 +359,26 @@
   // draftSegments is rebuilt each time the create view opens
   var draftSegments = [];
 
+  function nextDay(dateStr) {
+    if (!dateStr) return '';
+    var d = new Date(dateStr + 'T00:00:00');
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().slice(0, 10);
+  }
+
+  function _applyMultiDayToggle(isMulti) {
+    var endDateInput = $('ef-end-date');
+    if (!endDateInput) return;
+    if (isMulti) {
+      endDateInput.classList.remove('ef-end-date-hidden');
+      endDateInput.min = nextDay($('ef-date').value);
+    } else {
+      endDateInput.classList.add('ef-end-date-hidden');
+      endDateInput.value = '';
+      endDateInput.min = '';
+    }
+  }
+
   async function renderCreate() {
     var isEdit = !!state.currentEventId;
     var evt = null;
@@ -354,10 +396,32 @@
     $('btn-save-event').textContent = isEdit ? 'Save Changes' : 'Save Event';
     $('btn-delete-event').style.display = isEdit ? '' : 'none';
 
-    $('ef-name').value  = evt ? evt.name : '';
-    $('ef-date').value  = evt ? (evt.date || '') : new Date().toISOString().slice(0, 10);
-    $('ef-type').value  = evt ? evt.type : 'ride';
-    $('ef-notes').value = evt ? (evt.notes || '') : '';
+    $('ef-name').value     = evt ? evt.name : '';
+    $('ef-date').value     = evt ? (evt.date || '') : new Date().toISOString().slice(0, 10);
+    $('ef-category').value = evt ? (evt.category || 'single') : 'single';
+    $('ef-type').value     = evt ? evt.type : 'ride';
+    $('ef-notes').value    = evt ? (evt.notes || '') : '';
+
+    var endDateInput = $('ef-end-date');
+    endDateInput.value = evt ? (evt.endDate || '') : '';
+    _applyMultiDayToggle($('ef-category').value === 'multi');
+
+    $('ef-category').onchange = function () {
+      syncDraftSegmentsFromDOM();
+      _applyMultiDayToggle(this.value === 'multi');
+      renderSegmentForms();
+    };
+
+    $('ef-date').onchange = function () {
+      if ($('ef-category').value === 'multi') {
+        var endDateInput = $('ef-end-date');
+        endDateInput.min = nextDay(this.value);
+        if (endDateInput.value && endDateInput.value <= this.value) {
+          endDateInput.value = '';
+        }
+      }
+      renderSegmentForms();
+    };
 
     draftSegments = evt
       ? evt.segments.map(function (s) { return JSON.parse(JSON.stringify(s)); })
@@ -381,13 +445,18 @@
       if (!isNaN(sodium)) seg.targets.sodiumPerHour = sodium;
       var caff = parseFloat(card.querySelector('.seg-caffeine-target').value);
       if (!isNaN(caff)) seg.targets.caffeinePerHour = caff;
+      var segDateEl = card.querySelector('.seg-date');
+      if (segDateEl) seg.date = segDateEl.value;
     });
   }
 
   function renderSegmentForms() {
     var $list = $('segments-form-list');
+    var isMultiDay = $('ef-category') && $('ef-category').value === 'multi';
+    var startDate = isMultiDay ? ($('ef-date').value || '') : '';
+    var endDate   = isMultiDay ? ($('ef-end-date').value || '') : '';
     $list.innerHTML = draftSegments.map(function (seg, i) {
-      return segmentFormHTML(seg, i, draftSegments.length);
+      return segmentFormHTML(seg, i, draftSegments.length, isMultiDay, startDate, endDate);
     }).join('');
 
     // Wire remove buttons
@@ -408,7 +477,9 @@
 
   on($('btn-add-segment'), 'click', function () {
     syncDraftSegmentsFromDOM();
-    draftSegments.push(Data.newSegment('', 1));
+    var isMulti = $('ef-category') && $('ef-category').value === 'multi';
+    var startDate = isMulti ? ($('ef-date').value || '') : '';
+    draftSegments.push(Data.newSegment('', 1, startDate));
     renderSegmentForms();
     // Scroll to new segment
     var cards = $$('[data-seg-draft-id]');
@@ -420,13 +491,38 @@
     var name = $('ef-name').value.trim();
     if (!name) { $('ef-name').focus(); return; }
 
+    var category  = $('ef-category').value;
+    var startDate = $('ef-date').value;
+    var endDate   = $('ef-end-date').value;
+    if (category === 'multi' && !endDate) {
+      showToast('Multi-day events require an end date.');
+      return;
+    }
+    if (category === 'multi' && endDate <= startDate) {
+      showToast('End date must be after the start date.');
+      return;
+    }
+    if (category === 'multi' && startDate) {
+      var segCards2 = $$('[data-seg-draft-id]');
+      for (var si = 0; si < segCards2.length; si++) {
+        var segDateEl2 = segCards2[si].querySelector('.seg-date');
+        if (!segDateEl2 || !segDateEl2.value) continue;
+        if (segDateEl2.value < startDate || segDateEl2.value > endDate) {
+          showToast('Segment dates must be within the event date range.');
+          return;
+        }
+      }
+    }
+
     var segCards = $$('[data-seg-draft-id]');
     var segments = Array.from(segCards).map(function (card) {
       var id = card.dataset.segDraftId;
       var existing = draftSegments.find(function (s) { return s.id === id; });
+      var segDateEl = card.querySelector('.seg-date');
       return {
         id:            id,
         name:          card.querySelector('.seg-name').value.trim() || name,
+        date:          segDateEl ? segDateEl.value : '',
         durationHours: parseDuration(card.querySelector('.seg-duration').value) || 1,
         targets: {
           carbsPerHour:    parseFloat(card.querySelector('.seg-carbs-target').value)    || 0,
@@ -447,6 +543,8 @@
       evt = Object.assign({}, base, {
         name:     name,
         date:     $('ef-date').value,
+        endDate:  $('ef-end-date').value,
+        category: $('ef-category').value,
         type:     $('ef-type').value,
         notes:    $('ef-notes').value.trim(),
         segments: segments
@@ -454,6 +552,8 @@
     } else {
       evt = Object.assign(Data.newEvent(name), {
         date:     $('ef-date').value,
+        endDate:  $('ef-end-date').value,
+        category: $('ef-category').value,
         type:     $('ef-type').value,
         notes:    $('ef-notes').value.trim(),
         segments: segments
@@ -511,7 +611,8 @@
 
     state.currentEvent = evt;
 
-    var canAddActuals = isEventPastOrToday(evt.date);
+    var archiveDate = (evt.category === 'multi' && evt.endDate) ? evt.endDate : evt.date;
+    var canAddActuals = isEventPastOrToday(archiveDate);
     var showActuals   = canAddActuals && Object.keys(evt.actuals).length > 0;
 
     $('detail-event-name').textContent = evt.name;
@@ -527,7 +628,13 @@
     $('detail-summary').innerHTML =
       '<div class="event-meta-row">' +
         '<span class="type-badge">' + (EVENT_TYPE_LABELS[evt.type] || escHtml(evt.type)) + '</span>' +
-        (evt.date ? '<span class="event-meta-date">' + escHtml(evt.date) + '</span>' : '') +
+        (evt.date
+          ? '<span class="event-meta-date">' +
+              (evt.category === 'multi' && evt.endDate
+                ? escHtml(evt.date) + ' — ' + escHtml(evt.endDate)
+                : escHtml(evt.date)) +
+            '</span>'
+          : '') +
       '</div>' +
       '<div class="summary-cards">' +
         metricCardHTML('carbs',    Math.round(totals.carbs) + 'g',  fmt(rates.carbs, 'g/hr avg'),
@@ -551,7 +658,7 @@
         var html = segmentSectionHTML(seg, multiSeg);
         if (showActuals) {
           var actualSeg = evt.actuals[seg.id] || { durationHours: null, items: [] };
-          html += actualSegmentSectionHTML(seg, actualSeg);
+          html += actualSegmentSectionHTML(seg, actualSeg, evt.category === 'multi');
         }
         return html;
       }).join('') +
@@ -809,7 +916,7 @@
     '</div>';
   }
 
-  function actualSegmentSectionHTML(seg, actualSeg) {
+  function actualSegmentSectionHTML(seg, actualSeg, isMultiDay) {
     var dh = actualSeg.durationHours;
     var dhLabel = formatHM(dh);
 
@@ -1034,7 +1141,8 @@
     if (!evt) return;
     var totals  = Data.calcEventTotals(evt);
     var rates   = Data.calcEventRates(evt);
-    var showAct = isEventPastOrToday(evt.date) && Object.keys(evt.actuals || {}).length > 0;
+    var archiveDate = (evt.category === 'multi' && evt.endDate) ? evt.endDate : evt.date;
+    var showAct = isEventPastOrToday(archiveDate) && Object.keys(evt.actuals || {}).length > 0;
     var actTotals = showAct ? Data.calcActualEventTotals(evt) : null;
     var actRates  = showAct ? Data.calcActualEventRates(evt)  : null;
     var goalRates = showAct ? Data.calcEventGoalRates(evt)    : null;
