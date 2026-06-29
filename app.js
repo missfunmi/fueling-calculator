@@ -464,7 +464,11 @@
 
     var category = $('ef-category').value;
     var endDate  = $('ef-end-date').value;
-    if (category === 'multi' && endDate && endDate < $('ef-date').value) {
+    if (category === 'multi' && !endDate) {
+      showToast('Multi-day events require an end date.');
+      return;
+    }
+    if (category === 'multi' && endDate < $('ef-date').value) {
       showToast('End date must be on or after the start date.');
       return;
     }
@@ -790,9 +794,6 @@
         '<span class="actual-pill">ACTUAL</span>' +
         '<span class="actual-section-title">' + escHtml(seg.name) + '</span>' +
       '</div>' +
-      (isMultiDay && seg.date
-        ? '<div class="actual-duration-row">Date: <span>' + escHtml(seg.date) + '</span></div>'
-        : '') +
       '<div class="actual-duration-row">' +
         'Duration: <span class="actual-duration-value editable" data-inline="actual-duration">' +
         dhLabel +
