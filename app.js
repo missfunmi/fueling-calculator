@@ -240,7 +240,11 @@
         '<span class="type-badge">' + (EVENT_TYPE_LABELS[evt.type] || escHtml(evt.type)) + '</span>' +
       '</div>' +
       '<div class="event-card-meta">' +
-        (evt.date ? escHtml(evt.date) + ' · ' : '') +
+        (evt.date
+          ? (evt.category === 'multi' && evt.endDate
+              ? escHtml(evt.date) + ' — ' + escHtml(evt.endDate)
+              : escHtml(evt.date)) + ' · '
+          : '') +
         hLabel + ' · ' +
         Math.round(totals.carbs) + 'g carbs · ' +
         Math.round(totals.sodium) + 'mg Na' +
@@ -269,8 +273,17 @@
     }
 
     var today = new Date().toISOString().slice(0, 10);
-    var upcoming = events.filter(function (evt) { return !evt.date || evt.date >= today; });
-    var past     = events.filter(function (evt) { return evt.date && evt.date < today; });
+    function eventArchiveDate(evt) {
+      return (evt.category === 'multi' && evt.endDate) ? evt.endDate : evt.date;
+    }
+    var upcoming = events.filter(function (evt) {
+      var d = eventArchiveDate(evt);
+      return !d || d >= today;
+    });
+    var past = events.filter(function (evt) {
+      var d = eventArchiveDate(evt);
+      return d && d < today;
+    });
 
     var html = upcoming.map(eventCardHTML).join('');
 
