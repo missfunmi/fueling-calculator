@@ -1,0 +1,19 @@
+name: Supabase Keep-Alive
+
+on:
+  schedule:
+    - cron: '0 8 */5 * *'  # every 5 days at 08:00 UTC
+  workflow_dispatch:         # allow manual trigger
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "https://jcrmkxlzqewwqugkwlww.supabase.co/rest/v1/users?limit=1" \
+            -H "apikey: sb_publishable_VArDAA7V8Gg-Xi20vj7zkw_NiidAk_Q" \
+            -H "Authorization: Bearer sb_publishable_VArDAA7V8Gg-Xi20vj7zkw_NiidAk_Q")
+          echo "Supabase ping status: $STATUS"
+          [ "$STATUS" = "200" ] || exit 1
