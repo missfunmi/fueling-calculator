@@ -26,7 +26,7 @@ AS $$
       (event_data->>'id')::UUID,
       (event_data->>'user_id')::UUID,
       event_data->>'name',
-      NULLIF(event_data->>'date', ''),
+      NULLIF(event_data->>'date', '')::DATE,
       NULLIF(event_data->>'end_date', ''),
       COALESCE(NULLIF(event_data->>'category', ''), 'single'),
       COALESCE(event_data->>'type', 'other'),
