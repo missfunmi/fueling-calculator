@@ -1124,6 +1124,8 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 /* When end date is visible, show the separator */
 .date-range-wrap:has(#ef-end-date:not(.ef-end-date-hidden)) .date-range-sep {
   display: block;
+}
+
 /* ── Execution Plan Panel ─────────────────────────────────────────────────── */
 .exec-plan-panel {
   border-top: 1px solid var(--border);
