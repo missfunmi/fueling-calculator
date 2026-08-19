@@ -564,8 +564,9 @@
   // ── Execution Plan ────────────────────────────────────────────────────────────
 
   function generateExecutionPlan(segment) {
-    // +1 so slot 0 = 0:00 (segment start) and the last slot = segment end time.
-    var slotCount = Math.ceil((segment.durationHours || 1) * 60 / 15) + 1;
+    // +1 so slot 0 = 0:00 (segment start) and the last slot is within the segment.
+    // Math.floor ensures non-multiples of 15 don't create a slot past the segment end.
+    var slotCount = Math.floor((segment.durationHours || 1) * 60 / 15) + 1;
     var slots = [];
     for (var i = 0; i < slotCount; i++) {
       slots.push({ slotIndex: i, intervalMinutes: 15, assignments: [] });
