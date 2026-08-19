@@ -566,7 +566,14 @@
   function generateExecutionPlan(segment) {
     // +1 so slot 0 = 0:00 (segment start) and the last slot is within the segment.
     // Math.floor ensures non-multiples of 15 don't create a slot past the segment end.
-    var slotCount = Math.floor((segment.durationHours || 1) * 60 / 15) + 1;
+    var durationMinutes = (segment.durationHours || 1) * 60;
+    var slotCount = Math.floor(durationMinutes / 15) + 1;
+
+    // Discrete items (gels, bars) need ~20 min to absorb before providing usable energy.
+    // Restrict their placement to a fueling window that ends 20 min before the segment
+    // end. Liquid items span the full segment since they are sipped continuously.
+    var fuelingWindowMinutes = Math.max(durationMinutes - 20, durationMinutes / 2);
+    var discreteSlotCount = Math.floor(fuelingWindowMinutes / 15) + 1;
     var slots = [];
     for (var i = 0; i < slotCount; i++) {
       slots.push({ slotIndex: i, intervalMinutes: 15, assignments: [] });
@@ -650,10 +657,10 @@
       });
     }
 
-    // Use the (i + 0.5) centering formula so items are spread evenly across all
-    // slots rather than packing into the front of the segment.
+    // Use the (i + 0.5) centering formula so items are spread evenly across the
+    // fueling window. discreteSlotCount caps placement before the absorption buffer.
     discretePool.forEach(function (unit, i) {
-      var idx = Math.floor((i + 0.5) * slotCount / discretePool.length);
+      var idx = Math.floor((i + 0.5) * discreteSlotCount / discretePool.length);
       slots[idx].assignments.push(unit);
     });
 
