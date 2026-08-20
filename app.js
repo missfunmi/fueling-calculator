@@ -756,8 +756,9 @@
     var plan = Data.loadExecutionPlan(seg.id);
     var hasPlan = plan && plan.length > 0;
 
-    // Staleness check: slot count mismatch means duration changed
-    var expectedSlots = Math.ceil((seg.durationHours || 1) * 60 / 15) + 1;
+    // Staleness check: slot count mismatch means duration changed.
+    // Must use Math.floor to match generateExecutionPlan's slot count formula.
+    var expectedSlots = Math.floor((seg.durationHours || 1) * 60 / 15) + 1;
     var isStale = hasPlan && plan.length !== expectedSlots;
 
     // Check for orphaned itemIds (items removed since generation)
