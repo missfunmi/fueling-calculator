@@ -795,7 +795,7 @@
       '<div class="exec-plan-header">' +
         '<div class="exec-plan-header-left">' +
           '<button class="exec-plan-toggle" data-exec-toggle="' + seg.id + '" aria-expanded="false">' +
-            (hasPlan ? '&#9660;' : '&#9654;') + ' Execution plan' +
+            'Execution plan' +
           '</button>' +
           '<span class="exec-plan-interval-label">every</span>' +
           '<span class="exec-plan-interval editable" data-inline="exec-interval">' + segInterval + ' min</span>' +
@@ -806,6 +806,7 @@
                 '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>' +
               '</button>' +
               '<button class="exec-plan-regen-btn" data-exec-regen="' + seg.id + '">Regenerate</button>' +
+              '<button class="exec-plan-delete-btn" data-exec-delete="' + seg.id + '">Delete</button>' +
             '</div>'
           : '<button class="exec-plan-generate-btn" data-exec-generate="' + seg.id + '">Generate</button>') +
       '</div>';
@@ -1220,6 +1221,21 @@
       });
     }
 
+    var deleteBtn = segEl.querySelector('[data-exec-delete]');
+    if (deleteBtn) {
+      on(deleteBtn, 'click', function () {
+        if (!confirm('Delete this execution plan? This cannot be undone.')) return;
+        var segId = deleteBtn.dataset.execDelete;
+        Data.deleteExecutionPlan(segId);
+        var multiSeg = evt.segments.length > 1;
+        var seg2 = (evt.segments || []).find(function (s) { return s.id === segId; });
+        if (seg2) {
+          segEl.outerHTML = segmentSectionHTML(seg2, multiSeg);
+          reattachSegmentHandlers(segId);
+        }
+      });
+    }
+
     var toggleBtn = segEl.querySelector('[data-exec-toggle]');
     if (toggleBtn) {
       on(toggleBtn, 'click', function () {
@@ -1439,7 +1455,9 @@
     }
     // Re-open body since re-render collapsed it
     var body = document.querySelector('[data-exec-body="' + segId + '"]');
+    var toggle = document.querySelector('[data-exec-toggle="' + segId + '"]');
     if (body) body.classList.remove('hidden');
+    if (toggle) toggle.setAttribute('aria-expanded', 'true');
   }
 
   function openSlotPicker(seg, plan, fromSlotIndex) {

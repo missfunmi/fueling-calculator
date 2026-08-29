@@ -1136,6 +1136,8 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
   padding: 10px 16px;
 }
 
@@ -1143,6 +1145,8 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex: 1;
+  min-width: 0;
 }
 
 .exec-plan-toggle {
@@ -1154,6 +1158,15 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   cursor: pointer;
   padding: 0;
   text-align: left;
+  white-space: nowrap;
+}
+.exec-plan-toggle::before {
+  content: '\25BA';
+  margin-right: 5px;
+  display: inline-block;
+}
+.exec-plan-toggle[aria-expanded="true"]::before {
+  content: '\25BC';
 }
 
 .exec-plan-interval-label {
@@ -1170,6 +1183,7 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .exec-plan-generate-btn,
@@ -1191,6 +1205,17 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   color: var(--text-secondary);
   display: flex;
   align-items: center;
+}
+
+.exec-plan-delete-btn {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--red-bg);
+  background: var(--surface);
+  color: var(--red-text);
+  cursor: pointer;
+  margin-left: 8px;
 }
 
 .exec-plan-stale-warning {
