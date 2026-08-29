@@ -563,20 +563,33 @@
 
   // ── Execution Plan ────────────────────────────────────────────────────────────
 
+  function getDefaultExecInterval() {
+    var stored = parseInt(localStorage.getItem('fuelPlanner.defaultExecInterval'), 10);
+    return (!isNaN(stored) && stored > 0) ? stored : 15;
+  }
+
+  function setDefaultExecInterval(n) {
+    localStorage.setItem('fuelPlanner.defaultExecInterval', String(n));
+  }
+
   function generateExecutionPlan(segment) {
+    var intervalMinutes = (segment.execInterval && segment.execInterval > 0)
+      ? segment.execInterval
+      : getDefaultExecInterval();
+
     // +1 so slot 0 = 0:00 (segment start) and the last slot is within the segment.
-    // Math.floor ensures non-multiples of 15 don't create a slot past the segment end.
+    // Math.floor ensures non-multiples of the interval don't create a slot past the end.
     var durationMinutes = (segment.durationHours || 1) * 60;
-    var slotCount = Math.floor(durationMinutes / 15) + 1;
+    var slotCount = Math.floor(durationMinutes / intervalMinutes) + 1;
 
     // Discrete items (gels, bars) need ~20 min to absorb before providing usable energy.
     // Restrict their placement to a fueling window that ends 20 min before the segment
     // end. Liquid items span the full segment since they are sipped continuously.
     var fuelingWindowMinutes = Math.max(durationMinutes - 20, durationMinutes / 2);
-    var discreteSlotCount = Math.floor(fuelingWindowMinutes / 15) + 1;
+    var discreteSlotCount = Math.floor(fuelingWindowMinutes / intervalMinutes) + 1;
     var slots = [];
     for (var i = 0; i < slotCount; i++) {
-      slots.push({ slotIndex: i, intervalMinutes: 15, assignments: [] });
+      slots.push({ slotIndex: i, intervalMinutes: intervalMinutes, assignments: [] });
     }
 
     // 'liquid' items (e.g. electrolyte boosters) are treated the same as 'drink_powder' —
@@ -746,6 +759,8 @@
   exports.newEvent           = newEvent;
   exports.itemFromProduct    = itemFromProduct;
   exports.itemFromOneOff     = itemFromOneOff;
+  exports.getDefaultExecInterval    = getDefaultExecInterval;
+  exports.setDefaultExecInterval    = setDefaultExecInterval;
   exports.generateExecutionPlan     = generateExecutionPlan;
   exports.checkExecutionPlanTarget  = checkExecutionPlanTarget;
   exports.calcSlotCarbs             = calcSlotCarbs;
