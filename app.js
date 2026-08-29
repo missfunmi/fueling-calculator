@@ -1040,41 +1040,10 @@
 
     // Fractional quantity triggers
     $$('.qty-frac-trigger', $('detail-body')).forEach(function (el) {
-      on(el, 'click', function (e) {
-        e.stopPropagation();
-        closeQtyDropdown();
-        var row = el.closest('[data-item-id]');
-        var segSection = el.closest('[data-segment-id]');
-        if (!row || !segSection) return;
-        var itemId = row.dataset.itemId;
-        var segId = segSection.dataset.segmentId;
-        var seg2 = (evt.segments || []).find(function (s) { return s.id === segId; });
-        if (!seg2) return;
-        var item2 = (seg2.items || []).find(function (i) { return i.id === itemId; });
-        if (!item2) return;
-        var whole = Math.floor(item2.quantity);
-        var opts = [{ label: String(whole), value: whole }].concat(
-          FRACTIONS.map(function (f) { return { label: whole + f.label, value: whole + f.value }; })
-        );
-        var dropdown = document.createElement('div');
-        dropdown.className = 'qty-frac-dropdown';
-        dropdown.dataset.dropdownFor = itemId;
-        opts.forEach(function (opt) {
-          var btn2 = document.createElement('button');
-          btn2.className = 'qty-frac-option' + (Math.abs(item2.quantity - opt.value) < 0.01 ? ' selected' : '');
-          btn2.textContent = opt.label;
-          on(btn2, 'click', function (e2) {
-            e2.stopPropagation();
-            closeQtyDropdown();
-            var delta = opt.value - item2.quantity;
-            if (Math.abs(delta) > 0.001) updateItemQty(evt.id, segId, itemId, delta);
-          });
-          dropdown.appendChild(btn2);
-        });
-        el.style.position = 'relative';
-        el.appendChild(dropdown);
-        el.classList.add('open');
-      });
+      var row = el.closest('[data-item-id]');
+      var segSection = el.closest('[data-segment-id]');
+      if (!row || !segSection) return;
+      attachQtyFracTrigger(el, evt.id, segSection.dataset.segmentId, row.dataset.itemId);
     });
 
     // Add item buttons (planned segments)
@@ -1269,38 +1238,9 @@
       });
     });
     $$('.qty-frac-trigger', segEl).forEach(function (el) {
-      on(el, 'click', function (e) {
-        e.stopPropagation();
-        closeQtyDropdown();
-        var row = el.closest('[data-item-id]');
-        if (!row) return;
-        var itemId = row.dataset.itemId;
-        var seg2 = (evt.segments || []).find(function (s) { return s.id === segId; });
-        if (!seg2) return;
-        var item2 = (seg2.items || []).find(function (i) { return i.id === itemId; });
-        if (!item2) return;
-        var whole = Math.floor(item2.quantity);
-        var opts = [{ label: String(whole), value: whole }].concat(
-          FRACTIONS.map(function (f) { return { label: whole + f.label, value: whole + f.value }; })
-        );
-        var dropdown = document.createElement('div');
-        dropdown.className = 'qty-frac-dropdown';
-        opts.forEach(function (opt) {
-          var btn2 = document.createElement('button');
-          btn2.className = 'qty-frac-option' + (Math.abs(item2.quantity - opt.value) < 0.01 ? ' selected' : '');
-          btn2.textContent = opt.label;
-          on(btn2, 'click', function (e2) {
-            e2.stopPropagation();
-            closeQtyDropdown();
-            var delta = opt.value - item2.quantity;
-            if (Math.abs(delta) > 0.001) updateItemQty(evt.id, segId, itemId, delta);
-          });
-          dropdown.appendChild(btn2);
-        });
-        el.style.position = 'relative';
-        el.appendChild(dropdown);
-        el.classList.add('open');
-      });
+      var row = el.closest('[data-item-id]');
+      if (!row) return;
+      attachQtyFracTrigger(el, evt.id, segId, row.dataset.itemId);
     });
     $$('[data-add-segment-id]', segEl).forEach(function (btn) {
       on(btn, 'click', function () {
@@ -1488,11 +1428,45 @@
 
   function closeQtyDropdown() {
     var open = document.querySelector('.qty-frac-trigger.open');
-    if (open) {
-      open.classList.remove('open');
-      var dd = open.querySelector('.qty-frac-dropdown');
-      if (dd) dd.remove();
-    }
+    if (open) open.classList.remove('open');
+    var dd = document.querySelector('.qty-frac-dropdown');
+    if (dd) dd.remove();
+  }
+
+  function attachQtyFracTrigger(el, eventId, segId, itemId) {
+    on(el, 'click', function (e) {
+      e.stopPropagation();
+      closeQtyDropdown();
+      var evt2 = state.currentEvent;
+      if (!evt2) return;
+      var seg2 = (evt2.segments || []).find(function (s) { return s.id === segId; });
+      if (!seg2) return;
+      var item2 = (seg2.items || []).find(function (i) { return i.id === itemId; });
+      if (!item2) return;
+      var whole = Math.floor(item2.quantity);
+      var opts = [{ label: String(whole), value: whole }].concat(
+        FRACTIONS.map(function (f) { return { label: whole + f.label, value: whole + f.value }; })
+      );
+      var dropdown = document.createElement('div');
+      dropdown.className = 'qty-frac-dropdown';
+      opts.forEach(function (opt) {
+        var btn2 = document.createElement('button');
+        btn2.className = 'qty-frac-option' + (Math.abs(item2.quantity - opt.value) < 0.01 ? ' selected' : '');
+        btn2.textContent = opt.label;
+        on(btn2, 'click', function (e2) {
+          e2.stopPropagation();
+          closeQtyDropdown();
+          var delta = opt.value - item2.quantity;
+          if (Math.abs(delta) > 0.001) updateItemQty(eventId, segId, itemId, delta);
+        });
+        dropdown.appendChild(btn2);
+      });
+      var rect = el.getBoundingClientRect();
+      dropdown.style.top  = (rect.bottom + 4) + 'px';
+      dropdown.style.left = (rect.left + rect.width / 2) + 'px';
+      document.body.appendChild(dropdown);
+      el.classList.add('open');
+    });
   }
 
   function closeSlotEditor() {
