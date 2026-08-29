@@ -1142,6 +1142,7 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 .exec-plan-header-left {
   display: flex;
   align-items: center;
+  gap: 6px;
 }
 
 .exec-plan-toggle {
@@ -1153,6 +1154,11 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   cursor: pointer;
   padding: 0;
   text-align: left;
+}
+
+.exec-plan-interval-label {
+  font-size: 12px;
+  color: var(--text-tertiary);
 }
 
 .exec-plan-interval {

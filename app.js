@@ -797,7 +797,8 @@
           '<button class="exec-plan-toggle" data-exec-toggle="' + seg.id + '" aria-expanded="false">' +
             (hasPlan ? '&#9660;' : '&#9654;') + ' Execution plan' +
           '</button>' +
-          '<span class="exec-plan-interval editable" data-inline="exec-interval">&nbsp;' + segInterval + ' min</span>' +
+          '<span class="exec-plan-interval-label">every</span>' +
+          '<span class="exec-plan-interval editable" data-inline="exec-interval">' + segInterval + ' min</span>' +
         '</div>' +
         (hasPlan
           ? '<div class="exec-plan-header-actions">' +
