@@ -663,7 +663,7 @@
         return html;
       }).join('') +
       (multiSeg ? totalsFooterHTML(totals, totalH) : '') +
-      '<div style="padding:8px 16px"><button id="btn-copy-plan" type="button" class="btn-secondary" style="margin-top:8px">Copy plan</button></div>' +
+      '<div style="padding:8px 16px"><button id="btn-share-plan" type="button" class="btn-secondary" style="margin-top:8px"><i class="ti ti-share" style="margin-right:6px;font-size:16px"></i>Share plan</button></div>' +
       (showActuals ? postEventNotesHTML(evt.postEventNotes) : '') +
       (showActuals
         ? '<div class="clear-actuals-section"><button class="btn-clear-actuals" data-clear-actuals>Remove post-event data</button></div>'
@@ -804,9 +804,6 @@
         '</div>' +
         (hasPlan
           ? '<div class="exec-plan-header-actions">' +
-              '<button class="exec-plan-copy-btn" data-exec-copy="' + seg.id + '" title="Copy execution plan" aria-label="Copy execution plan">' +
-                '<i class="ti ti-copy"></i>' +
-              '</button>' +
               '<button class="exec-plan-regen-btn" data-exec-regen="' + seg.id + '">Regenerate</button>' +
               '<button class="exec-plan-delete-btn" data-exec-delete="' + seg.id + '">Delete</button>' +
             '</div>'
@@ -1142,22 +1139,28 @@
       });
     }
 
-    // Copy plan button
-    var copyPlanBtn = $('btn-copy-plan');
-    if (copyPlanBtn) {
-      on(copyPlanBtn, 'click', function () {
-        // Collect any saved execution plans keyed by segment id
+    // Share plan button
+    var sharePlanBtn = $('btn-share-plan');
+    if (sharePlanBtn) {
+      on(sharePlanBtn, 'click', function () {
         var execPlans = {};
         (evt.segments || []).forEach(function (seg) {
           var plan = Data.loadExecutionPlan(seg.id);
           if (plan) execPlans[seg.id] = plan;
         });
         var md = Export.generateEventMarkdown(evt, Object.keys(execPlans).length ? execPlans : null);
-        navigator.clipboard.writeText(md).then(function () {
-          showToast('Plan copied!');
-        }).catch(function () {
-          showToast("Couldn't copy — try again.");
-        });
+        if (navigator.share) {
+          navigator.share({ text: md }).catch(function () {
+            // user cancelled or share failed — fall back to clipboard
+            navigator.clipboard.writeText(md).catch(function () {});
+          });
+        } else {
+          navigator.clipboard.writeText(md).then(function () {
+            showToast('Plan copied!');
+          }).catch(function () {
+            showToast("Couldn't copy — try again.");
+          });
+        }
       });
     }
 
@@ -1170,19 +1173,6 @@
     });
     $$('[data-exec-toggle]', $('detail-body')).forEach(function (btn) {
       on(btn, 'click', function () { handleExecutionPlanToggle(btn.dataset.execToggle); });
-    });
-    $$('[data-exec-copy]', $('detail-body')).forEach(function (btn) {
-      on(btn, 'click', function () {
-        var seg2 = (evt.segments || []).find(function (s) { return s.id === btn.dataset.execCopy; });
-        var plan = Data.loadExecutionPlan(btn.dataset.execCopy);
-        if (!seg2 || !plan) return;
-        var text = Export.generateExecutionPlanText(seg2, plan);
-        navigator.clipboard.writeText(text).then(function () {
-          showToast('Execution plan copied!');
-        }).catch(function () {
-          showToast("Couldn't copy — try again.");
-        });
-      });
     });
     $$('[data-exec-slot]', $('detail-body')).forEach(function (row) {
       on(row, 'click', function () {
@@ -1286,21 +1276,6 @@
     if (toggleBtn) {
       on(toggleBtn, 'click', function () {
         handleExecutionPlanToggle(toggleBtn.dataset.execToggle);
-      });
-    }
-
-    var copyBtn = segEl.querySelector('[data-exec-copy]');
-    if (copyBtn) {
-      on(copyBtn, 'click', function () {
-        var seg2 = (evt.segments || []).find(function (s) { return s.id === copyBtn.dataset.execCopy; });
-        var plan = Data.loadExecutionPlan(copyBtn.dataset.execCopy);
-        if (!seg2 || !plan) return;
-        var text = Export.generateExecutionPlanText(seg2, plan);
-        navigator.clipboard.writeText(text).then(function () {
-          showToast('Execution plan copied!');
-        }).catch(function () {
-          showToast("Couldn't copy — try again.");
-        });
       });
     }
 
@@ -2501,6 +2476,7 @@
 
   document.addEventListener('DOMContentLoaded', init);
   document.addEventListener('click', function () { closeQtyDropdown(); });
+  document.addEventListener('scroll', function () { closeQtyDropdown(); }, true);
 
   // Expose for later tasks
   window._App = {
