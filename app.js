@@ -976,6 +976,16 @@
   function attachDetailHandlers(evt) {
     // Static header buttons — use .onclick to avoid stacking listeners on re-render
     $('btn-detail-back').onclick = function () { navigate('events'); };
+    $('btn-duplicate-event').onclick = async function () {
+      try {
+        var copy = Data.duplicateEvent(evt);
+        await Data.saveEvent(copy);
+        showToast('Event duplicated');
+        navigate('detail', { currentEventId: copy.id });
+      } catch (e) {
+        showToast("Couldn't duplicate — check your connection.");
+      }
+    };
     $('btn-edit-event').onclick = function () {
       navigate('create', { currentEventId: evt.id });
     };

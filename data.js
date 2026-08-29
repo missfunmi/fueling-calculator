@@ -556,6 +556,21 @@
     };
   }
 
+  function duplicateEvent(evt) {
+    var copy = JSON.parse(JSON.stringify(evt));
+    copy.id   = generateId();
+    copy.name = 'Copy of ' + copy.name;
+    copy.segments = copy.segments.map(function (seg) {
+      var newSeg = Object.assign({}, seg);
+      newSeg.id    = generateId();
+      newSeg.items = (seg.items || []).map(function (item) {
+        return Object.assign({}, item, { id: generateId() });
+      });
+      return newSeg;
+    });
+    return copy;
+  }
+
   function itemFromOneOff(fields) {
     return {
       id:              generateId(),
@@ -795,5 +810,6 @@
   exports.saveExecutionPlan         = saveExecutionPlan;
   exports.loadExecutionPlan         = loadExecutionPlan;
   exports.deleteExecutionPlan       = deleteExecutionPlan;
+  exports.duplicateEvent            = duplicateEvent;
 
 })(typeof module !== 'undefined' ? module.exports : (window.Data = window.Data || {}));
