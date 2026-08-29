@@ -737,7 +737,8 @@
       '</div>' +
       '<div class="item-list">' +
         (seg.items.length
-          ? seg.items.map(function (item) { return itemRowHTML(item); }).join('')
+          ? seg.items.map(function (item) { return itemRowHTML(item); }).join('') +
+            '<div class="qty-frac-hint">Tap a quantity to set a fractional amount</div>'
           : '<div style="padding:12px 16px;font-size:13px;color:var(--text-tertiary)">No items yet.</div>') +
       '</div>' +
       '<button class="btn-add-item" data-add-segment-id="' + seg.id + '">+ Add item</button>' +
@@ -875,6 +876,27 @@
     '</div>';
   }
 
+  var FRACTIONS = [
+    { label: '¼', value: 0.25 },
+    { label: '⅓', value: 1/3 },
+    { label: '½', value: 0.5 },
+    { label: '⅔', value: 2/3 },
+    { label: '¾', value: 0.75 }
+  ];
+
+  function formatQty(q) {
+    var whole = Math.floor(q);
+    var frac  = q - whole;
+    var fracLabel = '';
+    if (frac > 0) {
+      var closest = FRACTIONS.reduce(function (best, f) {
+        return Math.abs(f.value - frac) < Math.abs(best.value - frac) ? f : best;
+      });
+      fracLabel = closest.label;
+    }
+    return whole === 0 ? (fracLabel || '0') : (fracLabel ? whole + fracLabel : String(whole));
+  }
+
   function itemRowHTML(item) {
     var metaParts = [TYPE_LABELS[item.type] || escHtml(item.type)];
     if (item.carbsPerUnit) metaParts.push(item.carbsPerUnit + 'g');
@@ -887,7 +909,7 @@
       '</div>' +
       '<div class="stepper">' +
         '<button class="stepper-btn" data-action="dec">&#8722;</button>' +
-        '<span class="stepper-qty">' + item.quantity + '</span>' +
+        '<span class="stepper-qty qty-frac-trigger" data-item-id="' + item.id + '">' + formatQty(item.quantity) + '</span>' +
         '<button class="stepper-btn" data-action="inc">&#43;</button>' +
       '</div>' +
     '</div>';
@@ -1014,6 +1036,14 @@
         var segId = segSection.dataset.segmentId;
         updateItemQty(evt.id, segId, itemId, btn.dataset.action === 'inc' ? 1 : -1);
       });
+    });
+
+    // Fractional quantity triggers
+    $$('.qty-frac-trigger', $('detail-body')).forEach(function (el) {
+      var row = el.closest('[data-item-id]');
+      var segSection = el.closest('[data-segment-id]');
+      if (!row || !segSection) return;
+      attachQtyFracTrigger(el, evt.id, segSection.dataset.segmentId, row.dataset.itemId);
     });
 
     // Add item buttons (planned segments)
@@ -1207,6 +1237,11 @@
         updateItemQty(evt.id, segId, itemId, btn.dataset.action === 'inc' ? 1 : -1);
       });
     });
+    $$('.qty-frac-trigger', segEl).forEach(function (el) {
+      var row = el.closest('[data-item-id]');
+      if (!row) return;
+      attachQtyFracTrigger(el, evt.id, segId, row.dataset.itemId);
+    });
     $$('[data-add-segment-id]', segEl).forEach(function (btn) {
       on(btn, 'click', function () {
         openAddItemSheet(evt.id, btn.dataset.addSegmentId);
@@ -1389,6 +1424,51 @@
     $('slot-editor-title').textContent = slotTimeLabel(slotIndex, slot.intervalMinutes);
     renderSlotEditorBody(seg, slot);
     $('slot-editor-overlay').classList.remove('hidden');
+  }
+
+  function closeQtyDropdown() {
+    var open = document.querySelector('.qty-frac-trigger.open');
+    if (open) open.classList.remove('open');
+    var dd = document.querySelector('.qty-frac-dropdown');
+    if (dd) dd.remove();
+  }
+
+  function attachQtyFracTrigger(el, eventId, segId, itemId) {
+    on(el, 'click', function (e) {
+      e.stopPropagation();
+      closeQtyDropdown();
+      var evt2 = state.currentEvent;
+      if (!evt2) return;
+      var seg2 = (evt2.segments || []).find(function (s) { return s.id === segId; });
+      if (!seg2) return;
+      var item2 = (seg2.items || []).find(function (i) { return i.id === itemId; });
+      if (!item2) return;
+      var whole = Math.floor(item2.quantity);
+      var opts = (whole > 0 ? [{ label: String(whole), value: whole }] : []).concat(
+        FRACTIONS.map(function (f) {
+          return { label: (whole > 0 ? whole : '') + f.label, value: whole + f.value };
+        })
+      );
+      var dropdown = document.createElement('div');
+      dropdown.className = 'qty-frac-dropdown';
+      opts.forEach(function (opt) {
+        var btn2 = document.createElement('button');
+        btn2.className = 'qty-frac-option' + (Math.abs(item2.quantity - opt.value) < 0.01 ? ' selected' : '');
+        btn2.textContent = opt.label;
+        on(btn2, 'click', function (e2) {
+          e2.stopPropagation();
+          closeQtyDropdown();
+          var delta = opt.value - item2.quantity;
+          if (Math.abs(delta) > 0.001) updateItemQty(eventId, segId, itemId, delta);
+        });
+        dropdown.appendChild(btn2);
+      });
+      var rect = el.getBoundingClientRect();
+      dropdown.style.top  = (rect.bottom + 4) + 'px';
+      dropdown.style.left = (rect.left + rect.width / 2) + 'px';
+      document.body.appendChild(dropdown);
+      el.classList.add('open');
+    });
   }
 
   function closeSlotEditor() {
@@ -1614,7 +1694,12 @@
     var item = seg.items.find(function (i) { return i.id === itemId; });
     if (!item) return;
 
-    item.quantity = Math.max(0, item.quantity + delta);
+    // Step to ½ instead of removing when decrementing from exactly 1
+    if (item.quantity === 1 && delta === -1) {
+      item.quantity = 0.5;
+    } else {
+      item.quantity = Math.max(0, item.quantity + delta);
+    }
     if (item.quantity === 0) {
       seg.items = seg.items.filter(function (i) { return i.id !== itemId; });
     }
@@ -2414,6 +2499,7 @@
   }
 
   document.addEventListener('DOMContentLoaded', init);
+  document.addEventListener('click', function () { closeQtyDropdown(); });
 
   // Expose for later tasks
   window._App = {
