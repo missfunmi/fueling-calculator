@@ -796,6 +796,7 @@
       '<div class="exec-plan-header">' +
         '<div class="exec-plan-header-left">' +
           '<button class="exec-plan-toggle" data-exec-toggle="' + seg.id + '" aria-expanded="false">' +
+            '<i class="ti ti-chevron-right exec-plan-chevron"></i>' +
             'Execution plan' +
           '</button>' +
           '<span class="exec-plan-interval-label">every</span>' +
@@ -804,7 +805,7 @@
         (hasPlan
           ? '<div class="exec-plan-header-actions">' +
               '<button class="exec-plan-copy-btn" data-exec-copy="' + seg.id + '" title="Copy execution plan" aria-label="Copy execution plan">' +
-                '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>' +
+                '<i class="ti ti-copy"></i>' +
               '</button>' +
               '<button class="exec-plan-regen-btn" data-exec-regen="' + seg.id + '">Regenerate</button>' +
               '<button class="exec-plan-delete-btn" data-exec-delete="' + seg.id + '">Delete</button>' +
@@ -908,9 +909,9 @@
         '<div class="item-meta">' + metaParts.join(' · ') + '</div>' +
       '</div>' +
       '<div class="stepper">' +
-        '<button class="stepper-btn" data-action="dec">&#8722;</button>' +
+        '<button class="stepper-btn" data-action="dec"><i class="ti ti-minus"></i></button>' +
         '<span class="stepper-qty qty-frac-trigger" data-item-id="' + item.id + '">' + formatQty(item.quantity) + '</span>' +
-        '<button class="stepper-btn" data-action="inc">&#43;</button>' +
+        '<button class="stepper-btn" data-action="inc"><i class="ti ti-plus"></i></button>' +
       '</div>' +
     '</div>';
   }
@@ -927,9 +928,9 @@
         '<div class="item-meta">' + metaParts.join(' · ') + '</div>' +
       '</div>' +
       '<div class="stepper">' +
-        '<button class="stepper-btn" data-action="dec">&#8722;</button>' +
+        '<button class="stepper-btn" data-action="dec"><i class="ti ti-minus"></i></button>' +
         '<span class="stepper-qty">' + item.quantity + '</span>' +
-        '<button class="stepper-btn" data-action="inc">&#43;</button>' +
+        '<button class="stepper-btn" data-action="inc"><i class="ti ti-plus"></i></button>' +
       '</div>' +
     '</div>';
   }
