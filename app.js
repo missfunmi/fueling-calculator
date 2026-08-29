@@ -756,14 +756,18 @@
     var plan = Data.loadExecutionPlan(seg.id);
     var hasPlan = plan && plan.length > 0;
 
-    // Current desired interval for this segment
+    var planInterval = hasPlan ? (plan[0].intervalMinutes || 15) : null;
+
+    // When a plan exists, freeze the displayed interval to what was used to generate it
+    // (explicit per-segment override takes priority, but the global default does not).
+    // Before generation, fall back to override → global default.
     var segInterval = (seg.execInterval && seg.execInterval > 0)
       ? seg.execInterval
-      : Data.getDefaultExecInterval();
+      : (hasPlan ? planInterval : Data.getDefaultExecInterval());
 
-    // Staleness check: slot count or interval mismatch means plan is out of date.
-    var planInterval = hasPlan ? (plan[0].intervalMinutes || 15) : segInterval;
-    var expectedSlots = Math.floor((seg.durationHours || 1) * 60 / planInterval) + 1;
+    // Staleness: slot count mismatch (duration changed) or explicit interval override differs
+    // from what the plan was generated with. Global default changes do not trigger staleness.
+    var expectedSlots = hasPlan ? Math.floor((seg.durationHours || 1) * 60 / planInterval) + 1 : 0;
     var isStale = hasPlan && (plan.length !== expectedSlots || planInterval !== segInterval);
 
     // Check for orphaned itemIds (items removed since generation)
@@ -793,7 +797,7 @@
           '<button class="exec-plan-toggle" data-exec-toggle="' + seg.id + '" aria-expanded="false">' +
             (hasPlan ? '&#9660;' : '&#9654;') + ' Execution plan' +
           '</button>' +
-          '<span class="exec-plan-interval editable" data-inline="exec-interval">&nbsp;· ' + segInterval + ' min</span>' +
+          '<span class="exec-plan-interval editable" data-inline="exec-interval">&nbsp;' + segInterval + ' min</span>' +
         '</div>' +
         (hasPlan
           ? '<div class="exec-plan-header-actions">' +
@@ -2188,7 +2192,10 @@
           if (!isNaN(num) && num >= 0) seg.targets.caffeinePerHour = num;
         } else if (field === 'exec-interval') {
           var n = parseInt(value, 10);
-          if (!isNaN(n) && n > 0) seg.execInterval = n;
+          if (!isNaN(n) && n > 0) {
+            seg.execInterval = n;
+            Data.saveExecInterval(segId, n);
+          }
         }
         await Data.saveEvent(evt);
         await renderDetail();

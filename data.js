@@ -290,9 +290,16 @@
     );
     if (!rows.length) return null;
     var evt = dbToEvent(rows[0]);
-    // Seed localStorage from DB so execution plans work across devices
+    // Seed localStorage from DB so execution plans and interval overrides work across devices
     (evt.segments || []).forEach(function (seg) {
       if (seg.executionPlan) saveExecutionPlan(seg.id, seg.executionPlan, true);
+      // DB value wins when present; otherwise restore from localStorage (pre-migration fallback)
+      if (seg.execInterval) {
+        saveExecInterval(seg.id, seg.execInterval);
+      } else {
+        var local = loadExecInterval(seg.id);
+        if (local) seg.execInterval = local;
+      }
     });
     return evt;
   }
@@ -574,6 +581,21 @@
     localStorage.setItem('fuelPlanner.defaultExecInterval', String(n));
   }
 
+  // Per-segment interval override — stored in localStorage so it survives re-renders
+  // even before migration 0003 is applied to the DB.
+  function saveExecInterval(segmentId, n) {
+    if (n && n > 0) {
+      localStorage.setItem('fuelPlanner.execInterval.' + segmentId, String(n));
+    } else {
+      localStorage.removeItem('fuelPlanner.execInterval.' + segmentId);
+    }
+  }
+
+  function loadExecInterval(segmentId) {
+    var stored = parseInt(localStorage.getItem('fuelPlanner.execInterval.' + segmentId), 10);
+    return (!isNaN(stored) && stored > 0) ? stored : null;
+  }
+
   function generateExecutionPlan(segment) {
     var intervalMinutes = (segment.execInterval && segment.execInterval > 0)
       ? segment.execInterval
@@ -763,6 +785,8 @@
   exports.itemFromOneOff     = itemFromOneOff;
   exports.getDefaultExecInterval    = getDefaultExecInterval;
   exports.setDefaultExecInterval    = setDefaultExecInterval;
+  exports.saveExecInterval          = saveExecInterval;
+  exports.loadExecInterval          = loadExecInterval;
   exports.generateExecutionPlan     = generateExecutionPlan;
   exports.checkExecutionPlanTarget  = checkExecutionPlanTarget;
   exports.calcSlotCarbs             = calcSlotCarbs;
