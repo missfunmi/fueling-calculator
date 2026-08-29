@@ -1139,6 +1139,12 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   padding: 10px 16px;
 }
 
+.exec-plan-header-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .exec-plan-toggle {
   background: none;
   border: none;
@@ -1148,6 +1154,16 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   cursor: pointer;
   padding: 0;
   text-align: left;
+}
+
+.exec-plan-interval-label {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.exec-plan-interval {
+  font-size: 12px;
+  color: var(--text-tertiary);
 }
 
 .exec-plan-header-actions {
