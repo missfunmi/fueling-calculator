@@ -170,6 +170,7 @@
             date:          seg.date || '',
             durationHours: seg.duration_hours,
             executionPlan: seg.execution_plan || null,
+            execInterval:  seg.exec_interval  || null,
             targets: {
               carbsPerHour:    seg.carbs_per_hour    || 0,
               sodiumPerHour:   seg.sodium_per_hour   || 0,
@@ -214,6 +215,7 @@
           date:          seg.date || null,
           durationHours: seg.durationHours,
           sortOrder:     si,
+          execInterval:  seg.execInterval || null,
           targets: {
             carbsPerHour:    (seg.targets && seg.targets.carbsPerHour)    || 0,
             sodiumPerHour:   (seg.targets && seg.targets.sodiumPerHour)   || 0,
