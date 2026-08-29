@@ -1444,8 +1444,10 @@
       var item2 = (seg2.items || []).find(function (i) { return i.id === itemId; });
       if (!item2) return;
       var whole = Math.floor(item2.quantity);
-      var opts = [{ label: String(whole), value: whole }].concat(
-        FRACTIONS.map(function (f) { return { label: whole + f.label, value: whole + f.value }; })
+      var opts = (whole > 0 ? [{ label: String(whole), value: whole }] : []).concat(
+        FRACTIONS.map(function (f) {
+          return { label: (whole > 0 ? whole : '') + f.label, value: whole + f.value };
+        })
       );
       var dropdown = document.createElement('div');
       dropdown.className = 'qty-frac-dropdown';
@@ -1692,7 +1694,12 @@
     var item = seg.items.find(function (i) { return i.id === itemId; });
     if (!item) return;
 
-    item.quantity = Math.max(0, item.quantity + delta);
+    // Step to ½ instead of removing when decrementing from exactly 1
+    if (item.quantity === 1 && delta === -1) {
+      item.quantity = 0.5;
+    } else {
+      item.quantity = Math.max(0, item.quantity + delta);
+    }
     if (item.quantity === 0) {
       seg.items = seg.items.filter(function (i) { return i.id !== itemId; });
     }
