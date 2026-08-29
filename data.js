@@ -744,6 +744,8 @@
 
   function deleteExecutionPlan(segmentId) {
     localStorage.removeItem('fuelPlanner.execPlan.' + segmentId);
+    supabaseRequest('PATCH', 'segments?id=eq.' + segmentId, { execution_plan: null }, 'return=minimal')
+      .catch(function () {});
   }
 
   // ── Exports ───────────────────────────────────────────────────────────────────
