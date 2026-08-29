@@ -756,10 +756,15 @@
     var plan = Data.loadExecutionPlan(seg.id);
     var hasPlan = plan && plan.length > 0;
 
-    // Staleness check: slot count mismatch means duration changed.
-    // Must use Math.floor to match generateExecutionPlan's slot count formula.
-    var expectedSlots = Math.floor((seg.durationHours || 1) * 60 / 15) + 1;
-    var isStale = hasPlan && plan.length !== expectedSlots;
+    // Current desired interval for this segment
+    var segInterval = (seg.execInterval && seg.execInterval > 0)
+      ? seg.execInterval
+      : Data.getDefaultExecInterval();
+
+    // Staleness check: slot count or interval mismatch means plan is out of date.
+    var planInterval = hasPlan ? (plan[0].intervalMinutes || 15) : segInterval;
+    var expectedSlots = Math.floor((seg.durationHours || 1) * 60 / planInterval) + 1;
+    var isStale = hasPlan && (plan.length !== expectedSlots || planInterval !== segInterval);
 
     // Check for orphaned itemIds (items removed since generation)
     var itemIds = new Set((seg.items || []).map(function (i) { return i.id; }));
@@ -784,9 +789,12 @@
 
     var headerHTML =
       '<div class="exec-plan-header">' +
-        '<button class="exec-plan-toggle" data-exec-toggle="' + seg.id + '" aria-expanded="false">' +
-          (hasPlan ? '&#9660;' : '&#9654;') + ' Execution plan' +
-        '</button>' +
+        '<div class="exec-plan-header-left">' +
+          '<button class="exec-plan-toggle" data-exec-toggle="' + seg.id + '" aria-expanded="false">' +
+            (hasPlan ? '&#9660;' : '&#9654;') + ' Execution plan' +
+          '</button>' +
+          '<span class="exec-plan-interval editable" data-inline="exec-interval">&nbsp;· ' + segInterval + ' min</span>' +
+        '</div>' +
         (hasPlan
           ? '<div class="exec-plan-header-actions">' +
               '<button class="exec-plan-copy-btn" data-exec-copy="' + seg.id + '" title="Copy execution plan" aria-label="Copy execution plan">' +
@@ -1999,6 +2007,34 @@
 
   function renderSettings() {
     var isAnonymous = localStorage.getItem('fuelPlanner.isAnonymous') === 'true';
+
+    // ── Plan settings ──────────────────────────────────────────────────────────
+    var planSection = $('settings-plan-section');
+    if (planSection) {
+      var curInterval = Data.getDefaultExecInterval();
+      planSection.innerHTML =
+        '<div class="form-card" style="margin-top:16px">' +
+          '<p style="margin:0 0 8px;font-weight:600">Execution plan</p>' +
+          '<label style="display:flex;align-items:center;gap:10px;font-size:14px">' +
+            'Default step interval (minutes)' +
+            '<input id="settings-exec-interval" type="number" min="1" max="120" value="' + curInterval + '" ' +
+              'style="width:64px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text-primary);font-size:14px">' +
+          '</label>' +
+        '</div>';
+      var intervalInput = $('settings-exec-interval');
+      if (intervalInput) {
+        on(intervalInput, 'change', function () {
+          var n = parseInt(intervalInput.value, 10);
+          if (!isNaN(n) && n > 0) {
+            Data.setDefaultExecInterval(n);
+            showToast('Default interval updated.');
+          } else {
+            intervalInput.value = String(Data.getDefaultExecInterval());
+          }
+        });
+      }
+    }
+
     var section = $('settings-account-section');
     if (!section) return;
 
@@ -2150,6 +2186,9 @@
           if (!isNaN(num) && num >= 0) seg.targets.sodiumPerHour = num;
         } else if (field === 'seg-caff-target') {
           if (!isNaN(num) && num >= 0) seg.targets.caffeinePerHour = num;
+        } else if (field === 'exec-interval') {
+          var n = parseInt(value, 10);
+          if (!isNaN(n) && n > 0) seg.execInterval = n;
         }
         await Data.saveEvent(evt);
         await renderDetail();
@@ -2163,6 +2202,12 @@
       // Show h:mm so the user can type in the same format they'll see in the form
       var curSeg = state.currentEvent && state.currentEvent.segments.find(function (s) { return s.id === segId; });
       el.textContent = curSeg ? formatDuration(curSeg.durationHours) : '';
+    } else if (field === 'exec-interval') {
+      var curSeg2 = state.currentEvent && state.currentEvent.segments.find(function (s) { return s.id === segId; });
+      var curInterval = (curSeg2 && curSeg2.execInterval && curSeg2.execInterval > 0)
+        ? curSeg2.execInterval
+        : Data.getDefaultExecInterval();
+      el.textContent = String(curInterval);
     } else if (field !== 'seg-name') {
       var raw = el.textContent.trim();
       el.textContent = parseFloat(raw.replace(/[^0-9.]/g, '')) || 0;
