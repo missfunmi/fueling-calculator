@@ -981,7 +981,7 @@
         var copy = Data.duplicateEvent(evt);
         await Data.saveEvent(copy);
         showToast('Event duplicated');
-        navigate('detail', { currentEventId: copy.id });
+        navigate('create', { currentEventId: copy.id });
       } catch (e) {
         showToast("Couldn't duplicate — check your connection.");
       }
