@@ -1204,13 +1204,14 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   text-align: left;
   white-space: nowrap;
 }
-.exec-plan-toggle::before {
-  content: '\25BA';
-  margin-right: 5px;
+.exec-plan-chevron {
+  font-size: 12px;
+  margin-right: 4px;
   display: inline-block;
+  transition: transform 0.15s ease;
 }
-.exec-plan-toggle[aria-expanded="true"]::before {
-  content: '\25BC';
+.exec-plan-toggle[aria-expanded="true"] .exec-plan-chevron {
+  transform: rotate(90deg);
 }
 
 .exec-plan-interval-label {
@@ -1249,6 +1250,7 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   color: var(--text-secondary);
   display: flex;
   align-items: center;
+  font-size: 16px;
 }
 
 .exec-plan-delete-btn {

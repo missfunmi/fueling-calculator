@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Fuel Planner</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css">
 </head>
 <body>
 
@@ -16,7 +17,7 @@
     <div class="top-nav-links">
       <button class="tab-btn top-nav-link" data-tab-view="events">Events</button>
       <button class="tab-btn top-nav-link" data-tab-view="library">Library</button>
-      <button id="btn-settings-nav" class="btn-icon top-nav-settings" aria-label="Settings"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></button>
+      <button id="btn-settings-nav" class="btn-icon top-nav-settings" aria-label="Settings"><i class="ti ti-settings"></i></button>
       <button id="btn-new-event-nav" class="top-nav-cta">+ New Event</button>
     </div>
   </nav>
@@ -47,8 +48,8 @@
   <div id="view-events" class="view active">
     <header class="app-header">
       <h1>Events</h1>
-      <button id="btn-new-event" class="btn-icon" aria-label="New event">+</button>
-      <button id="btn-settings-events" class="btn-icon btn-icon-settings" aria-label="Settings"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></button>
+      <button id="btn-new-event" class="btn-icon" aria-label="New event"><i class="ti ti-plus"></i></button>
+      <button id="btn-settings-events" class="btn-icon btn-icon-settings" aria-label="Settings"><i class="ti ti-settings"></i></button>
     </header>
     <div id="events-list" class="view-body"></div>
   </div>
@@ -56,7 +57,7 @@
   <!-- ── Claim view ────────────────────────────────────────────────────── -->
   <div id="view-claim" class="view">
     <header class="app-header">
-      <button id="btn-claim-back" class="btn-back" aria-label="Back">&#8592;</button>
+      <button id="btn-claim-back" class="btn-back" aria-label="Back"><i class="ti ti-arrow-left"></i></button>
       <h1>Recovery phrase</h1>
     </header>
     <div class="view-body">
@@ -79,7 +80,7 @@
   <!-- ── Recovery view ─────────────────────────────────────────────────── -->
   <div id="view-recovery" class="view">
     <header class="app-header">
-      <button id="btn-recovery-back" class="btn-back" aria-label="Back">&#8592;</button>
+      <button id="btn-recovery-back" class="btn-back" aria-label="Back"><i class="ti ti-arrow-left"></i></button>
       <h1>Recovery</h1>
     </header>
     <div class="view-body">
@@ -99,10 +100,10 @@
   <!-- ── Event detail view ──────────────────────────────────────── -->
   <div id="view-detail" class="view">
     <header class="app-header">
-      <button id="btn-detail-back" class="btn-back" aria-label="Back">&#8592;</button>
+      <button id="btn-detail-back" class="btn-back" aria-label="Back"><i class="ti ti-arrow-left"></i></button>
       <span id="detail-event-name" class="header-title editable"></span>
-      <button id="btn-duplicate-event" class="btn-icon" aria-label="Duplicate event" style="font-size:16px">&#10697;</button>
-      <button id="btn-edit-event" class="btn-icon" aria-label="Edit event" style="font-size:16px">&#9998;</button>
+      <button id="btn-duplicate-event" class="btn-icon" aria-label="Duplicate event"><i class="ti ti-copy"></i></button>
+      <button id="btn-edit-event" class="btn-icon" aria-label="Edit event"><i class="ti ti-pencil"></i></button>
     </header>
     <div id="detail-summary"></div>
     <div id="detail-body" class="view-body" style="padding-top:0"></div>
@@ -111,9 +112,9 @@
   <!-- ── Create / edit event view ───────────────────────────────── -->
   <div id="view-create" class="view">
     <header class="app-header">
-      <button id="btn-create-back" class="btn-back" aria-label="Back">&#8592;</button>
+      <button id="btn-create-back" class="btn-back" aria-label="Back"><i class="ti ti-arrow-left"></i></button>
       <h1 id="create-title">New Event</h1>
-      <button id="btn-delete-event" class="btn-icon btn-danger" aria-label="Delete event" style="font-size:18px;display:none">&#128465;</button>
+      <button id="btn-delete-event" class="btn-icon btn-danger" aria-label="Delete event" style="display:none"><i class="ti ti-trash"></i></button>
     </header>
     <div class="view-body">
       <form id="event-form" novalidate>
@@ -174,8 +175,8 @@
   <div id="view-library" class="view">
     <header class="app-header">
       <h1>Library</h1>
-      <button id="btn-new-product" class="btn-icon" aria-label="New product">+</button>
-      <button id="btn-settings-library" class="btn-icon btn-icon-settings" aria-label="Settings"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></button>
+      <button id="btn-new-product" class="btn-icon" aria-label="New product"><i class="ti ti-plus"></i></button>
+      <button id="btn-settings-library" class="btn-icon btn-icon-settings" aria-label="Settings"><i class="ti ti-settings"></i></button>
     </header>
     <div class="view-body">
       <div id="library-body"></div>
@@ -185,9 +186,9 @@
   <!-- ── Product form view ──────────────────────────────────────── -->
   <div id="view-product-form" class="view">
     <header class="app-header">
-      <button id="btn-pf-back" class="btn-back" aria-label="Back">&#8592;</button>
+      <button id="btn-pf-back" class="btn-back" aria-label="Back"><i class="ti ti-arrow-left"></i></button>
       <h1 id="pf-title">New Product</h1>
-      <button id="btn-delete-product" class="btn-icon btn-danger" aria-label="Delete product" style="font-size:18px;display:none">&#128465;</button>
+      <button id="btn-delete-product" class="btn-icon btn-danger" aria-label="Delete product" style="display:none"><i class="ti ti-trash"></i></button>
     </header>
     <div class="view-body">
       <p style="font-size:13px;color:var(--text-secondary);background:var(--amber-bg);color:var(--amber-text);padding:10px 14px;border-radius:var(--radius-sm)">
@@ -232,7 +233,7 @@
   <!-- ── Settings view ──────────────────────────────────────────── -->
   <div id="view-settings" class="view">
     <header class="app-header">
-      <button id="btn-settings-back" class="btn-back" aria-label="Back">&#8592;</button>
+      <button id="btn-settings-back" class="btn-back" aria-label="Back"><i class="ti ti-arrow-left"></i></button>
       <h1>Settings</h1>
     </header>
     <div class="view-body">
