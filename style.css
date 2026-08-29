@@ -1136,6 +1136,8 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
   padding: 10px 16px;
 }
 
@@ -1143,6 +1145,8 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex: 1;
+  min-width: 0;
 }
 
 .exec-plan-toggle {
@@ -1154,6 +1158,7 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   cursor: pointer;
   padding: 0;
   text-align: left;
+  white-space: nowrap;
 }
 
 .exec-plan-interval-label {
@@ -1170,6 +1175,7 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .exec-plan-generate-btn,
