@@ -1160,6 +1160,14 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   text-align: left;
   white-space: nowrap;
 }
+.exec-plan-toggle::before {
+  content: '\25BA';
+  margin-right: 5px;
+  display: inline-block;
+}
+.exec-plan-toggle[aria-expanded="true"]::before {
+  content: '\25BC';
+}
 
 .exec-plan-interval-label {
   font-size: 12px;

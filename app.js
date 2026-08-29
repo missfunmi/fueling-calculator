@@ -795,7 +795,7 @@
       '<div class="exec-plan-header">' +
         '<div class="exec-plan-header-left">' +
           '<button class="exec-plan-toggle" data-exec-toggle="' + seg.id + '" aria-expanded="false">' +
-            (hasPlan ? '&#9660;' : '&#9654;') + ' Execution plan' +
+            'Execution plan' +
           '</button>' +
           '<span class="exec-plan-interval-label">every</span>' +
           '<span class="exec-plan-interval editable" data-inline="exec-interval">' + segInterval + ' min</span>' +
@@ -1455,7 +1455,9 @@
     }
     // Re-open body since re-render collapsed it
     var body = document.querySelector('[data-exec-body="' + segId + '"]');
+    var toggle = document.querySelector('[data-exec-toggle="' + segId + '"]');
     if (body) body.classList.remove('hidden');
+    if (toggle) toggle.setAttribute('aria-expanded', 'true');
   }
 
   function openSlotPicker(seg, plan, fromSlotIndex) {
