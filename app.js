@@ -294,6 +294,45 @@
 
     var html = upcoming.map(eventCardHTML).join('');
 
+    var fuelTotals = {};
+    upcoming.forEach(function(evt) {
+      (evt.segments || []).forEach(function(seg) {
+        (seg.items || []).forEach(function(item) {
+          if (!item.name || !(item.quantity > 0)) return;
+          if (!fuelTotals[item.name]) fuelTotals[item.name] = { qty: 0, type: item.type };
+          fuelTotals[item.name].qty += item.quantity;
+        });
+      });
+    });
+    var FUEL_TYPE_SHORT = { drink_powder: 'drink' };
+    var fuelEntries = Object.keys(fuelTotals)
+      .map(function(name) {
+        var t = fuelTotals[name].type;
+        return {
+          name: name,
+          qty: fuelTotals[name].qty,
+          typeLabel: FUEL_TYPE_SHORT[t] || (TYPE_LABELS[t] || t).toLowerCase()
+        };
+      })
+      .sort(function(a, b) { return b.qty - a.qty; });
+
+    if (fuelEntries.length) {
+      html += '<details class="fuel-totals-section">' +
+        '<summary class="fuel-totals-summary">' +
+          '<span class="fuel-label-text">Fuel running total</span>' +
+          '<span class="fuel-count-chip">' + fuelEntries.length + (fuelEntries.length === 1 ? ' product' : ' products') + '</span>' +
+        '</summary>' +
+        '<div class="fuel-totals-list">' +
+          fuelEntries.map(function(e) {
+            return '<div class="fuel-row">' +
+              '<span class="fuel-row-name">' + escHtml(e.name) + ' <span class="fuel-row-type">' + escHtml(e.typeLabel) + '</span></span>' +
+              '<span class="fuel-row-qty">× ' + formatQty(e.qty) + '</span>' +
+            '</div>';
+          }).join('') +
+        '</div>' +
+      '</details>';
+    }
+
     if (past.length) {
       html += '<details class="past-events-section">' +
         '<summary class="past-events-summary">Past events (' + past.length + ')</summary>' +

@@ -222,6 +222,69 @@ a { color: inherit; text-decoration: none; }
 }
 .past-events-section[open] > .past-events-summary::before { transform: rotate(90deg); }
 .past-events-list { display: flex; flex-direction: column; gap: 10px; padding-top: 4px; }
+
+/* ── Fuel running total ─────────────────────────────────────────────────────── */
+.fuel-totals-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+  -webkit-tap-highlight-color: transparent;
+}
+.fuel-totals-summary::-webkit-details-marker { display: none; }
+.fuel-totals-summary::before {
+  content: '›';
+  display: inline-block;
+  margin-right: 4px;
+  font-size: 16px;
+  line-height: 1;
+  transition: transform 0.15s;
+  color: var(--text-tertiary);
+}
+.fuel-totals-section[open] > .fuel-totals-summary { border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
+.fuel-totals-section[open] > .fuel-totals-summary::before { transform: rotate(90deg); }
+.fuel-label-text { flex: 1; }
+.fuel-count-chip {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 1px 7px;
+  white-space: nowrap;
+}
+.fuel-totals-list {
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  padding: 2px 0 6px;
+}
+.fuel-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 12px;
+  gap: 8px;
+}
+.fuel-row-name { font-size: 13px; color: var(--text); flex: 1; }
+.fuel-row-type { font-size: 11px; color: var(--text-tertiary); }
+.fuel-row-qty {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  min-width: 48px;
+  text-align: right;
+}
 .type-badge {
   font-size: 11px;
   font-weight: 600;
