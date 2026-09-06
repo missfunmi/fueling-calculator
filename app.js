@@ -965,7 +965,7 @@
       '</div>' +
       '<div class="stepper">' +
         '<button class="stepper-btn" data-action="dec"><i class="ti ti-minus"></i></button>' +
-        '<span class="stepper-qty">' + item.quantity + '</span>' +
+        '<span class="stepper-qty qty-actual-frac-trigger">' + formatQty(item.quantity) + '</span>' +
         '<button class="stepper-btn" data-action="inc"><i class="ti ti-plus"></i></button>' +
       '</div>' +
     '</div>';
@@ -1114,6 +1114,14 @@
         var segId  = secEl.dataset.actualSegmentId;
         updateActualItemQty(evt.id, segId, itemId, btn.dataset.action === 'inc' ? 1 : -1);
       });
+    });
+
+    // Actual qty fraction triggers
+    $$('.qty-actual-frac-trigger', $('detail-body')).forEach(function (el) {
+      var row    = el.closest('[data-actual-item-id]');
+      var secEl  = el.closest('[data-actual-segment-id]');
+      if (!row || !secEl) return;
+      attachActualQtyFracTrigger(el, evt.id, secEl.dataset.actualSegmentId, row.dataset.actualItemId);
     });
 
     // Actual duration inline edit
@@ -1343,6 +1351,11 @@
         openAddItemSheet(evt.id, btn.dataset.addActualSegmentId, true);
       });
     });
+    $$('.qty-actual-frac-trigger', secEl).forEach(function (el) {
+      var row = el.closest('[data-actual-item-id]');
+      if (!row) return;
+      attachActualQtyFracTrigger(el, evt.id, segId, row.dataset.actualItemId);
+    });
     $$('[data-inline="actual-duration"]', secEl).forEach(function (el) {
       on(el, 'click', function () {
         if (el.querySelector('input')) return;
@@ -1475,6 +1488,45 @@
           closeQtyDropdown();
           var delta = opt.value - item2.quantity;
           if (Math.abs(delta) > 0.001) updateItemQty(eventId, segId, itemId, delta);
+        });
+        dropdown.appendChild(btn2);
+      });
+      var rect = el.getBoundingClientRect();
+      dropdown.style.top  = (rect.bottom + 4) + 'px';
+      dropdown.style.left = (rect.left + rect.width / 2) + 'px';
+      document.body.appendChild(dropdown);
+      el.classList.add('open');
+    });
+  }
+
+  function attachActualQtyFracTrigger(el, eventId, segId, itemId) {
+    on(el, 'click', function (e) {
+      e.stopPropagation();
+      closeQtyDropdown();
+      var evt2 = state.currentEvent;
+      if (!evt2 || !evt2.actuals) return;
+      var actualSeg = evt2.actuals[segId];
+      if (!actualSeg) return;
+      var item2 = (actualSeg.items || []).find(function (i) { return i.id === itemId; });
+      if (!item2) return;
+      var whole = Math.floor(item2.quantity);
+      var opts = (whole > 0 ? [{ label: String(whole), value: whole }] : []).concat(
+        FRACTIONS.map(function (f) {
+          return { label: (whole > 0 ? whole : '') + f.label, value: whole + f.value };
+        })
+      );
+      var dropdown = document.createElement('div');
+      dropdown.className = 'qty-frac-dropdown';
+      opts.forEach(function (opt) {
+        var btn2 = document.createElement('button');
+        btn2.className = 'qty-frac-option' + (Math.abs(item2.quantity - opt.value) < 0.01 ? ' selected' : '');
+        btn2.textContent = opt.label;
+        on(btn2, 'click', function (e2) {
+          e2.stopPropagation();
+          closeQtyDropdown();
+          if (Math.abs(item2.quantity - opt.value) > 0.001) {
+            updateActualItemQty(eventId, segId, itemId, opt.value - item2.quantity);
+          }
         });
         dropdown.appendChild(btn2);
       });
