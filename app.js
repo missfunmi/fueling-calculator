@@ -1796,7 +1796,11 @@
     var item = actualSeg.items.find(function (i) { return i.id === itemId; });
     if (!item) return;
 
-    item.quantity = Math.max(0, item.quantity + delta);
+    if (item.quantity === 1 && delta === -1) {
+      item.quantity = 0.5;
+    } else {
+      item.quantity = Math.max(0, item.quantity + delta);
+    }
     if (item.quantity === 0) {
       actualSeg.items = actualSeg.items.filter(function (i) { return i.id !== itemId; });
     }
