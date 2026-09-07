@@ -1796,17 +1796,7 @@
     var item = actualSeg.items.find(function (i) { return i.id === itemId; });
     if (!item) return;
 
-    // If quantity is fractional, snap to the nearest whole number in the
-    // direction of travel before continuing in whole-number steps.
-    var next;
-    if (delta === -1 && !Number.isInteger(item.quantity)) {
-      next = Math.floor(item.quantity);
-    } else if (delta === 1 && !Number.isInteger(item.quantity)) {
-      next = Math.ceil(item.quantity);
-    } else {
-      next = item.quantity + delta;
-    }
-    item.quantity = Math.max(0, next);
+    item.quantity = Math.max(0, item.quantity + delta);
     if (item.quantity === 0) {
       actualSeg.items = actualSeg.items.filter(function (i) { return i.id !== itemId; });
     }
