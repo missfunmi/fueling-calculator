@@ -460,12 +460,14 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* ── Fractional quantity ────────────────────────────────────────────────────── */
-.qty-frac-trigger {
+.qty-frac-trigger,
+.qty-actual-frac-trigger {
   border-bottom: 1.5px dashed var(--text-tertiary);
   cursor: pointer;
   padding-bottom: 1px;
 }
-.qty-frac-trigger.open { color: var(--accent); border-bottom-color: var(--accent); }
+.qty-frac-trigger.open,
+.qty-actual-frac-trigger.open { color: var(--accent); border-bottom-color: var(--accent); }
 
 .qty-frac-dropdown {
   position: fixed;
