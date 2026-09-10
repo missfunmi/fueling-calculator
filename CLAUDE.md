@@ -21,7 +21,8 @@ Vanilla JS, no build step. Four files that matter:
 
 ## Branch / PR conventions
 
-- Branches: `feature/<descriptor>` off master
+- Branches off master: `feature/<descriptor>`, `bugfix/<descriptor>`, `chore/<descriptor>` etc.
+- Never use `claude/` as a branch prefix
 - One feature per branch, one PR per feature
 - Wait for the previous PR to merge before starting the next
 
