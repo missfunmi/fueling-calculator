@@ -1,0 +1,756 @@
+<title>Food Log</title>
+<style>
+  :root {
+    --bg: #f2f2f7;
+    --surface: #ffffff;
+    --surface-2: #f8f8f8;
+    --text: #1c1c1e;
+    --text-secondary: #6c6c70;
+    --text-tertiary: #aeaeb2;
+    --border: #e5e5ea;
+    --accent: #1a1a2e;
+    --accent-fg: #ffffff;
+    --green: #34c759;
+    --green-bg: #e8f9ed;
+    --green-text: #1a7a31;
+    --amber: #ff9500;
+    --amber-bg: #fff6e0;
+    --amber-text: #7a4800;
+    --red: #ff3b30;
+    --blue-bg: #e5f1ff;
+    --blue-text: #0a52a0;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+
+    --m-cal:     #1a1a2e;
+    --m-protein: #0a52a0;
+    --m-carbs:   #b45309;
+    --m-fat:     #6d28d9;
+    --m-fiber:   #1a7a31;
+    --m-sodium:  #0e6674;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #c7c7cc;
+    color: var(--text);
+    font-size: 15px;
+    line-height: 1.4;
+    -webkit-font-smoothing: antialiased;
+    padding: 32px 24px 48px;
+  }
+
+  h2.page-label {
+    text-align: center;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    color: #666;
+    text-transform: uppercase;
+    margin-bottom: 28px;
+  }
+
+  .frames {
+    display: flex;
+    gap: 28px;
+    justify-content: center;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .frame-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .frame-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #555;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+
+  .phone {
+    width: 375px;
+    height: 740px;
+    background: var(--bg);
+    border-radius: 44px;
+    overflow: hidden;
+    box-shadow: 0 28px 72px rgba(0,0,0,.28), 0 0 0 1px rgba(0,0,0,.1);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  /* ── Shared ─────────────────────────────────────────── */
+  .app-header {
+    height: 52px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+  .back-btn { color: var(--blue-text); font-size: 17px; }
+  .header-title { font-size: 17px; font-weight: 600; flex: 1; }
+  .header-title.center { text-align: center; margin-right: 24px; }
+  .icon-btn { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); font-size: 18px; }
+
+  .scroll-area {
+    flex: 1;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-bottom: 72px;
+  }
+  .scroll-area::-webkit-scrollbar { display: none; }
+
+  .tab-bar {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 56px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    display: flex;
+  }
+  .tab-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text-tertiary);
+  }
+  .tab-btn.active { color: var(--accent); }
+  .tab-icon { font-size: 20px; line-height: 1; }
+
+  /* ── Screen 1: Date nav ─────────────────────────────── */
+  .date-nav {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 16px 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .date-center { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .date-today-label { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--blue-text); }
+  .date-picker-row { display: flex; align-items: center; gap: 6px; }
+  .date-text { font-size: 15px; font-weight: 600; color: var(--text); }
+  .date-caret { font-size: 11px; color: var(--text-tertiary); }
+  .nav-arrow {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: var(--surface-2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+  }
+
+  /* ── Progress rows (no cards) ───────────────────────── */
+  .progress-section {
+    background: var(--surface);
+    margin: 12px 12px 0;
+    border-radius: var(--radius-lg);
+    padding: 14px 14px 10px;
+    border: 1px solid var(--border);
+  }
+  .progress-heading {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-tertiary);
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  /* big calorie number */
+  .cal-summary {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    margin-bottom: 6px;
+  }
+  .cal-num { font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; }
+  .cal-denom { font-size: 14px; color: var(--text-secondary); }
+
+  /* single thick bar for calories */
+  .cal-track {
+    height: 8px;
+    background: var(--surface-2);
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    margin-bottom: 14px;
+  }
+  .cal-fill { height: 100%; background: var(--m-cal); border-radius: 4px; width: 52%; }
+
+  /* slim macro rows */
+  .macro-rows { display: flex; flex-direction: column; gap: 7px; }
+  .macro-row { display: flex; align-items: center; gap: 8px; }
+  .m-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .m-name { font-size: 12px; font-weight: 500; color: var(--text-secondary); width: 52px; flex-shrink: 0; }
+  .m-track { flex: 1; height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
+  .m-fill { height: 100%; border-radius: 3px; }
+  .m-nums { font-size: 11px; font-variant-numeric: tabular-nums; color: var(--text-secondary); white-space: nowrap; min-width: 80px; text-align: right; }
+  .m-nums strong { color: var(--text); font-weight: 600; }
+
+  /* ── Timeline (time-axis) ───────────────────────────── */
+  .timeline-section { padding: 14px 12px 0; }
+  .timeline-heading {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    margin-bottom: 10px;
+  }
+
+  .tl-axis {
+    display: flex;
+    gap: 0;
+  }
+
+  /* left time column */
+  .tl-times {
+    width: 46px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    border-right: 1.5px solid var(--border);
+    padding-right: 10px;
+  }
+  .tl-tick {
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-tertiary);
+    text-align: right;
+    padding-top: 2px;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+  .tl-spacer { flex: 1; min-height: 28px; }
+
+  /* right entry column */
+  .tl-entries {
+    flex: 1;
+    min-width: 0;
+    padding-left: 12px;
+    display: flex;
+    flex-direction: column;
+  }
+  .tl-entry {
+    padding-bottom: 22px;
+    flex-shrink: 0;
+  }
+  .tl-entry:last-child { padding-bottom: 4px; }
+  .tl-name { font-size: 14px; font-weight: 600; color: var(--text); line-height: 1.3; margin-bottom: 3px; }
+  .tl-macros { font-size: 12px; color: var(--text-secondary); font-variant-numeric: tabular-nums; margin-bottom: 5px; }
+  .tl-macros .tl-cal { font-weight: 700; color: var(--text); }
+  .tl-cat {
+    display: inline-block;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 20px;
+  }
+  .cat-breakfast { background: var(--amber-bg); color: var(--amber-text); }
+  .cat-lunch     { background: var(--blue-bg);  color: var(--blue-text); }
+  .cat-dinner    { background: #ede9fe; color: #5b21b6; }
+  .cat-snack     { background: var(--green-bg); color: var(--green-text); }
+  .cat-fuel      { background: #fce7f3; color: #9d174d; }
+
+  .fab {
+    position: absolute;
+    bottom: 68px; right: 16px;
+    width: 50px; height: 50px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    font-size: 26px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 16px rgba(26,26,46,.38);
+    line-height: 1;
+  }
+
+  /* ── Screen 2: Entry form ───────────────────────────── */
+  .entry-form { padding: 14px; display: flex; flex-direction: column; gap: 14px; }
+
+  .freeform-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 12px;
+  }
+  .freeform-box textarea {
+    width: 100%;
+    border: none; outline: none; resize: none;
+    font: inherit;
+    font-size: 15px;
+    color: var(--text);
+    background: transparent;
+    line-height: 1.5;
+    min-height: 72px;
+  }
+  .freeform-hint {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid var(--border);
+  }
+
+  .form-label { font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; letter-spacing: .02em; }
+
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip {
+    font-size: 13px; font-weight: 500;
+    padding: 5px 12px;
+    border-radius: 20px;
+    border: 1.5px solid var(--border);
+    color: var(--text-secondary);
+    background: var(--surface);
+    white-space: nowrap;
+  }
+  .chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  .time-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 13px;
+    font-size: 15px;
+    color: var(--text);
+  }
+  .time-row .chevron { color: var(--text-tertiary); font-size: 14px; }
+
+  .calc-btn {
+    background: var(--accent);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    padding: 13px;
+    border-radius: var(--radius-md);
+    text-align: center;
+    opacity: .45;
+  }
+
+  /* estimated macros block */
+  .est-macros {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+  }
+  .est-header {
+    background: var(--surface-2);
+    padding: 9px 13px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+  }
+  .est-rows { padding: 4px 0; }
+  .est-row {
+    display: flex;
+    align-items: center;
+    padding: 8px 13px;
+  }
+  .est-row:nth-child(odd) { background: var(--surface-2); }
+  .est-label { font-size: 13px; color: var(--text-secondary); flex: 1; }
+  /* tappable value — underlined to indicate editability */
+  .est-val {
+    font-size: 16px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--blue-text);
+    border-bottom: 1.5px solid var(--blue-text);
+    padding-bottom: 1px;
+    cursor: pointer;
+  }
+  .est-unit { font-size: 12px; color: var(--text-tertiary); margin-left: 2px; font-weight: 400; }
+
+  .ai-notes {
+    padding: 8px 13px 10px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 6px;
+    align-items: flex-start;
+  }
+  .ai-notes-icon { font-size: 13px; flex-shrink: 0; margin-top: 1px; }
+
+  .save-lib-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 11px 13px;
+    font-size: 14px;
+    color: var(--text);
+  }
+  .save-lib-row input { width: 18px; height: 18px; accent-color: var(--accent); }
+
+  .save-btn {
+    background: var(--green);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    padding: 13px;
+    border-radius: var(--radius-md);
+    text-align: center;
+  }
+
+  /* ── Screen 3: Library ──────────────────────────────── */
+  .lib-tab-row {
+    display: flex;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 16px;
+    flex-shrink: 0;
+  }
+  .lib-tab {
+    padding: 10px 18px;
+    font-size: 14px; font-weight: 600;
+    color: var(--text-tertiary);
+    border-bottom: 2.5px solid transparent;
+    margin-bottom: -1px;
+  }
+  .lib-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .lib-list { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+
+  .add-food-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 13px;
+    border-radius: var(--radius-md);
+    border: 1.5px dashed var(--border);
+    font-size: 14px; font-weight: 600;
+    color: var(--blue-text);
+    background: var(--surface);
+  }
+  .add-food-btn .plus { font-size: 18px; line-height: 1; }
+
+  .lib-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 11px 13px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .lib-item-body { flex: 1; min-width: 0; }
+  .lib-item-name { font-size: 14px; font-weight: 600; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lib-item-macros { font-size: 12px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+  .lib-item-macros strong { color: var(--text); font-weight: 700; }
+  .lib-item-serving { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
+  .use-btn {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 7px 13px;
+    font-size: 13px; font-weight: 600;
+    color: var(--text);
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 500px) {
+    .phone { width: 340px; height: 660px; }
+    body { padding: 20px 12px 40px; }
+  }
+</style>
+
+<h2 class="page-label">Food Log — Key Screens</h2>
+
+<div class="frames">
+
+  <!-- ── 1: Daily View ──────────────────────────────── -->
+  <div class="frame-wrap">
+    <div class="frame-label">1 · Daily View</div>
+    <div class="phone">
+      <div class="app-header">
+        <span class="header-title">Food Log</span>
+        <div class="icon-btn">⚙</div>
+      </div>
+
+      <!-- date nav: Today label above date with caret -->
+      <div class="date-nav">
+        <div class="nav-arrow">‹</div>
+        <div class="date-center">
+          <span class="date-today-label">Today</span>
+          <div class="date-picker-row">
+            <span class="date-text">Mon, Sep 15</span>
+            <span class="date-caret">▾</span>
+          </div>
+        </div>
+        <div class="nav-arrow">›</div>
+      </div>
+
+      <div class="scroll-area">
+        <!-- progress (no card tiles) -->
+        <div class="progress-section">
+          <div class="progress-heading">Today's progress</div>
+
+          <div class="cal-summary">
+            <span class="cal-num">1,240</span>
+            <span class="cal-denom">/ 2,400 cal</span>
+          </div>
+          <div class="cal-track"><div class="cal-fill"></div></div>
+
+          <div class="macro-rows">
+            <div class="macro-row">
+              <div class="m-dot" style="background:var(--m-protein)"></div>
+              <span class="m-name">Protein</span>
+              <div class="m-track"><div class="m-fill" style="background:var(--m-protein);width:46%"></div></div>
+              <span class="m-nums"><strong>82g</strong> / 180g</span>
+            </div>
+            <div class="macro-row">
+              <div class="m-dot" style="background:var(--m-carbs)"></div>
+              <span class="m-name">Carbs</span>
+              <div class="m-track"><div class="m-fill" style="background:var(--m-carbs);width:62%"></div></div>
+              <span class="m-nums"><strong>148g</strong> / 240g</span>
+            </div>
+            <div class="macro-row">
+              <div class="m-dot" style="background:var(--m-fat)"></div>
+              <span class="m-name">Fat</span>
+              <div class="m-track"><div class="m-fill" style="background:var(--m-fat);width:54%"></div></div>
+              <span class="m-nums"><strong>38g</strong> / 70g</span>
+            </div>
+            <div class="macro-row">
+              <div class="m-dot" style="background:var(--m-fiber)"></div>
+              <span class="m-name">Fiber</span>
+              <div class="m-track"><div class="m-fill" style="background:var(--m-fiber);width:40%"></div></div>
+              <span class="m-nums"><strong>12g</strong> / 30g</span>
+            </div>
+            <div class="macro-row">
+              <div class="m-dot" style="background:var(--m-sodium);opacity:.4"></div>
+              <span class="m-name" style="color:var(--text-tertiary)">Sodium</span>
+              <div class="m-track" style="opacity:0;pointer-events:none"></div>
+              <span class="m-nums" style="color:var(--text-tertiary)"><strong style="color:var(--text-secondary)">1,420mg</strong></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- timeline, newest first, time-axis layout -->
+        <div class="timeline-section">
+          <div class="timeline-heading">Meals</div>
+
+          <div class="tl-axis">
+            <!-- time column -->
+            <div class="tl-times">
+              <div class="tl-tick">12:15</div>
+              <div class="tl-spacer"></div>
+              <div class="tl-tick">10:05</div>
+              <div class="tl-spacer"></div>
+              <div class="tl-tick">7:32</div>
+            </div>
+
+            <!-- entry column -->
+            <div class="tl-entries">
+              <div class="tl-entry">
+                <div class="tl-name">Chicken rice bowl</div>
+                <div class="tl-macros"><span class="tl-cal">620 cal</span> · 48g P · 82g C · 18g F</div>
+                <span class="tl-cat cat-lunch">Lunch</span>
+              </div>
+              <div class="tl-entry">
+                <div class="tl-name">Apple + almond butter</div>
+                <div class="tl-macros"><span class="tl-cal">240 cal</span> · 6g P · 28g C · 10g F</div>
+                <span class="tl-cat cat-snack">Snack</span>
+              </div>
+              <div class="tl-entry">
+                <div class="tl-name">Greek yogurt bowl + granola</div>
+                <div class="tl-macros"><span class="tl-cal">380 cal</span> · 31g P · 42g C · 8g F</div>
+                <span class="tl-cat cat-breakfast">Breakfast</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="fab">+</div>
+      <div class="tab-bar">
+        <div class="tab-btn"><span class="tab-icon">⚡</span>Events</div>
+        <div class="tab-btn active"><span class="tab-icon">🥗</span>Food Log</div>
+        <div class="tab-btn"><span class="tab-icon">📦</span>Library</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 2: Log Entry (post-parse) ──────────────────── -->
+  <div class="frame-wrap">
+    <div class="frame-label">2 · Log Entry</div>
+    <div class="phone">
+      <div class="app-header">
+        <span class="back-btn">‹ Back</span>
+        <span class="header-title center">Log a Meal</span>
+      </div>
+
+      <div class="scroll-area">
+        <div class="entry-form">
+          <div class="freeform-box">
+            <textarea rows="3" readonly style="pointer-events:none">2 scrambled eggs with butter, sourdough toast, and a large oat milk latte</textarea>
+            <div class="freeform-hint">Describe a meal, paste a nutrition label, or name a library item</div>
+          </div>
+
+          <div>
+            <div class="form-label">Category</div>
+            <div class="chips">
+              <div class="chip active">Breakfast</div>
+              <div class="chip">Lunch</div>
+              <div class="chip">Dinner</div>
+              <div class="chip">Fuel</div>
+              <div class="chip">Snack</div>
+            </div>
+          </div>
+
+          <div>
+            <div class="form-label">Time</div>
+            <div class="time-row">
+              <span style="font-variant-numeric:tabular-nums">7:32 AM</span>
+              <span class="chevron">›</span>
+            </div>
+          </div>
+
+          <div class="calc-btn">Calculating…</div>
+
+          <div class="est-macros">
+            <div class="est-header">Estimated Macros</div>
+            <div class="est-rows">
+              <div class="est-row">
+                <span class="est-label">Calories</span>
+                <span class="est-val">480</span>
+              </div>
+              <div class="est-row">
+                <span class="est-label">Protein</span>
+                <span class="est-val">22</span><span class="est-unit">g</span>
+              </div>
+              <div class="est-row">
+                <span class="est-label">Carbs</span>
+                <span class="est-val">54</span><span class="est-unit">g</span>
+              </div>
+              <div class="est-row">
+                <span class="est-label">Fat</span>
+                <span class="est-val">18</span><span class="est-unit">g</span>
+              </div>
+              <div class="est-row">
+                <span class="est-label">Fiber</span>
+                <span class="est-val">3</span><span class="est-unit">g</span>
+              </div>
+              <div class="est-row">
+                <span class="est-label">Sodium</span>
+                <span class="est-val">680</span><span class="est-unit">mg</span>
+              </div>
+            </div>
+            <div class="ai-notes">
+              <span class="ai-notes-icon">ℹ</span>
+              <span>Assumed 1 tbsp butter for eggs, 8 oz oat milk in latte</span>
+            </div>
+          </div>
+
+          <div class="save-lib-row">
+            <input type="checkbox" id="lib-cb">
+            <label for="lib-cb" style="cursor:pointer">Save to library for quick reuse</label>
+          </div>
+
+          <div class="save-btn">Save Entry</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 3: Library (Food tab, alpha sorted) ────────── -->
+  <div class="frame-wrap">
+    <div class="frame-label">3 · Library (Food tab)</div>
+    <div class="phone">
+      <div class="app-header">
+        <span class="header-title">Library</span>
+        <div class="icon-btn">🔍</div>
+      </div>
+
+      <div class="lib-tab-row">
+        <div class="lib-tab">Fuel</div>
+        <div class="lib-tab active">Food</div>
+      </div>
+
+      <div class="scroll-area">
+        <div class="lib-list">
+          <div class="add-food-btn">
+            <span class="plus">+</span>
+            Add food item
+          </div>
+
+          <!-- alphabetical order -->
+          <div class="lib-item">
+            <div class="lib-item-body">
+              <div class="lib-item-name">Chicken + rice meal prep bowl</div>
+              <div class="lib-item-macros"><strong>620 cal</strong> · 48g P · 82g C · 18g F</div>
+              <div class="lib-item-serving">Per: 1 container (~600g)</div>
+            </div>
+            <div class="use-btn">Use</div>
+          </div>
+
+          <div class="lib-item">
+            <div class="lib-item-body">
+              <div class="lib-item-name">Greek yogurt bowl + granola</div>
+              <div class="lib-item-macros"><strong>380 cal</strong> · 31g P · 42g C · 8g F</div>
+              <div class="lib-item-serving">Per: 1 serving</div>
+            </div>
+            <div class="use-btn">Use</div>
+          </div>
+
+          <div class="lib-item">
+            <div class="lib-item-body">
+              <div class="lib-item-name">Post-workout protein shake</div>
+              <div class="lib-item-macros"><strong>220 cal</strong> · 45g P · 8g C · 6g F</div>
+              <div class="lib-item-serving">Per: 1 scoop (32g) + 300ml milk</div>
+            </div>
+            <div class="use-btn">Use</div>
+          </div>
+
+          <div class="lib-item">
+            <div class="lib-item-body">
+              <div class="lib-item-name">Sweetgreen Harvest Bowl</div>
+              <div class="lib-item-macros"><strong>580 cal</strong> · 32g P · 68g C · 22g F</div>
+              <div class="lib-item-serving">Per: 1 bowl (full size)</div>
+            </div>
+            <div class="use-btn">Use</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-bar">
+        <div class="tab-btn"><span class="tab-icon">⚡</span>Events</div>
+        <div class="tab-btn"><span class="tab-icon">🥗</span>Food Log</div>
+        <div class="tab-btn active"><span class="tab-icon">📦</span>Library</div>
+      </div>
+    </div>
+  </div>
+
+</div>
