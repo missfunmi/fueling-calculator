@@ -137,7 +137,8 @@
     // Show/hide tab bar (hide on detail and form views)
     var hideTabBar = (view === 'detail' || view === 'create' ||
                       view === 'product-form' || view === 'landing' ||
-                      view === 'claim' || view === 'recovery' || view === 'settings');
+                      view === 'claim' || view === 'recovery' || view === 'settings' ||
+                      view === 'food-log-entry' || view === 'food-log-targets');
     var tabBar = $('tab-bar');
     if (tabBar) tabBar.style.display = hideTabBar ? 'none' : '';
 
@@ -2126,13 +2127,40 @@
 
   async function renderLibrary() {
     var $body = $('library-body');
-    showContainerSpinner($body);
+
+    // Sub-tab header
+    $body.innerHTML =
+      '<div class="fl-lib-tabs" id="lib-subtab-bar">' +
+        '<button class="fl-lib-tab active" data-lib-tab="fuel">Fuel</button>' +
+        '<button class="fl-lib-tab"        data-lib-tab="food">Food</button>' +
+      '</div>' +
+      '<div id="lib-pane-fuel"></div>' +
+      '<div id="lib-pane-food" style="display:none"></div>';
+
+    // Wire sub-tab switching
+    $$('.fl-lib-tab', $body).forEach(function (btn) {
+      on(btn, 'click', function () {
+        $$('.fl-lib-tab', $body).forEach(function (b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        $('lib-pane-fuel').style.display = btn.dataset.libTab === 'fuel' ? '' : 'none';
+        $('lib-pane-food').style.display = btn.dataset.libTab === 'food' ? '' : 'none';
+      });
+    });
+
+    // Render food library pane (food-log.js registers this)
+    if (window.FoodLog && window.FoodLog.renderFoodLibraryPane) {
+      window.FoodLog.renderFoodLibraryPane($('lib-pane-food'));
+    }
+
+    // Render fuel pane (existing logic, targeting lib-pane-fuel)
+    var $fuel = $('lib-pane-fuel');
+    showContainerSpinner($fuel);
 
     var products;
     try {
       products = await Data.getProducts();
     } catch (e) {
-      $body.innerHTML = '';
+      $fuel.innerHTML = '';
       showToast("Couldn't load library — check your connection.");
       return;
     }
@@ -2140,7 +2168,7 @@
     var desktopBtn = '<button class="btn-new-product-desktop" id="btn-new-product-desktop">+ New Product</button>';
 
     if (!products.length) {
-      $body.innerHTML = desktopBtn + '<div class="empty-state"><div style="font-size:48px">📦</div><p>No products yet.</p><p>Tap + to add your first product.</p></div>';
+      $fuel.innerHTML = desktopBtn + '<div class="empty-state"><div style="font-size:48px">📦</div><p>No products yet.</p><p>Tap + to add your first product.</p></div>';
       var dbtn = $('btn-new-product-desktop');
       if (dbtn) on(dbtn, 'click', function () { navigate('product-form', { editingProductId: null }); });
       return;
@@ -2165,7 +2193,7 @@
       Object.keys(groups).filter(function (t) { return TYPE_ORDER.indexOf(t) === -1; }).sort()
     ).filter(function (t) { return groups[t]; });
 
-    $body.innerHTML = desktopBtn + types.map(function (type) {
+    $fuel.innerHTML = desktopBtn + types.map(function (type) {
       return '<div class="product-group">' +
         '<div class="product-group-title">' + escHtml(TYPE_LABELS[type] || type) + 's</div>' +
         groups[type].map(function (p) {
@@ -2184,7 +2212,7 @@
       '</div>';
     }).join('');
 
-    $$('.product-row', $body).forEach(function (row) {
+    $$('.product-row', $fuel).forEach(function (row) {
       on(row, 'click', function () {
         navigate('product-form', { editingProductId: row.dataset.productId });
       });
