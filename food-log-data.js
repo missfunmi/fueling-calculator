@@ -69,6 +69,7 @@
       ai_estimated:      entry.aiEstimated || false,
       ai_notes:          entry.aiNotes || null
     });
+    if (!rows || !rows[0]) throw new Error('saveLog: no row returned');
     return rowToLog(rows[0]);
   }
 
@@ -89,6 +90,7 @@
       'food_logs?id=eq.' + encodeURIComponent(id) + '&user_id=eq.' + encodeURIComponent(userId),
       body, 'return=representation'
     );
+    if (!rows || !rows[0]) throw new Error('updateLog: no row returned');
     return rowToLog(rows[0]);
   }
 
@@ -134,6 +136,7 @@
       sodium_per_serving:  item.sodiumPerServing != null ? item.sodiumPerServing : null,
       serving_unit:        item.servingUnit || null
     });
+    if (!rows || !rows[0]) throw new Error('saveLibraryItem: no row returned');
     return rowToItem(rows[0]);
   }
 
@@ -152,6 +155,7 @@
       'food_library?id=eq.' + encodeURIComponent(id) + '&user_id=eq.' + encodeURIComponent(userId),
       body, 'return=representation'
     );
+    if (!rows || !rows[0]) throw new Error('updateLibraryItem: no row returned');
     return rowToItem(rows[0]);
   }
 
@@ -192,6 +196,7 @@
       sodium_target:   targets.sodiumTarget   != null ? targets.sodiumTarget   : null,
       updated_at:      new Date().toISOString()
     }, 'return=representation,resolution=merge-duplicates');
+    if (!rows || !rows[0]) throw new Error('saveTargets: no row returned');
     return rowToTargets(rows[0]);
   }
 

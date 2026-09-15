@@ -12,7 +12,8 @@
     library: [],
     editingEntry: null,
     libraryOnlyMode: false,
-    prefillFromLibrary: null
+    prefillFromLibrary: null,
+    renderGen: 0
   };
 
   function todayStr() {
@@ -155,6 +156,8 @@
   async function renderFoodLog() {
     var $body = _A.$('food-log-body');
     $body.innerHTML = '<div style="padding:32px;text-align:center;color:var(--text-tertiary)">Loading…</div>';
+    state.renderGen = (state.renderGen || 0) + 1;
+    var gen = state.renderGen;
 
     var userId = localStorage.getItem('fuelPlanner.userId');
     if (!userId) {
@@ -168,10 +171,12 @@
         FoodLogData.getTargets(userId),
         FoodLogData.getLibrary(userId)
       ]);
+      if (gen !== state.renderGen) return; // stale render, a newer one is in flight
       state.logs    = results[0];
       state.targets = results[1];
       state.library = results[2];
     } catch (e) {
+      if (gen !== state.renderGen) return;
       $body.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-secondary)">Couldn\'t load — check your connection.</div>';
       return;
     }
@@ -198,10 +203,10 @@
       renderFoodLog();
     });
 
-    // Gear icon → targets
-    _A.on(_A.$('btn-food-log-targets'), 'click', function () {
+    // Gear icon → targets (onclick replaces handler on each render)
+    _A.$('btn-food-log-targets').onclick = function () {
       _A.navigate('food-log-targets');
-    });
+    };
 
     // FAB → new entry
     _A.on(_A.$('fl-fab'), 'click', function () {
@@ -506,13 +511,13 @@
       }
     }
 
-    // Back and delete handlers
-    _A.on(_A.$('btn-fle-back'), 'click', function () {
+    // Back and delete handlers (onclick replaces handler on each render)
+    _A.$('btn-fle-back').onclick = function () {
       state.editingEntry = null;
       _A.navigate('food-log');
-    });
+    };
 
-    _A.on(_A.$('btn-fle-delete'), 'click', async function () {
+    _A.$('btn-fle-delete').onclick = async function () {
       if (!confirm('Delete this entry?')) return;
       var userId = localStorage.getItem('fuelPlanner.userId');
       try {
@@ -522,7 +527,7 @@
       } catch (e) {
         alert('Could not delete — check your connection.');
       }
-    });
+    };
 
     render();
   }
