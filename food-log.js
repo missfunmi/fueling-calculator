@@ -10,7 +10,9 @@
     logs: [],
     targets: null,
     library: [],
-    editingEntry: null
+    editingEntry: null,
+    libraryOnlyMode: false,
+    prefillFromLibrary: null
   };
 
   function todayStr() {
@@ -217,14 +219,80 @@
     });
   }
 
-  // Placeholder for food library pane — implemented in Task 9
-  function renderFoodLibraryPane() {}
+  // ── Food library pane ────────────────────────────────────────────────────────
+
+  async function renderFoodLibraryPane(paneEl) {
+    if (!paneEl) return;
+    paneEl.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-tertiary)">Loading…</div>';
+
+    var userId = localStorage.getItem('fuelPlanner.userId');
+    var items;
+    try {
+      items = await FoodLogData.getLibrary(userId);
+    } catch (e) {
+      paneEl.innerHTML = '<div style="padding:24px;color:var(--text-secondary)">Couldn\'t load food library.</div>';
+      return;
+    }
+
+    var addBtn = '<button id="fl-lib-add-btn" style="margin:16px;padding:10px 16px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-md);font-size:14px;font-weight:600;cursor:pointer;width:calc(100% - 32px)">+ Add food item</button>';
+
+    if (!items.length) {
+      paneEl.innerHTML = addBtn + '<div style="padding:32px 16px;text-align:center;color:var(--text-tertiary);font-size:14px">No food items yet.</div>';
+      _A.on(_A.$('fl-lib-add-btn'), 'click', function () {
+        state.editingEntry = null;
+        state.libraryOnlyMode = true;
+        _A.navigate('food-log-entry');
+      });
+      return;
+    }
+
+    paneEl.innerHTML = addBtn + items.map(function (item) {
+      var meta = [item.caloriesPerServing + ' kcal', item.proteinPerServing + 'g pro'];
+      if (item.fiberPerServing != null) meta.push(item.fiberPerServing + 'g fiber');
+      return '<div class="fl-lib-item" data-lib-id="' + item.id + '">' +
+        '<div class="fl-lib-item-info">' +
+          '<div class="fl-lib-item-name">' + _A.escHtml(item.name) + '</div>' +
+          '<div class="fl-lib-item-meta">' + meta.join(' · ') + (item.servingUnit ? ' per ' + _A.escHtml(item.servingUnit) : '') + '</div>' +
+        '</div>' +
+        '<button class="fl-lib-use-btn" data-use-id="' + item.id + '">Use</button>' +
+      '</div>';
+    }).join('');
+
+    _A.on(_A.$('fl-lib-add-btn'), 'click', function () {
+      state.editingEntry = null;
+      state.libraryOnlyMode = true;
+      _A.navigate('food-log-entry');
+    });
+
+    _A.$$('.fl-lib-use-btn', paneEl).forEach(function (btn) {
+      _A.on(btn, 'click', function (e) {
+        e.stopPropagation();
+        var id = btn.dataset.useId;
+        var item = items.filter(function (i) { return i.id === id; })[0];
+        if (!item) return;
+        state.editingEntry = null;
+        state.prefillFromLibrary = {
+          name: item.name, category: item.category || 'Snack',
+          protein: item.proteinPerServing, carbs: item.carbsPerServing,
+          fat: item.fatPerServing, calories: item.caloriesPerServing,
+          fiber: item.fiberPerServing, sodium: item.sodiumPerServing,
+          libraryItemId: item.id, servingMultiplier: 1.0,
+          aiEstimated: false, aiNotes: null
+        };
+        _A.navigate('food-log-entry');
+      });
+    });
+  }
 
   // ── Entry form ───────────────────────────────────────────────────────────────
 
   function renderFoodLogEntry() {
     var entry = state.editingEntry;
     var isEdit = !!entry;
+    var libraryOnlyMode = state.libraryOnlyMode || false;
+    state.libraryOnlyMode = false;
+    var prefill = (!isEdit && state.prefillFromLibrary) ? state.prefillFromLibrary : null;
+    if (prefill) state.prefillFromLibrary = null;
     var $body = _A.$('food-log-entry-body');
 
     // Title and delete button
@@ -234,21 +302,21 @@
 
     // Form state
     var formState = {
-      name:     isEdit ? entry.name      : '',
-      protein:  isEdit ? entry.protein   : 0,
-      carbs:    isEdit ? entry.carbs     : 0,
-      fat:      isEdit ? entry.fat       : 0,
-      calories: isEdit ? entry.calories  : 0,
-      fiber:    isEdit ? entry.fiber     : null,
-      sodium:   isEdit ? entry.sodium    : null,
-      category: isEdit ? (entry.category || 'Breakfast') : 'Breakfast',
+      name:     isEdit ? entry.name      : (prefill ? prefill.name      : ''),
+      protein:  isEdit ? entry.protein   : (prefill ? prefill.protein   : 0),
+      carbs:    isEdit ? entry.carbs     : (prefill ? prefill.carbs     : 0),
+      fat:      isEdit ? entry.fat       : (prefill ? prefill.fat       : 0),
+      calories: isEdit ? entry.calories  : (prefill ? prefill.calories  : 0),
+      fiber:    isEdit ? entry.fiber     : (prefill ? prefill.fiber     : null),
+      sodium:   isEdit ? entry.sodium    : (prefill ? prefill.sodium    : null),
+      category: isEdit ? (entry.category || 'Breakfast') : (prefill ? (prefill.category || 'Breakfast') : 'Breakfast'),
       loggedAt: isEdit ? entry.loggedAt  : new Date().toISOString(),
       aiEstimated: isEdit ? entry.aiEstimated : false,
       aiNotes:  isEdit ? entry.aiNotes   : null,
-      libraryItemId: isEdit ? entry.libraryItemId : null,
-      servingMultiplier: isEdit ? entry.servingMultiplier : 1.0
+      libraryItemId: isEdit ? entry.libraryItemId : (prefill ? prefill.libraryItemId : null),
+      servingMultiplier: isEdit ? entry.servingMultiplier : (prefill ? prefill.servingMultiplier : 1.0)
     };
-    var parsed = isEdit;
+    var parsed = isEdit || !!prefill;
 
     function macroEditRowHTML(label, key, unit) {
       var val = formState[key];
@@ -396,6 +464,16 @@
                 fiber: formState.fiber, sodium: formState.sodium,
                 aiEstimated: formState.aiEstimated, aiNotes: formState.aiNotes
               });
+            } else if (libraryOnlyMode) {
+              await FoodLogData.saveLibraryItem(userId, {
+                name: formState.name, category: formState.category,
+                proteinPerServing: formState.protein, carbsPerServing: formState.carbs,
+                fatPerServing: formState.fat, caloriesPerServing: formState.calories,
+                fiberPerServing: formState.fiber, sodiumPerServing: formState.sodium
+              });
+              state.editingEntry = null;
+              _A.navigate('library');
+              return;
             } else {
               await FoodLogData.saveLog(userId, {
                 name: formState.name, category: formState.category,
