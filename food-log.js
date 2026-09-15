@@ -449,11 +449,75 @@
     render();
   }
 
+  // ── Targets settings ─────────────────────────────────────────────────────────
+
+  async function renderFoodLogTargets() {
+    var $body = _A.$('food-log-targets-body');
+    $body.innerHTML = '<div style="padding:32px;text-align:center;color:var(--text-tertiary)">Loading…</div>';
+
+    var userId = localStorage.getItem('fuelPlanner.userId');
+    var targets;
+    try {
+      targets = await FoodLogData.getTargets(userId) || {};
+    } catch (e) {
+      $body.innerHTML = '<div style="padding:24px;color:var(--text-secondary)">Couldn\'t load targets.</div>';
+      return;
+    }
+
+    function inputRow(label, key, placeholder) {
+      var val = targets[key] != null ? targets[key] : '';
+      return '<div style="display:contents">' +
+        '<span class="fl-targets-label">' + label + '</span>' +
+        '<input class="fl-targets-input" type="number" min="0" data-key="' + key + '" value="' + val + '" placeholder="' + placeholder + '">' +
+      '</div>';
+    }
+
+    $body.innerHTML =
+      '<p style="padding:16px 16px 0;font-size:14px;color:var(--text-secondary)">Leave a field blank to hide its progress bar.</p>' +
+      '<div class="fl-targets-grid">' +
+        inputRow('Calories', 'caloriesTarget', 'kcal/day') +
+        inputRow('Protein',  'proteinTarget',  'g/day') +
+        inputRow('Carbs',    'carbsTarget',    'g/day') +
+        inputRow('Fat',      'fatTarget',      'g/day') +
+        inputRow('Fiber',    'fiberTarget',    'g/day') +
+        inputRow('Sodium',   'sodiumTarget',   'mg/day') +
+      '</div>' +
+      '<div style="padding:16px">' +
+        '<button id="fl-targets-save" class="btn-primary" style="width:100%">Save</button>' +
+      '</div>';
+
+    _A.on(_A.$('fl-targets-save'), 'click', async function () {
+      var btn = _A.$('fl-targets-save');
+      btn.disabled = true;
+      btn.textContent = 'Saving…';
+
+      var updated = {};
+      _A.$$('[data-key]', $body).forEach(function (input) {
+        var val = input.value.trim();
+        updated[input.dataset.key] = val !== '' ? parseFloat(val) : null;
+      });
+
+      try {
+        await FoodLogData.saveTargets(userId, updated);
+        state.targets = updated;
+        _A.navigate('food-log');
+      } catch (e) {
+        btn.disabled = false;
+        btn.textContent = 'Save';
+        alert('Could not save targets — check your connection.');
+      }
+    });
+
+    _A.on(_A.$('btn-flt-back'), 'click', function () {
+      _A.navigate('food-log');
+    });
+  }
+
   // ── Register ─────────────────────────────────────────────────────────────────
 
   _A.renders['food-log'] = renderFoodLog;
   _A.renders['food-log-entry']   = renderFoodLogEntry;
-  _A.renders['food-log-targets'] = function () {}; // stub — Task 8
+  _A.renders['food-log-targets'] = renderFoodLogTargets;
 
   window.FoodLog = {
     renderFoodLog: renderFoodLog,
