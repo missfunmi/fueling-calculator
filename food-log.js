@@ -9,7 +9,8 @@
     date: todayStr(),
     logs: [],
     targets: null,
-    library: []
+    library: [],
+    editingEntry: null
   };
 
   function todayStr() {
@@ -219,10 +220,239 @@
   // Placeholder for food library pane — implemented in Task 9
   function renderFoodLibraryPane() {}
 
+  // ── Entry form ───────────────────────────────────────────────────────────────
+
+  function renderFoodLogEntry() {
+    var entry = state.editingEntry;
+    var isEdit = !!entry;
+    var $body = _A.$('food-log-entry-body');
+
+    // Title and delete button
+    _A.$('fle-title').textContent = isEdit ? 'Edit Meal' : 'Log Meal';
+    var delBtn = _A.$('btn-fle-delete');
+    delBtn.style.display = isEdit ? '' : 'none';
+
+    // Form state
+    var formState = {
+      name:     isEdit ? entry.name      : '',
+      protein:  isEdit ? entry.protein   : 0,
+      carbs:    isEdit ? entry.carbs     : 0,
+      fat:      isEdit ? entry.fat       : 0,
+      calories: isEdit ? entry.calories  : 0,
+      fiber:    isEdit ? entry.fiber     : null,
+      sodium:   isEdit ? entry.sodium    : null,
+      category: isEdit ? (entry.category || 'Breakfast') : 'Breakfast',
+      loggedAt: isEdit ? entry.loggedAt  : new Date().toISOString(),
+      aiEstimated: isEdit ? entry.aiEstimated : false,
+      aiNotes:  isEdit ? entry.aiNotes   : null,
+      libraryItemId: isEdit ? entry.libraryItemId : null,
+      servingMultiplier: isEdit ? entry.servingMultiplier : 1.0
+    };
+    var parsed = isEdit;
+
+    function macroEditRowHTML(label, key, unit) {
+      var val = formState[key];
+      var display = val != null ? Math.round(val) : '';
+      return '<div class="fl-macro-edit-row">' +
+        '<span class="fl-macro-edit-label">' + label + '</span>' +
+        '<input class="fl-macro-edit-value" type="number" data-macro="' + key + '" value="' + display + '" placeholder="—">' +
+        '<span style="font-size:12px;color:var(--text-tertiary);margin-left:4px">' + unit + '</span>' +
+      '</div>';
+    }
+
+    function estimatedBlockHTML() {
+      if (!parsed) return '';
+      return '<div class="fl-estimated">' +
+        '<div class="fl-estimated-title">Estimated Macros</div>' +
+        '<div class="fl-macro-edit-row">' +
+          '<span class="fl-macro-edit-label">Name</span>' +
+          '<input class="fl-macro-edit-value" type="text" data-macro="name" value="' + _A.escHtml(formState.name) + '" style="width:180px">' +
+        '</div>' +
+        macroEditRowHTML('Calories', 'calories', 'kcal') +
+        macroEditRowHTML('Protein',  'protein',  'g') +
+        macroEditRowHTML('Carbs',    'carbs',    'g') +
+        macroEditRowHTML('Fat',      'fat',      'g') +
+        macroEditRowHTML('Fiber',    'fiber',    'g') +
+        macroEditRowHTML('Sodium',   'sodium',   'mg') +
+        (formState.aiNotes ? '<div class="fl-ai-notes">AI note: ' + _A.escHtml(formState.aiNotes) + '</div>' : '') +
+      '</div>';
+    }
+
+    var categories = ['Breakfast', 'Lunch', 'Dinner', 'Fuel', 'Snack'];
+
+    function categoryChipsHTML() {
+      return '<div class="fl-category-chips">' +
+        categories.map(function (c) {
+          return '<button class="fl-chip' + (formState.category === c ? ' active' : '') + '" data-category="' + c + '">' + c + '</button>';
+        }).join('') +
+      '</div>';
+    }
+
+    function fmtInputTime(isoStr) {
+      var d = new Date(isoStr);
+      var hh = String(d.getHours()).padStart(2, '0');
+      var mm = String(d.getMinutes()).padStart(2, '0');
+      return hh + ':' + mm;
+    }
+
+    function render() {
+      $body.innerHTML =
+        '<div style="padding:16px">' +
+          (!isEdit ? '<label style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);margin-bottom:6px">What did you eat?</label>' : '') +
+          (!isEdit ? '<textarea class="fl-freeform-area" id="fl-freeform" placeholder="e.g. chicken rice bowl, 2 eggs and toast, post-workout shake \xd71.5…"></textarea>' : '') +
+          (!isEdit ? '<button class="fl-parse-btn" id="fl-parse-btn">Calculate</button>' : '') +
+          estimatedBlockHTML() +
+          '<div style="margin-top:16px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);margin-bottom:6px">Category</div>' +
+          categoryChipsHTML() +
+          '<div style="margin-top:12px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);margin-bottom:6px">Time</div>' +
+          '<input id="fl-time-input" type="time" value="' + fmtInputTime(formState.loggedAt) + '" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-size:14px">' +
+          (!isEdit ? '<label class="fl-save-library-row"><input type="checkbox" id="fl-save-library"> Save to library</label>' : '') +
+          '<div style="display:flex;gap:8px;margin-top:24px">' +
+            '<button id="fl-save-btn" class="btn-primary" style="flex:1" ' + (!parsed ? 'disabled' : '') + '>Save</button>' +
+          '</div>' +
+        '</div>';
+
+      attachHandlers();
+    }
+
+    function attachHandlers() {
+      // Category chips
+      _A.$$('.fl-chip', $body).forEach(function (chip) {
+        _A.on(chip, 'click', function () {
+          formState.category = chip.dataset.category;
+          _A.$$('.fl-chip', $body).forEach(function (c) { c.classList.remove('active'); });
+          chip.classList.add('active');
+        });
+      });
+
+      // Time input
+      var timeInput = _A.$('fl-time-input');
+      if (timeInput) {
+        _A.on(timeInput, 'change', function () {
+          var parts = timeInput.value.split(':');
+          var d = new Date(formState.loggedAt);
+          d.setHours(parseInt(parts[0], 10), parseInt(parts[1], 10), 0, 0);
+          formState.loggedAt = d.toISOString();
+        });
+      }
+
+      // Macro edit inputs
+      _A.$$('[data-macro]', $body).forEach(function (input) {
+        _A.on(input, 'input', function () {
+          var key = input.dataset.macro;
+          formState[key] = key === 'name' ? input.value : (parseFloat(input.value) || 0);
+        });
+      });
+
+      // Parse button
+      var parseBtn = _A.$('fl-parse-btn');
+      if (parseBtn) {
+        _A.on(parseBtn, 'click', async function () {
+          var freeform = (_A.$('fl-freeform').value || '').trim();
+          if (!freeform) return;
+          parseBtn.disabled = true;
+          parseBtn.textContent = 'Calculating…';
+          try {
+            var result = await FoodLogData.parseMeal(freeform, state.library);
+            formState.name             = result.name;
+            formState.protein          = result.protein;
+            formState.carbs            = result.carbs;
+            formState.fat              = result.fat;
+            formState.calories         = result.calories;
+            formState.fiber            = result.fiber;
+            formState.sodium           = result.sodium;
+            formState.aiEstimated      = result.ai_estimated;
+            formState.aiNotes          = result.ai_notes;
+            formState.libraryItemId    = result.library_item_id;
+            formState.servingMultiplier = result.serving_multiplier || 1.0;
+            parsed = true;
+            var saveBtn2 = _A.$('fl-save-btn');
+            if (saveBtn2) saveBtn2.disabled = false;
+            render();
+          } catch (e) {
+            parseBtn.disabled = false;
+            parseBtn.textContent = 'Calculate';
+            parsed = true;
+            render();
+          }
+        });
+      }
+
+      // Save
+      var saveBtn = _A.$('fl-save-btn');
+      if (saveBtn) {
+        _A.on(saveBtn, 'click', async function () {
+          if (!formState.name) { alert('Please enter a name.'); return; }
+          saveBtn.disabled = true;
+          saveBtn.textContent = 'Saving…';
+          var userId = localStorage.getItem('fuelPlanner.userId');
+          try {
+            if (isEdit) {
+              await FoodLogData.updateLog(userId, entry.id, {
+                name: formState.name, category: formState.category,
+                loggedAt: formState.loggedAt,
+                protein: formState.protein, carbs: formState.carbs,
+                fat: formState.fat, calories: formState.calories,
+                fiber: formState.fiber, sodium: formState.sodium,
+                aiEstimated: formState.aiEstimated, aiNotes: formState.aiNotes
+              });
+            } else {
+              await FoodLogData.saveLog(userId, {
+                name: formState.name, category: formState.category,
+                loggedAt: formState.loggedAt, freeformInput: (_A.$('fl-freeform') && _A.$('fl-freeform').value) || null,
+                protein: formState.protein, carbs: formState.carbs,
+                fat: formState.fat, calories: formState.calories,
+                fiber: formState.fiber, sodium: formState.sodium,
+                libraryItemId: formState.libraryItemId,
+                servingMultiplier: formState.servingMultiplier,
+                aiEstimated: formState.aiEstimated, aiNotes: formState.aiNotes
+              });
+              var saveLibCb = _A.$('fl-save-library');
+              if (saveLibCb && saveLibCb.checked) {
+                await FoodLogData.saveLibraryItem(userId, {
+                  name: formState.name, category: formState.category,
+                  proteinPerServing: formState.protein, carbsPerServing: formState.carbs,
+                  fatPerServing: formState.fat, caloriesPerServing: formState.calories,
+                  fiberPerServing: formState.fiber, sodiumPerServing: formState.sodium
+                });
+              }
+            }
+            state.editingEntry = null;
+            _A.navigate('food-log');
+          } catch (e) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Save';
+            alert('Could not save — check your connection.');
+          }
+        });
+      }
+    }
+
+    // Back and delete handlers
+    _A.on(_A.$('btn-fle-back'), 'click', function () {
+      state.editingEntry = null;
+      _A.navigate('food-log');
+    });
+
+    _A.on(_A.$('btn-fle-delete'), 'click', async function () {
+      if (!confirm('Delete this entry?')) return;
+      var userId = localStorage.getItem('fuelPlanner.userId');
+      try {
+        await FoodLogData.deleteLog(userId, entry.id);
+        state.editingEntry = null;
+        _A.navigate('food-log');
+      } catch (e) {
+        alert('Could not delete — check your connection.');
+      }
+    });
+
+    render();
+  }
+
   // ── Register ─────────────────────────────────────────────────────────────────
 
   _A.renders['food-log'] = renderFoodLog;
-  _A.renders['food-log-entry']   = function () {}; // stub — Task 7
+  _A.renders['food-log-entry']   = renderFoodLogEntry;
   _A.renders['food-log-targets'] = function () {}; // stub — Task 8
 
   window.FoodLog = {
