@@ -47,3 +47,9 @@ CREATE TABLE IF NOT EXISTS daily_targets (
   sodium_target   REAL,
   updated_at      TIMESTAMPTZ DEFAULT now()
 );
+
+-- Disable RLS: app uses anon key with user_id query-param filtering,
+-- matching the pattern of all existing tables in this project.
+ALTER TABLE food_library   DISABLE ROW LEVEL SECURITY;
+ALTER TABLE food_logs      DISABLE ROW LEVEL SECURITY;
+ALTER TABLE daily_targets  DISABLE ROW LEVEL SECURITY;
