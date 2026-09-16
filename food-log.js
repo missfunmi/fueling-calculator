@@ -335,10 +335,10 @@
         groups[key].map(function (item) {
           var fullName = (item.brand ? item.brand + ' ' : '') + item.name;
           var meta = [];
-          if (item.caloriesPerServing) meta.push(item.caloriesPerServing + ' kcal');
-          if (item.proteinPerServing)  meta.push(item.proteinPerServing  + 'g protein');
-          if (item.carbsPerServing)    meta.push(item.carbsPerServing    + 'g carbs');
-          var suffix = item.servingSize
+          if (item.caloriesPerServing != null) meta.push(item.caloriesPerServing + ' kcal');
+          if (item.proteinPerServing  != null) meta.push(item.proteinPerServing  + 'g protein');
+          if (item.carbsPerServing    != null) meta.push(item.carbsPerServing    + 'g carbs');
+          var suffix = (item.servingSize != null && item.servingSize > 0)
             ? ' per ' + item.servingSize + 'g'
             : (item.servingUnit ? ' per ' + _A.escHtml(item.servingUnit) : '');
           return '<div class="product-row" data-lib-id="' + item.id + '">' +
@@ -502,7 +502,7 @@
           (bc.item.caloriesPerServing != null ? bc.item.caloriesPerServing : 0) + ' kcal',
           (bc.item.proteinPerServing  != null ? bc.item.proteinPerServing  : 0) + 'g P'
         ];
-        if (bc.item.servingSize) sub.push('per ' + bc.item.servingSize + 'g');
+        if (bc.item.servingSize != null && bc.item.servingSize > 0) sub.push('per ' + bc.item.servingSize + 'g');
         return '<div class="fl-component-row" data-build-idx="' + i + '">' +
           '<div class="fl-component-color" style="background:' + color + '"></div>' +
           '<div class="fl-component-info">' +
@@ -553,7 +553,7 @@
           (item.caloriesPerServing != null ? item.caloriesPerServing : 0) + ' kcal',
           (item.proteinPerServing  != null ? item.proteinPerServing  : 0) + 'g P'
         ];
-        if (item.servingSize) meta.push('per ' + item.servingSize + 'g');
+        if (item.servingSize != null && item.servingSize > 0) meta.push('per ' + item.servingSize + 'g');
         return '<div class="fl-picker-row" data-picker-id="' + item.id + '">' +
           '<div class="fl-picker-check' + (checked ? ' checked' : '') + '"></div>' +
           '<div class="fl-picker-info">' +
@@ -653,7 +653,7 @@
           buildMode = newMode;
           postCalculate = null;
           render();
-          if (_A.$('fl-freeform')) _A.$('fl-freeform').value = formState.buildFreeform || '';
+          if (buildMode && _A.$('fl-build-freeform')) _A.$('fl-build-freeform').value = formState.buildFreeform || '';
         });
       });
 
@@ -783,7 +783,23 @@
           calcBtn.disabled = true;
           calcBtn.textContent = 'Calculating…';
 
-          // Sum library components
+          // Parse freeform first (async) — library component records are built
+          // AFTER the await so they reflect buildComponents at resolution time,
+          // not at click time. This prevents a removed component from being
+          // included if the user taps × during the parseMeal round-trip.
+          var freeText = (formState.buildFreeform || '').trim();
+          var parsedResult = null;
+          if (freeText) {
+            try {
+              parsedResult = await FoodLogData.parseMeal(freeText, state.library);
+            } catch (e) {
+              var btn = _A.$('fl-calc-btn');
+              if (btn) { btn.disabled = false; btn.textContent = 'Calculate'; }
+              return;
+            }
+          }
+
+          // Sum library components from current buildComponents (post-await)
           var totals = { protein: 0, carbs: 0, fat: 0, calories: 0, fiber: null, sodium: null };
           var componentRecords = buildComponents.map(function (bc) {
             var scaled = FoodLogData.scaleComponentMacros(bc.item, bc.amountG);
@@ -803,29 +819,21 @@
             };
           });
 
-          // Parse freeform items
-          var freeText = (formState.buildFreeform || '').trim();
+          // Merge parsed freeform result
           var freeComponents = [];
-          if (freeText) {
-            try {
-              var parsedResult = await FoodLogData.parseMeal(freeText, state.library);
-              totals.protein  += parsedResult.protein  || 0;
-              totals.carbs    += parsedResult.carbs     || 0;
-              totals.fat      += parsedResult.fat       || 0;
-              totals.calories += parsedResult.calories  || 0;
-              if (parsedResult.fiber  != null) { if (totals.fiber  == null) totals.fiber  = 0; totals.fiber  += parsedResult.fiber; }
-              if (parsedResult.sodium != null) { if (totals.sodium == null) totals.sodium = 0; totals.sodium += parsedResult.sodium; }
-              freeComponents.push({
-                library_item_id: null, name: freeText, amount_g: null,
-                protein: parsedResult.protein, carbs: parsedResult.carbs,
-                fat: parsedResult.fat, calories: parsedResult.calories,
-                fiber: parsedResult.fiber, sodium: parsedResult.sodium
-              });
-            } catch (e) {
-              var btn = _A.$('fl-calc-btn');
-              if (btn) { btn.disabled = false; btn.textContent = 'Calculate'; }
-              return;
-            }
+          if (parsedResult) {
+            totals.protein  += parsedResult.protein  || 0;
+            totals.carbs    += parsedResult.carbs     || 0;
+            totals.fat      += parsedResult.fat       || 0;
+            totals.calories += parsedResult.calories  || 0;
+            if (parsedResult.fiber  != null) { if (totals.fiber  == null) totals.fiber  = 0; totals.fiber  += parsedResult.fiber; }
+            if (parsedResult.sodium != null) { if (totals.sodium == null) totals.sodium = 0; totals.sodium += parsedResult.sodium; }
+            freeComponents.push({
+              library_item_id: null, name: freeText, amount_g: null,
+              protein: parsedResult.protein, carbs: parsedResult.carbs,
+              fat: parsedResult.fat, calories: parsedResult.calories,
+              fiber: parsedResult.fiber, sodium: parsedResult.sodium
+            });
           }
 
           // Suggest name from first library item or freeform
@@ -987,7 +995,8 @@
                 protein: formState.protein, carbs: formState.carbs,
                 fat: formState.fat, calories: formState.calories,
                 fiber: formState.fiber, sodium: formState.sodium,
-                aiEstimated: formState.aiEstimated, aiNotes: formState.aiNotes
+                aiEstimated: formState.aiEstimated, aiNotes: formState.aiNotes,
+                components: null
               });
             } else if (libraryOnlyMode) {
               await FoodLogData.saveLibraryItem(userId, {

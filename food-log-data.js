@@ -86,8 +86,9 @@
     if (fields.calories  !== undefined) body.calories  = fields.calories;
     if (fields.fiber     !== undefined) body.fiber     = fields.fiber;
     if (fields.sodium    !== undefined) body.sodium    = fields.sodium;
-    if (fields.aiNotes   !== undefined) body.ai_notes  = fields.aiNotes;
+    if (fields.aiNotes     !== undefined) body.ai_notes   = fields.aiNotes;
     if (fields.aiEstimated !== undefined) body.ai_estimated = fields.aiEstimated;
+    if (fields.components  !== undefined) body.components = fields.components;
     var rows = await req('PATCH',
       'food_logs?id=eq.' + encodeURIComponent(id) + '&user_id=eq.' + encodeURIComponent(userId),
       body, 'return=representation'

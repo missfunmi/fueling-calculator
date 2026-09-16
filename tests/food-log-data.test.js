@@ -242,12 +242,14 @@ async function run() {
       return { ok: true, status: 200, text: async function () { return JSON.stringify([returnedRow]); } };
     };
     var result = await FLD.updateLog('u1', 'log-1', {
-      name: 'Updated Meal', protein: 30, carbs: 45, fat: 10, calories: 390
+      name: 'Updated Meal', protein: 30, carbs: 45, fat: 10, calories: 390,
+      components: null
     });
     global.fetch = _origFetch;
-    assert.strictEqual(capturedBody.name,     'Updated Meal');
-    assert.strictEqual(capturedBody.protein,  30);
-    assert.strictEqual(capturedBody.calories, 390);
+    assert.strictEqual(capturedBody.name,       'Updated Meal');
+    assert.strictEqual(capturedBody.protein,    30);
+    assert.strictEqual(capturedBody.calories,   390);
+    assert.strictEqual(capturedBody.components, null);
     assert.strictEqual(result.name,     'Updated Meal');
     assert.strictEqual(result.calories, 390);
   });
