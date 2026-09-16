@@ -20,12 +20,12 @@
   // Returns array of formatted macro strings for a library item.
   function itemMacroMeta(item) {
     var meta = [];
-    if (item.caloriesPerServing != null) meta.push(item.caloriesPerServing + ' kcal');
-    if (item.proteinPerServing  != null) meta.push(item.proteinPerServing  + 'g protein');
-    if (item.carbsPerServing    != null) meta.push(item.carbsPerServing    + 'g carbs');
-    if (item.fatPerServing      != null) meta.push(item.fatPerServing      + 'g fat');
-    if (item.fiberPerServing    != null) meta.push(item.fiberPerServing    + 'g fiber');
-    if (item.sodiumPerServing   != null) meta.push(item.sodiumPerServing   + 'mg sodium');
+    if (item.caloriesPerServing != null) meta.push(Math.round(item.caloriesPerServing) + ' kcal');
+    if (item.proteinPerServing  != null) meta.push(Math.round(item.proteinPerServing)  + 'g protein');
+    if (item.carbsPerServing    != null) meta.push(Math.round(item.carbsPerServing)    + 'g carbs');
+    if (item.fatPerServing      != null) meta.push(Math.round(item.fatPerServing)      + 'g fat');
+    if (item.fiberPerServing    != null) meta.push(Math.round(item.fiberPerServing)    + 'g fiber');
+    if (item.sodiumPerServing   != null) meta.push(Math.round(item.sodiumPerServing)   + 'mg sodium');
     return meta;
   }
 
@@ -392,10 +392,13 @@
       '</div>';
     }).join('');
 
+    var itemsById = {};
+    items.forEach(function (item) { itemsById[item.id] = item; });
+
     _A.$$('.product-row', paneEl).forEach(function (row) {
       _A.on(row, 'click', function () {
         var id = row.dataset.libId;
-        var item = items.filter(function (i) { return i.id === id; })[0];
+        var item = itemsById[id];
         if (!item) return;
         state.editingEntry = null;
         state.editingLibraryItem = item;
@@ -687,6 +690,7 @@
       // Mode toggle
       _A.$$('.fl-mode-tab', $body).forEach(function (tab) {
         _A.on(tab, 'click', function () {
+          if (isCalculating) return;
           var newMode = tab.dataset.mode === 'build';
           if (newMode === buildMode) return;
           buildMode = newMode;
@@ -831,91 +835,90 @@
           var freeText = (formState.buildFreeform || '').trim();
           var freeformTextarea = _A.$('fl-build-freeform');
           if (freeformTextarea) freeformTextarea.disabled = true;
-          var parsedResult = null;
-          if (freeText) {
-            try {
+          try {
+            var parsedResult = null;
+            if (freeText) {
               parsedResult = await FoodLogData.parseMeal(freeText, state.library);
-            } catch (e) {
-              isCalculating = false;
-              calcBtn.disabled = false;
-              calcBtn.textContent = 'Calculate';
-              if (freeformTextarea) freeformTextarea.disabled = false;
-              return;
             }
-          }
 
-          // Sum library components from current buildComponents (post-await)
-          var totals = { protein: 0, carbs: 0, fat: 0, calories: 0, fiber: null, sodium: null };
-          var hasMissingMacros = false;
-          var componentRecords = buildComponents.map(function (bc) {
-            var scaled = FoodLogData.scaleComponentMacros(bc.item, bc.amountG);
-            if (scaled.protein  == null) hasMissingMacros = true;
-            if (scaled.carbs    == null) hasMissingMacros = true;
-            if (scaled.fat      == null) hasMissingMacros = true;
-            if (scaled.calories == null) hasMissingMacros = true;
-            totals.protein  += scaled.protein  || 0;
-            totals.carbs    += scaled.carbs    || 0;
-            totals.fat      += scaled.fat      || 0;
-            totals.calories += scaled.calories || 0;
-            if (scaled.fiber  != null) { if (totals.fiber  == null) totals.fiber  = 0; totals.fiber  += scaled.fiber; }
-            if (scaled.sodium != null) { if (totals.sodium == null) totals.sodium = 0; totals.sodium += scaled.sodium; }
-            return {
-              library_item_id: bc.item.id,
-              name:     (bc.item.brand ? bc.item.brand + ' ' : '') + bc.item.name,
-              amount_g: bc.amountG,
-              protein:  scaled.protein,  carbs:    scaled.carbs,
-              fat:      scaled.fat,      calories: scaled.calories,
-              fiber:    scaled.fiber,    sodium:   scaled.sodium
-            };
-          });
-
-          // Merge parsed freeform result
-          var freeComponents = [];
-          if (parsedResult) {
-            if (parsedResult.protein  == null) hasMissingMacros = true;
-            if (parsedResult.carbs    == null) hasMissingMacros = true;
-            if (parsedResult.fat      == null) hasMissingMacros = true;
-            if (parsedResult.calories == null) hasMissingMacros = true;
-            totals.protein  += parsedResult.protein  || 0;
-            totals.carbs    += parsedResult.carbs     || 0;
-            totals.fat      += parsedResult.fat       || 0;
-            totals.calories += parsedResult.calories  || 0;
-            if (parsedResult.fiber  != null) { if (totals.fiber  == null) totals.fiber  = 0; totals.fiber  += parsedResult.fiber; }
-            if (parsedResult.sodium != null) { if (totals.sodium == null) totals.sodium = 0; totals.sodium += parsedResult.sodium; }
-            freeComponents.push({
-              library_item_id: null, name: freeText, amount_g: null,
-              protein: parsedResult.protein, carbs: parsedResult.carbs,
-              fat: parsedResult.fat, calories: parsedResult.calories,
-              fiber: parsedResult.fiber, sodium: parsedResult.sodium
+            // Sum library components from current buildComponents (post-await)
+            var totals = { protein: 0, carbs: 0, fat: 0, calories: 0, fiber: null, sodium: null };
+            var hasMissingMacros = false;
+            var componentRecords = buildComponents.map(function (bc) {
+              var scaled = FoodLogData.scaleComponentMacros(bc.item, bc.amountG);
+              if (scaled.protein  == null) hasMissingMacros = true;
+              if (scaled.carbs    == null) hasMissingMacros = true;
+              if (scaled.fat      == null) hasMissingMacros = true;
+              if (scaled.calories == null) hasMissingMacros = true;
+              totals.protein  += scaled.protein  || 0;
+              totals.carbs    += scaled.carbs    || 0;
+              totals.fat      += scaled.fat      || 0;
+              totals.calories += scaled.calories || 0;
+              if (scaled.fiber  != null) { if (totals.fiber  == null) totals.fiber  = 0; totals.fiber  += scaled.fiber; }
+              if (scaled.sodium != null) { if (totals.sodium == null) totals.sodium = 0; totals.sodium += scaled.sodium; }
+              return {
+                library_item_id: bc.item.id,
+                name:     (bc.item.brand ? bc.item.brand + ' ' : '') + bc.item.name,
+                amount_g: bc.amountG,
+                protein:  scaled.protein,  carbs:    scaled.carbs,
+                fat:      scaled.fat,      calories: scaled.calories,
+                fiber:    scaled.fiber,    sodium:   scaled.sodium
+              };
             });
+
+            // Merge parsed freeform result
+            var freeComponents = [];
+            if (parsedResult) {
+              if (parsedResult.protein  == null) hasMissingMacros = true;
+              if (parsedResult.carbs    == null) hasMissingMacros = true;
+              if (parsedResult.fat      == null) hasMissingMacros = true;
+              if (parsedResult.calories == null) hasMissingMacros = true;
+              totals.protein  += parsedResult.protein  || 0;
+              totals.carbs    += parsedResult.carbs     || 0;
+              totals.fat      += parsedResult.fat       || 0;
+              totals.calories += parsedResult.calories  || 0;
+              if (parsedResult.fiber  != null) { if (totals.fiber  == null) totals.fiber  = 0; totals.fiber  += parsedResult.fiber; }
+              if (parsedResult.sodium != null) { if (totals.sodium == null) totals.sodium = 0; totals.sodium += parsedResult.sodium; }
+              freeComponents.push({
+                library_item_id: null, name: freeText, amount_g: null,
+                protein: parsedResult.protein, carbs: parsedResult.carbs,
+                fat: parsedResult.fat, calories: parsedResult.calories,
+                fiber: parsedResult.fiber, sodium: parsedResult.sodium
+              });
+            }
+
+            // Suggest name from library items or freeform
+            var suggestedName;
+            if (buildComponents.length === 1) {
+              suggestedName = (buildComponents[0].item.brand
+                ? buildComponents[0].item.brand + ' ' + buildComponents[0].item.name
+                : buildComponents[0].item.name);
+            } else if (buildComponents.length > 1) {
+              suggestedName = buildComponents.map(function (bc) { return bc.item.name; }).slice(0, 3).join(' & ');
+            } else {
+              suggestedName = freeText.split(',')[0].replace(/^[\d.]+\s*[a-z]*\s*/i, '').trim() || 'Meal';
+            }
+
+            postCalculate = {
+              name:     suggestedName,
+              protein:  Math.round(totals.protein  * 10) / 10,
+              carbs:    Math.round(totals.carbs    * 10) / 10,
+              fat:      Math.round(totals.fat      * 10) / 10,
+              calories: Math.round(totals.calories * 10) / 10,
+              fiber:    totals.fiber  != null ? Math.round(totals.fiber  * 10) / 10 : null,
+              sodium:   totals.sodium != null ? Math.round(totals.sodium * 10) / 10 : null,
+              hasMissingMacros: hasMissingMacros,
+              components: componentRecords.concat(freeComponents)
+            };
+
+            render();
+          } catch (e) {
+            calcBtn.disabled = false;
+            calcBtn.textContent = 'Calculate';
+            if (freeformTextarea) freeformTextarea.disabled = false;
+          } finally {
+            isCalculating = false;
           }
-
-          // Suggest name from library items or freeform
-          var suggestedName;
-          if (buildComponents.length === 1) {
-            suggestedName = (buildComponents[0].item.brand
-              ? buildComponents[0].item.brand + ' ' + buildComponents[0].item.name
-              : buildComponents[0].item.name);
-          } else if (buildComponents.length > 1) {
-            suggestedName = buildComponents.map(function (bc) { return bc.item.name; }).slice(0, 3).join(' & ');
-          } else {
-            suggestedName = freeText.split(',')[0].replace(/^[\d.]+\s*[a-z]*\s*/i, '').trim() || 'Meal';
-          }
-
-          postCalculate = {
-            name:     suggestedName,
-            protein:  Math.round(totals.protein  * 10) / 10,
-            carbs:    Math.round(totals.carbs    * 10) / 10,
-            fat:      Math.round(totals.fat      * 10) / 10,
-            calories: Math.round(totals.calories * 10) / 10,
-            fiber:    totals.fiber  != null ? Math.round(totals.fiber  * 10) / 10 : null,
-            sodium:   totals.sodium != null ? Math.round(totals.sodium * 10) / 10 : null,
-            hasMissingMacros: hasMissingMacros,
-            components: componentRecords.concat(freeComponents)
-          };
-
-          isCalculating = false;
-          render();
         });
       }
 
