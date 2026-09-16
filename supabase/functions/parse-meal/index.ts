@@ -97,7 +97,10 @@ Return ONLY valid JSON matching this schema (no markdown, no explanation):
     }
 
     const data = await response.json();
-    const text = data.content[0].text.trim();
+    let text = data.content[0].text.trim();
+    if (text.startsWith('```')) {
+      text = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
+    }
     const result: ParseResult = JSON.parse(text);
 
     return new Response(JSON.stringify(result), {
