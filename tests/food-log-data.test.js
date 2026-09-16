@@ -100,6 +100,38 @@ async function run() {
     assert.strictEqual(result.sodium,   null);
   });
 
+  console.log('\nrowToLog — components');
+
+  await test('rowToLog maps components when present', async function () {
+    var fakeComponents = [
+      { library_item_id: 'lib-1', name: 'Chobani yogurt', amount_g: 190,
+        protein: 17.9, carbs: 6.7, fat: 0, calories: 100.6, fiber: null, sodium: 72.6 }
+    ];
+    mockFetch([{ status: 200, body: JSON.stringify([{
+      id: 'log-1', user_id: 'u1', logged_at: '2026-09-16T07:42:00Z',
+      name: 'Yogurt bowl', category: 'Breakfast',
+      freeform_input: null, protein: 17.9, carbs: 6.7, fat: 0, calories: 100.6,
+      fiber: null, sodium: 72.6, library_item_id: null, serving_multiplier: 1,
+      ai_estimated: false, ai_notes: null, created_at: '2026-09-16T07:42:00Z',
+      components: fakeComponents
+    }]) }]);
+    var logs = await FLD.getLogs('u1', '2026-09-16');
+    assert.deepStrictEqual(logs[0].components, fakeComponents);
+  });
+
+  await test('rowToLog sets components null when absent', async function () {
+    mockFetch([{ status: 200, body: JSON.stringify([{
+      id: 'log-2', user_id: 'u1', logged_at: '2026-09-16T12:00:00Z',
+      name: 'Lunch', category: 'Lunch', freeform_input: null,
+      protein: 30, carbs: 45, fat: 10, calories: 380,
+      fiber: null, sodium: null, library_item_id: null, serving_multiplier: 1,
+      ai_estimated: false, ai_notes: null, created_at: '2026-09-16T12:00:00Z',
+      components: null
+    }]) }]);
+    var logs = await FLD.getLogs('u1', '2026-09-16');
+    assert.strictEqual(logs[0].components, null);
+  });
+
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
   if (failed > 0) process.exit(1);
 }

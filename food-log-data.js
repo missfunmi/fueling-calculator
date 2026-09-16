@@ -34,6 +34,7 @@
       servingMultiplier: r.serving_multiplier || 1,
       aiEstimated: r.ai_estimated || false,
       aiNotes: r.ai_notes || null,
+      components: r.components || null,
       createdAt: r.created_at
     };
   }
@@ -67,7 +68,8 @@
       library_item_id:   entry.libraryItemId   || null,
       serving_multiplier: entry.servingMultiplier || 1.0,
       ai_estimated:      entry.aiEstimated || false,
-      ai_notes:          entry.aiNotes || null
+      ai_notes:          entry.aiNotes || null,
+      components:        entry.components || null
     });
     if (!rows || !rows[0]) throw new Error('saveLog: no row returned');
     return rowToLog(rows[0]);
