@@ -1518,8 +1518,6 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   border: none;
   cursor: pointer;
   padding: 0;
-  text-decoration: underline;
-  text-underline-offset: 2px;
 }
 
 /* Progress section */
