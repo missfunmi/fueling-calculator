@@ -4,6 +4,8 @@
 
   var _A = window._App; // navigate, renders, $, $$, on, escHtml
 
+  var COMPONENT_COLORS = ['#5b9bd5', '#e8a04b', '#6abf69', '#e8585e', '#9b7dd4', '#4bbfbf'];
+
   // Module state
   var state = {
     date: todayStr(),
@@ -366,8 +368,12 @@
       aiEstimated: isEdit ? entry.aiEstimated : false,
       aiNotes:     isEdit ? entry.aiNotes    : null,
       libraryItemId:     isEdit ? entry.libraryItemId     : (prefill ? prefill.libraryItemId     : null),
-      servingMultiplier: isEdit ? entry.servingMultiplier : (prefill ? prefill.servingMultiplier : 1.0)
+      servingMultiplier: isEdit ? entry.servingMultiplier : (prefill ? prefill.servingMultiplier : 1.0),
+      buildFreeform: ''
     };
+    var buildComponents = []; // [{item, amountG}]
+    var buildMode = false;    // true = Build tab active
+    var postCalculate = null; // {name, protein, carbs, fat, calories, fiber, sodium, components} | null
     var parsed = isEdit || isLibraryEdit || libraryOnlyMode || !!prefill;
 
     function macroEditRowHTML(label, key, unit) {
@@ -458,6 +464,87 @@
       '</div>';
     }
 
+    function buildModeHTML() {
+      var componentRows = buildComponents.map(function (bc, i) {
+        var color = COMPONENT_COLORS[i % COMPONENT_COLORS.length];
+        var sub = [
+          bc.item.caloriesPerServing + ' kcal',
+          bc.item.proteinPerServing + 'g P'
+        ];
+        if (bc.item.servingSize) sub.push('per ' + bc.item.servingSize + 'g');
+        return '<div class="fl-component-row" data-build-idx="' + i + '">' +
+          '<div class="fl-component-color" style="background:' + color + '"></div>' +
+          '<div class="fl-component-info">' +
+            '<div class="fl-component-name">' + _A.escHtml((bc.item.brand ? bc.item.brand + ' ' : '') + bc.item.name) + '</div>' +
+            '<div class="fl-component-sub">' + sub.join(' · ') + '</div>' +
+          '</div>' +
+          '<div class="fl-component-amount-wrap">' +
+            '<input class="fl-component-amount" type="number" min="0" data-build-amount="' + i + '" value="' + bc.amountG + '">' +
+            '<span class="fl-component-unit">g</span>' +
+          '</div>' +
+          '<div class="fl-component-remove" data-build-remove="' + i + '">×</div>' +
+        '</div>';
+      }).join('');
+
+      return '<div style="margin-top:10px">' +
+        '<div style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-tertiary);padding:0 0 5px">Library items</div>' +
+        '<div class="fl-component-list">' + (componentRows || '<div style="font-size:13px;color:var(--text-tertiary);padding:8px 0">No items yet — tap below to add.</div>') + '</div>' +
+        '<div class="fl-add-from-lib-btn" id="fl-build-add-btn">+ Add from library</div>' +
+        '<div style="margin-top:10px">' +
+          '<div style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:4px">Other items</div>' +
+          '<textarea class="fl-freeform-area" id="fl-build-freeform" placeholder="21g honey, 23g slivered almonds…" style="margin-top:0">' + _A.escHtml(formState.buildFreeform || '') + '</textarea>' +
+        '</div>' +
+      '</div>';
+    }
+
+    function calculatedTotalsHTML() {
+      if (!postCalculate) return '';
+      var pc = postCalculate;
+      return '<div class="fl-estimated-block">' +
+        '<div class="fl-estimated-title">Estimated Totals</div>' +
+        '<div class="fl-estimated-name-row">' +
+          '<span class="fl-estimated-name-label">Name</span>' +
+          '<input class="fl-estimated-name-input" type="text" id="fl-build-name" value="' + _A.escHtml(pc.name) + '">' +
+        '</div>' +
+        '<div class="fl-estimated-macros">' +
+          '<div class="fl-estimated-macro"><div class="fl-estimated-macro-val">' + Math.round(pc.calories) + '</div><div class="fl-estimated-macro-label">kcal</div></div>' +
+          '<div class="fl-estimated-macro"><div class="fl-estimated-macro-val">' + Math.round(pc.protein) + 'g</div><div class="fl-estimated-macro-label">protein</div></div>' +
+          '<div class="fl-estimated-macro"><div class="fl-estimated-macro-val">' + Math.round(pc.carbs) + 'g</div><div class="fl-estimated-macro-label">carbs</div></div>' +
+          '<div class="fl-estimated-macro"><div class="fl-estimated-macro-val">' + Math.round(pc.fat) + 'g</div><div class="fl-estimated-macro-label">fat</div></div>' +
+        '</div>' +
+      '</div>';
+    }
+
+    function pickerSheetHTML(library, selectedIds) {
+      var rows = library.map(function (item) {
+        var checked = selectedIds.indexOf(item.id) !== -1;
+        var meta = [item.caloriesPerServing + ' kcal', item.proteinPerServing + 'g P'];
+        if (item.servingSize) meta.push('per ' + item.servingSize + 'g');
+        return '<div class="fl-picker-row" data-picker-id="' + item.id + '">' +
+          '<div class="fl-picker-check' + (checked ? ' checked' : '') + '"></div>' +
+          '<div class="fl-picker-info">' +
+            '<div class="fl-picker-name">' + _A.escHtml((item.brand ? item.brand + ' ' : '') + item.name) + '</div>' +
+            (item.brand ? '<div class="fl-picker-brand">' + _A.escHtml(item.brand) + '</div>' : '') +
+            '<div class="fl-picker-macros">' + meta.join(' · ') + '</div>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+
+      var n = selectedIds.length;
+      return '<div class="fl-sheet-overlay" id="fl-picker-overlay">' +
+        '<div class="fl-sheet">' +
+          '<div class="fl-sheet-handle"></div>' +
+          '<div class="fl-sheet-header">' +
+            '<div class="fl-sheet-title">Add from Library</div>' +
+            '<span class="fl-sheet-count" id="fl-picker-count">' + (n ? n + ' selected' : '') + '</span>' +
+          '</div>' +
+          '<input class="fl-sheet-search" id="fl-picker-search" placeholder="Search…" type="search">' +
+          '<div class="fl-sheet-list" id="fl-picker-list">' + rows + '</div>' +
+          '<div class="fl-sheet-confirm-btn' + (n === 0 ? '" style="opacity:0.4;pointer-events:none' : '') + '" id="fl-picker-confirm">Add ' + (n || '') + ' item' + (n !== 1 ? 's' : '') + ' →</div>' +
+        '</div>' +
+      '</div>';
+    }
+
     var categories = ['Breakfast', 'Lunch', 'Dinner', 'Fuel', 'Snack'];
 
     function categoryChipsHTML() {
@@ -476,24 +563,249 @@
     }
 
     function render() {
-      $body.innerHTML =
-        '<div style="padding:16px">' +
-          (!isEdit && !isLibraryForm ? '<label style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);margin-bottom:6px">What did you eat?</label>' : '') +
-          (!isEdit && !isLibraryForm ? '<textarea class="fl-freeform-area" id="fl-freeform" placeholder="e.g. chicken rice bowl, 2 eggs and toast, post-workout shake \xd71.5…"></textarea>' : '') +
-          (!isEdit && !isLibraryForm ? '<button class="fl-parse-btn" id="fl-parse-btn">Calculate</button>' : '') +
-          estimatedBlockHTML() +
-          (!isLibraryForm ? '<div style="margin-top:16px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);margin-bottom:6px">Category</div>' : '') +
-          (!isLibraryForm ? categoryChipsHTML() : '') +
-          (!isLibraryForm ? '<div style="margin-top:12px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);margin-bottom:6px">Time</div>' : '') +
-          (!isLibraryForm ? '<input id="fl-time-input" type="time" value="' + fmtInputTime(formState.loggedAt) + '" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-size:14px">' : '') +
-          (parsed && !isEdit && !isLibraryForm ? '<label class="fl-save-library-row"><input type="checkbox" id="fl-save-library"> Save to library</label>' : '') +
-          (parsed || isEdit || isLibraryForm ? '<div style="display:flex;gap:8px;margin-top:24px"><button id="fl-save-btn" class="btn-primary" style="flex:1">Save</button></div>' : '') +
-        '</div>';
+      var modeToggle = (!isEdit && !isLibraryForm)
+        ? '<div class="fl-mode-tabs">' +
+            '<div class="fl-mode-tab' + (!buildMode ? ' active' : '') + '" data-mode="describe">Describe</div>' +
+            '<div class="fl-mode-tab' + ( buildMode ? ' active' : '') + '" data-mode="build">Build</div>' +
+          '</div>'
+        : '';
 
+      var formBody;
+      if (buildMode) {
+        formBody =
+          modeToggle +
+          '<div style="margin-top:12px">' + buildModeHTML() + '</div>' +
+          (postCalculate ? calculatedTotalsHTML() : '') +
+          (!isLibraryForm
+            ? '<div style="margin-top:12px">' +
+                '<div style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:6px">Category</div>' +
+                categoryChipsHTML() +
+              '</div>'
+            : '') +
+          (!postCalculate
+            ? '<button class="fl-parse-btn" id="fl-calc-btn" style="margin-top:12px">Calculate</button>'
+            : '<div style="display:flex;gap:8px;margin-top:16px"><button id="fl-save-btn" class="btn-primary" style="flex:1">Save</button></div>');
+      } else {
+        formBody =
+          modeToggle +
+          (!isEdit && !isLibraryForm
+            ? '<div style="margin-top:12px"><label style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);margin-bottom:6px">What did you eat?</label>' +
+              '<textarea class="fl-freeform-area" id="fl-freeform" placeholder="e.g. chicken rice bowl, 2 eggs and toast, post-workout shake \xd71.5…"></textarea>' +
+              '<button class="fl-parse-btn" id="fl-parse-btn">Calculate</button></div>'
+            : '') +
+          estimatedBlockHTML() +
+          (!isLibraryForm
+            ? '<div style="margin-top:16px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);margin-bottom:6px">Category</div>' +
+              categoryChipsHTML() +
+              '<div style="margin-top:12px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);margin-bottom:6px">Time</div>' +
+              '<input id="fl-time-input" type="time" value="' + fmtInputTime(formState.loggedAt) + '" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-size:14px">'
+            : '') +
+          (parsed && !isEdit && !isLibraryForm ? '<label class="fl-save-library-row"><input type="checkbox" id="fl-save-library"> Save to library</label>' : '') +
+          (parsed || isEdit || isLibraryForm
+            ? '<div style="display:flex;gap:8px;margin-top:24px"><button id="fl-save-btn" class="btn-primary" style="flex:1">Save</button></div>'
+            : '');
+      }
+
+      $body.innerHTML = '<div style="padding:16px;position:relative">' + formBody + '</div>';
       attachHandlers();
     }
 
     function attachHandlers() {
+      // Mode toggle
+      _A.$$('.fl-mode-tab', $body).forEach(function (tab) {
+        _A.on(tab, 'click', function () {
+          var newMode = tab.dataset.mode === 'build';
+          if (newMode === buildMode) return;
+          buildMode = newMode;
+          postCalculate = null;
+          render();
+          if (_A.$('fl-freeform')) _A.$('fl-freeform').value = formState.buildFreeform || '';
+        });
+      });
+
+      // Amount inputs (Build mode)
+      _A.$$('[data-build-amount]', $body).forEach(function (input) {
+        _A.on(input, 'change', function () {
+          var idx = parseInt(input.dataset.buildAmount, 10);
+          buildComponents[idx].amountG = parseFloat(input.value) || 0;
+        });
+      });
+
+      // Remove buttons (Build mode)
+      _A.$$('[data-build-remove]', $body).forEach(function (btn) {
+        _A.on(btn, 'click', function () {
+          var idx = parseInt(btn.dataset.buildRemove, 10);
+          buildComponents.splice(idx, 1);
+          postCalculate = null;
+          render();
+        });
+      });
+
+      // Freeform textarea in Build mode
+      var buildFreeformEl = _A.$('fl-build-freeform');
+      if (buildFreeformEl) {
+        _A.on(buildFreeformEl, 'input', function () {
+          formState.buildFreeform = buildFreeformEl.value;
+        });
+      }
+
+      // Add from library button (Build mode)
+      var addBtn = _A.$('fl-build-add-btn');
+      if (addBtn) {
+        _A.on(addBtn, 'click', function () {
+          var selectedIds = buildComponents.map(function (bc) { return bc.item.id; });
+          var sheetEl = document.createElement('div');
+          sheetEl.innerHTML = pickerSheetHTML(state.library, selectedIds);
+          var overlay = sheetEl.firstChild;
+          $body.appendChild(overlay);
+
+          var currentSelected = selectedIds.slice();
+
+          function updateConfirm() {
+            var n = currentSelected.length;
+            var confirmBtn = _A.$('fl-picker-confirm');
+            if (!confirmBtn) return;
+            confirmBtn.textContent = 'Add ' + (n || '') + ' item' + (n !== 1 ? 's' : '') + ' →';
+            confirmBtn.style.opacity = n === 0 ? '0.4' : '';
+            confirmBtn.style.pointerEvents = n === 0 ? 'none' : '';
+            var countEl = _A.$('fl-picker-count');
+            if (countEl) countEl.textContent = n ? n + ' selected' : '';
+          }
+
+          // Toggle selection
+          _A.$$('.fl-picker-row', overlay).forEach(function (row) {
+            _A.on(row, 'click', function () {
+              var id = row.dataset.pickerId;
+              var idx = currentSelected.indexOf(id);
+              if (idx === -1) {
+                currentSelected.push(id);
+                row.querySelector('.fl-picker-check').classList.add('checked');
+              } else {
+                currentSelected.splice(idx, 1);
+                row.querySelector('.fl-picker-check').classList.remove('checked');
+              }
+              updateConfirm();
+            });
+          });
+
+          // Search filter
+          var searchEl = _A.$('fl-picker-search');
+          if (searchEl) {
+            _A.on(searchEl, 'input', function () {
+              var q = searchEl.value.toLowerCase();
+              _A.$$('.fl-picker-row', overlay).forEach(function (row) {
+                var id = row.dataset.pickerId;
+                var item = state.library.filter(function (i) { return i.id === id; })[0];
+                if (!item) return;
+                var text = ((item.brand || '') + ' ' + item.name).toLowerCase();
+                row.style.display = text.indexOf(q) !== -1 ? '' : 'none';
+              });
+            });
+          }
+
+          // Confirm
+          var confirmBtn = _A.$('fl-picker-confirm');
+          if (confirmBtn) {
+            _A.on(confirmBtn, 'click', function () {
+              var existingIds = buildComponents.map(function (bc) { return bc.item.id; });
+              currentSelected.forEach(function (id) {
+                if (existingIds.indexOf(id) !== -1) return;
+                var item = state.library.filter(function (i) { return i.id === id; })[0];
+                if (!item) return;
+                buildComponents.push({ item: item, amountG: item.servingSize || 100 });
+              });
+              // Remove deselected items
+              buildComponents = buildComponents.filter(function (bc) {
+                return currentSelected.indexOf(bc.item.id) !== -1;
+              });
+              postCalculate = null;
+              overlay.parentNode.removeChild(overlay);
+              render();
+            });
+          }
+
+          // Close on overlay backdrop tap
+          _A.on(overlay, 'click', function (e) {
+            if (e.target === overlay) overlay.parentNode.removeChild(overlay);
+          });
+        });
+      }
+
+      // Calculate button (Build mode)
+      var calcBtn = _A.$('fl-calc-btn');
+      if (calcBtn) {
+        _A.on(calcBtn, 'click', async function () {
+          if (!buildComponents.length && !(formState.buildFreeform || '').trim()) return;
+          calcBtn.disabled = true;
+          calcBtn.textContent = 'Calculating…';
+
+          // Sum library components
+          var totals = { protein: 0, carbs: 0, fat: 0, calories: 0, fiber: null, sodium: null };
+          var componentRecords = buildComponents.map(function (bc) {
+            var scaled = FoodLogData.scaleComponentMacros(bc.item, bc.amountG);
+            totals.protein  += scaled.protein  || 0;
+            totals.carbs    += scaled.carbs    || 0;
+            totals.fat      += scaled.fat      || 0;
+            totals.calories += scaled.calories || 0;
+            if (scaled.fiber  != null) { if (totals.fiber  == null) totals.fiber  = 0; totals.fiber  += scaled.fiber; }
+            if (scaled.sodium != null) { if (totals.sodium == null) totals.sodium = 0; totals.sodium += scaled.sodium; }
+            return {
+              library_item_id: bc.item.id,
+              name:     (bc.item.brand ? bc.item.brand + ' ' : '') + bc.item.name,
+              amount_g: bc.amountG,
+              protein:  scaled.protein,  carbs:    scaled.carbs,
+              fat:      scaled.fat,      calories: scaled.calories,
+              fiber:    scaled.fiber,    sodium:   scaled.sodium
+            };
+          });
+
+          // Parse freeform items
+          var freeText = (formState.buildFreeform || '').trim();
+          var freeComponents = [];
+          if (freeText) {
+            try {
+              var parsedResult = await FoodLogData.parseMeal(freeText, state.library);
+              totals.protein  += parsedResult.protein  || 0;
+              totals.carbs    += parsedResult.carbs     || 0;
+              totals.fat      += parsedResult.fat       || 0;
+              totals.calories += parsedResult.calories  || 0;
+              if (parsedResult.fiber  != null) { if (totals.fiber  == null) totals.fiber  = 0; totals.fiber  += parsedResult.fiber; }
+              if (parsedResult.sodium != null) { if (totals.sodium == null) totals.sodium = 0; totals.sodium += parsedResult.sodium; }
+              freeComponents.push({
+                library_item_id: null, name: freeText, amount_g: null,
+                protein: parsedResult.protein, carbs: parsedResult.carbs,
+                fat: parsedResult.fat, calories: parsedResult.calories,
+                fiber: parsedResult.fiber, sodium: parsedResult.sodium
+              });
+            } catch (e) {
+              calcBtn.disabled = false;
+              calcBtn.textContent = 'Calculate';
+              return;
+            }
+          }
+
+          // Suggest name from first library item or freeform
+          var suggestedName = buildComponents.length
+            ? (buildComponents[0].item.brand
+                ? buildComponents[0].item.brand + ' ' + buildComponents[0].item.name
+                : buildComponents[0].item.name)
+            : (freeText.split(',')[0].replace(/^\d+g?\s*/i, '').trim() || 'Meal');
+
+          postCalculate = {
+            name:     suggestedName,
+            protein:  Math.round(totals.protein  * 10) / 10,
+            carbs:    Math.round(totals.carbs    * 10) / 10,
+            fat:      Math.round(totals.fat      * 10) / 10,
+            calories: Math.round(totals.calories * 10) / 10,
+            fiber:    totals.fiber  != null ? Math.round(totals.fiber  * 10) / 10 : null,
+            sodium:   totals.sodium != null ? Math.round(totals.sodium * 10) / 10 : null,
+            components: componentRecords.concat(freeComponents)
+          };
+
+          render();
+        });
+      }
+
       // Category chips
       _A.$$('.fl-chip', $body).forEach(function (chip) {
         _A.on(chip, 'click', function () {
@@ -560,6 +872,41 @@
       var saveBtn = _A.$('fl-save-btn');
       if (saveBtn) {
         _A.on(saveBtn, 'click', async function () {
+          // Build mode save path
+          if (buildMode && postCalculate) {
+            var nameInput = _A.$('fl-build-name');
+            var finalName = (nameInput ? nameInput.value.trim() : '') || postCalculate.name;
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Saving…';
+            try {
+              var userId = localStorage.getItem('fuelPlanner.userId');
+              await FoodLogData.saveLog(userId, {
+                name:              finalName,
+                category:          formState.category || 'Breakfast',
+                loggedAt:          formState.loggedAt,
+                freeformInput:     formState.buildFreeform || null,
+                protein:           postCalculate.protein,
+                carbs:             postCalculate.carbs,
+                fat:               postCalculate.fat,
+                calories:          postCalculate.calories,
+                fiber:             postCalculate.fiber,
+                sodium:            postCalculate.sodium,
+                libraryItemId:     null,
+                servingMultiplier: 1.0,
+                aiEstimated:       false,
+                aiNotes:           null,
+                components:        postCalculate.components
+              });
+              state.editingEntry = null;
+              _A.navigate('food-log');
+            } catch (e) {
+              saveBtn.disabled = false;
+              saveBtn.textContent = 'Save';
+              alert('Could not save — check your connection.');
+            }
+            return;
+          }
+
           if (!formState.name) { alert('Please enter a name.'); return; }
           saveBtn.disabled = true;
           saveBtn.textContent = 'Saving…';
