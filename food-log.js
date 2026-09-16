@@ -344,10 +344,10 @@
     var src = isLibraryEdit ? libItem : (isEdit ? entry : prefill);
     var formState = {
       name:     src ? (isLibraryEdit ? src.name : src.name) : '',
-      protein:  src ? (isLibraryEdit ? src.proteinPerServing  : src.protein)  : 0,
-      carbs:    src ? (isLibraryEdit ? src.carbsPerServing    : src.carbs)    : 0,
-      fat:      src ? (isLibraryEdit ? src.fatPerServing      : src.fat)      : 0,
-      calories: src ? (isLibraryEdit ? src.caloriesPerServing : src.calories) : 0,
+      protein:  src ? (isLibraryEdit ? src.proteinPerServing  : src.protein)  : (libraryOnlyMode ? null : 0),
+      carbs:    src ? (isLibraryEdit ? src.carbsPerServing    : src.carbs)    : (libraryOnlyMode ? null : 0),
+      fat:      src ? (isLibraryEdit ? src.fatPerServing      : src.fat)      : (libraryOnlyMode ? null : 0),
+      calories: src ? (isLibraryEdit ? src.caloriesPerServing : src.calories) : (libraryOnlyMode ? null : 0),
       fiber:    src ? (isLibraryEdit ? src.fiberPerServing    : src.fiber)    : null,
       sodium:   src ? (isLibraryEdit ? src.sodiumPerServing   : src.sodium)   : null,
       category: src ? (src.category || 'Breakfast') : 'Breakfast',
@@ -365,7 +365,7 @@
       return '<div class="fl-macro-edit-row">' +
         '<span class="fl-macro-edit-label">' + label + '</span>' +
         '<div class="fl-macro-edit-value-wrap">' +
-          '<input class="fl-macro-edit-value" type="number" data-macro="' + key + '" value="' + display + '" placeholder="—">' +
+          '<input class="fl-macro-edit-value" type="number" min="0" data-macro="' + key + '" value="' + display + '" placeholder="—">' +
           '<span class="fl-macro-edit-unit">' + unit + '</span>' +
         '</div>' +
       '</div>';
@@ -493,6 +493,16 @@
           saveBtn.disabled = true;
           saveBtn.textContent = 'Saving…';
           var userId = localStorage.getItem('fuelPlanner.userId');
+          if (isLibraryForm) {
+              // Clamp negatives
+              ['protein','carbs','fat','calories','fiber','sodium'].forEach(function (k) {
+                if (formState[k] != null && formState[k] < 0) formState[k] = 0;
+              });
+              // Require at least a name and one macro value
+              var hasAnyMacro = ['protein','carbs','fat','calories'].some(function (k) { return formState[k] != null && formState[k] > 0; });
+              if (!formState.name.trim()) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; alert('Please enter a name.'); return; }
+              if (!hasAnyMacro) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; alert('Please enter at least one macro value.'); return; }
+            }
           try {
             if (isLibraryEdit) {
               await FoodLogData.updateLibraryItem(userId, libItem.id, {
