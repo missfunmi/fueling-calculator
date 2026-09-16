@@ -144,8 +144,8 @@
     return '<div class="fl-timeline">' +
       logs.map(function (log) {
         var macroParts = [Math.round(log.calories) + ' kcal'];
-        if (log.protein) macroParts.push(Math.round(log.protein) + 'g pro');
-        if (log.carbs)   macroParts.push(Math.round(log.carbs)   + 'g carbs');
+        if (log.protein) macroParts.push(Math.round(log.protein) + 'g protein');
+        if (log.carbs)   macroParts.push(Math.round(log.carbs)   + 'g carbohydrates');
         if (log.fat)     macroParts.push(Math.round(log.fat)     + 'g fat');
         return '<div class="fl-timeline-entry">' +
           '<div class="fl-time-col"><span class="fl-time-text">' + fmtTime(log.loggedAt) + '</span></div>' +
@@ -274,7 +274,7 @@
     }
 
     paneEl.innerHTML = items.map(function (item) {
-      var meta = [item.caloriesPerServing + ' kcal', item.proteinPerServing + 'g pro'];
+      var meta = [item.caloriesPerServing + ' kcal', item.proteinPerServing + 'g protein'];
       if (item.fiberPerServing != null) meta.push(item.fiberPerServing + 'g fiber');
       return '<div class="fl-lib-item" data-lib-id="' + item.id + '">' +
         '<div class="fl-lib-item-info">' +
