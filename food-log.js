@@ -15,6 +15,35 @@
     'post-workout': { bg: 'var(--green-bg)',  color: 'var(--green-text)'  }
   };
 
+  // ── Item display helpers ─────────────────────────────────────────────────────
+
+  // Returns array of formatted macro strings for a library item.
+  function itemMacroMeta(item) {
+    var meta = [];
+    if (item.caloriesPerServing != null) meta.push(item.caloriesPerServing + ' kcal');
+    if (item.proteinPerServing  != null) meta.push(item.proteinPerServing  + 'g protein');
+    if (item.carbsPerServing    != null) meta.push(item.carbsPerServing    + 'g carbs');
+    if (item.fatPerServing      != null) meta.push(item.fatPerServing      + 'g fat');
+    if (item.fiberPerServing    != null) meta.push(item.fiberPerServing    + 'g fiber');
+    if (item.sodiumPerServing   != null) meta.push(item.sodiumPerServing   + 'mg sodium');
+    return meta;
+  }
+
+  // Returns serving context string ('per 63g', 'per 1 scoop', or '') — no leading space.
+  function itemServingContext(item) {
+    if (item.servingSize != null && item.servingSize > 0) return 'per ' + item.servingSize + 'g';
+    if (item.servingUnit) return 'per ' + _A.escHtml(item.servingUnit);
+    return '';
+  }
+
+  // Returns full meta line for library list and picker rows.
+  function itemMetaLine(item) {
+    var parts = itemMacroMeta(item);
+    var ctx   = itemServingContext(item);
+    if (ctx) parts.push(ctx);
+    return parts.join(' · ');
+  }
+
   // Module state
   var state = {
     date: todayStr(),
@@ -310,9 +339,9 @@
   // ── Food library pane ────────────────────────────────────────────────────────
 
   function _titleCase(str) {
-    return str.split(' ').map(function (w) {
+    return str.trim().split(/\s+/).map(function (w) {
       return w.split('-').map(function (part) {
-        return part.charAt(0).toUpperCase() + part.slice(1);
+        return part ? part.charAt(0).toUpperCase() + part.slice(1) : part;
       }).join('-');
     }).join(' ');
   }
@@ -352,20 +381,10 @@
         '<div class="product-group-title">' + _A.escHtml(key) + '</div>' +
         groups[key].map(function (item) {
           var fullName = (item.brand ? item.brand + ' ' : '') + item.name;
-          var meta = [];
-          if (item.caloriesPerServing != null) meta.push(item.caloriesPerServing + ' kcal');
-          if (item.proteinPerServing  != null) meta.push(item.proteinPerServing  + 'g protein');
-          if (item.carbsPerServing    != null) meta.push(item.carbsPerServing    + 'g carbs');
-          if (item.fatPerServing      != null) meta.push(item.fatPerServing      + 'g fat');
-          if (item.fiberPerServing    != null) meta.push(item.fiberPerServing    + 'g fiber');
-          if (item.sodiumPerServing   != null) meta.push(item.sodiumPerServing   + 'mg sodium');
-          var suffix = (item.servingSize != null && item.servingSize > 0)
-            ? ' per ' + item.servingSize + 'g'
-            : (item.servingUnit ? ' per ' + _A.escHtml(item.servingUnit) : '');
           return '<div class="product-row" data-lib-id="' + item.id + '">' +
             '<div class="product-row-info">' +
               '<div class="product-row-name">' + _A.escHtml(fullName) + '</div>' +
-              '<div class="product-row-meta">' + (meta.length ? meta.join(' · ') + suffix : suffix) + '</div>' +
+              '<div class="product-row-meta">' + itemMetaLine(item) + '</div>' +
             '</div>' +
             '<span style="color:var(--text-tertiary);font-size:20px">&#8250;</span>' +
           '</div>';
@@ -426,6 +445,7 @@
     var buildComponents = []; // [{item, amountG}]
     var buildMode = false;    // true = Build tab active
     var postCalculate = null; // {name, protein, carbs, fat, calories, fiber, sodium, components} | null
+    var isCalculating = false; // true while parseMeal await is in flight
     var parsed = isEdit || isLibraryEdit || libraryOnlyMode;
 
     function macroEditRowHTML(label, key, unit) {
@@ -513,6 +533,8 @@
         if (scaled.protein  != null) sub.push(Math.round(scaled.protein)  + 'g protein');
         if (scaled.carbs    != null) sub.push(Math.round(scaled.carbs)    + 'g carbs');
         if (scaled.fat      != null) sub.push(Math.round(scaled.fat)      + 'g fat');
+        if (scaled.fiber    != null) sub.push(Math.round(scaled.fiber)    + 'g fiber');
+        if (scaled.sodium   != null) sub.push(Math.round(scaled.sodium)   + 'mg sodium');
         if (bc.item.servingSize != null && bc.item.servingSize > 0) sub.push('per ' + bc.amountG + 'g');
         return '<div class="fl-component-row">' +
           '<div class="fl-component-color" style="background:' + color + '"></div>' +
@@ -563,18 +585,12 @@
     function pickerSheetHTML(library, selectedIds) {
       var rows = library.map(function (item) {
         var checked = selectedIds.indexOf(item.id) !== -1;
-        var meta = [];
-        if (item.caloriesPerServing != null) meta.push(item.caloriesPerServing + ' kcal');
-        if (item.proteinPerServing  != null) meta.push(item.proteinPerServing  + 'g protein');
-        if (item.carbsPerServing    != null) meta.push(item.carbsPerServing    + 'g carbs');
-        if (item.fatPerServing      != null) meta.push(item.fatPerServing      + 'g fat');
-        if (item.servingSize != null && item.servingSize > 0) meta.push('per ' + item.servingSize + 'g');
         return '<div class="fl-picker-row" data-picker-id="' + item.id + '">' +
           '<div class="fl-picker-check' + (checked ? ' checked' : '') + '"></div>' +
           '<div class="fl-picker-info">' +
             '<div class="fl-picker-name">' + _A.escHtml(item.name) + '</div>' +
             (item.brand ? '<div class="fl-picker-brand">' + _A.escHtml(item.brand) + '</div>' : '') +
-            '<div class="fl-picker-macros">' + meta.join(' · ') + '</div>' +
+            '<div class="fl-picker-macros">' + itemMetaLine(item) + '</div>' +
           '</div>' +
         '</div>';
       }).join('');
@@ -682,6 +698,7 @@
       // Amount inputs (Build mode)
       _A.$$('[data-build-amount]', $body).forEach(function (input) {
         _A.on(input, 'change', function () {
+          if (isCalculating) return;
           var idx = parseInt(input.dataset.buildAmount, 10);
           buildComponents[idx].amountG = parseFloat(input.value) || 0;
           if (postCalculate !== null) postCalculate = null;
@@ -692,6 +709,7 @@
       // Remove buttons (Build mode)
       _A.$$('[data-build-remove]', $body).forEach(function (btn) {
         _A.on(btn, 'click', function () {
+          if (isCalculating) return;
           var idx = parseInt(btn.dataset.buildRemove, 10);
           buildComponents.splice(idx, 1);
           postCalculate = null;
@@ -724,6 +742,8 @@
           document.body.appendChild(overlay);
 
           var currentSelected = selectedIds.slice();
+          var libraryMap = {};
+          state.library.forEach(function (i) { libraryMap[i.id] = i; });
 
           function updateConfirm() {
             var n = currentSelected.length;
@@ -758,8 +778,7 @@
             _A.on(searchEl, 'input', function () {
               var q = searchEl.value.toLowerCase();
               _A.$$('.fl-picker-row', overlay).forEach(function (row) {
-                var id = row.dataset.pickerId;
-                var item = state.library.filter(function (i) { return i.id === id; })[0];
+                var item = libraryMap[row.dataset.pickerId];
                 if (!item) return;
                 var text = ((item.brand || '') + ' ' + item.name).toLowerCase();
                 row.style.display = text.indexOf(q) !== -1 ? '' : 'none';
@@ -774,7 +793,7 @@
               var existingIds = buildComponents.map(function (bc) { return bc.item.id; });
               currentSelected.forEach(function (id) {
                 if (existingIds.indexOf(id) !== -1) return;
-                var item = state.library.filter(function (i) { return i.id === id; })[0];
+                var item = libraryMap[id];
                 if (!item) return;
                 buildComponents.push({ item: item, amountG: item.servingSize || 100 });
               });
@@ -799,7 +818,9 @@
       var calcBtn = _A.$('fl-calc-btn');
       if (calcBtn) {
         _A.on(calcBtn, 'click', async function () {
+          if (isCalculating) return;
           if (!buildComponents.length && !(formState.buildFreeform || '').trim()) return;
+          isCalculating = true;
           calcBtn.disabled = true;
           calcBtn.textContent = 'Calculating…';
 
@@ -815,6 +836,7 @@
             try {
               parsedResult = await FoodLogData.parseMeal(freeText, state.library);
             } catch (e) {
+              isCalculating = false;
               calcBtn.disabled = false;
               calcBtn.textContent = 'Calculate';
               if (freeformTextarea) freeformTextarea.disabled = false;
@@ -892,6 +914,7 @@
             components: componentRecords.concat(freeComponents)
           };
 
+          isCalculating = false;
           render();
         });
       }
@@ -921,10 +944,9 @@
         _A.on(input, 'input', function () {
           var key = input.dataset.macro;
           var strKeys = ['name', 'brand', 'category'];
-          var notNullKeys = ['protein', 'carbs', 'fat', 'calories'];
           formState[key] = strKeys.indexOf(key) !== -1
             ? input.value
-            : (input.value === '' ? (notNullKeys.indexOf(key) !== -1 ? 0 : null) : parseFloat(input.value));
+            : (input.value === '' ? null : parseFloat(input.value));
         });
       });
 
