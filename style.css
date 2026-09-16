@@ -1937,7 +1937,7 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 }
 .fl-add-from-lib-btn {
   margin: 6px 0 0;
-  background: rgba(26, 26, 46, 0.08);
+  background: var(--surface-2);
   color: var(--accent);
   border-radius: var(--radius-sm);
   padding: 9px 12px;

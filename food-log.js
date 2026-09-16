@@ -1037,6 +1037,9 @@
               var hasAnyMacro = ['protein','carbs','fat','calories'].some(function (k) { return formState[k] != null && formState[k] > 0; });
               if (!formState.name.trim()) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; alert('Please enter a name.'); return; }
               if (!hasAnyMacro) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; alert('Please enter at least one macro value.'); return; }
+              var hasMacros = ['protein','carbs','fat','calories','fiber','sodium'].some(function (k) { return formState[k] != null; });
+              var hasServingSize = formState.servingSize !== '' && formState.servingSize != null && parseFloat(formState.servingSize) > 0;
+              if (hasMacros && !hasServingSize) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; alert('Serving size (g) is required when macros are set.'); return; }
             }
           try {
             var normCategory = formState.category ? formState.category.trim().toLowerCase() : null;
