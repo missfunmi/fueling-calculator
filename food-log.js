@@ -309,7 +309,9 @@
 
   function _titleCase(str) {
     return str.split(' ').map(function (w) {
-      return w.charAt(0).toUpperCase() + w.slice(1);
+      return w.split('-').map(function (part) {
+        return part.charAt(0).toUpperCase() + part.slice(1);
+      }).join('-');
     }).join(' ');
   }
 
@@ -723,7 +725,7 @@
           var sheetEl = document.createElement('div');
           sheetEl.innerHTML = pickerSheetHTML(state.library, selectedIds);
           var overlay = sheetEl.firstChild;
-          ($body.firstElementChild || $body).appendChild(overlay);
+          document.body.appendChild(overlay);
 
           var currentSelected = selectedIds.slice();
 
@@ -849,6 +851,10 @@
           // Merge parsed freeform result
           var freeComponents = [];
           if (parsedResult) {
+            if (parsedResult.protein  == null) hasMissingMacros = true;
+            if (parsedResult.carbs    == null) hasMissingMacros = true;
+            if (parsedResult.fat      == null) hasMissingMacros = true;
+            if (parsedResult.calories == null) hasMissingMacros = true;
             totals.protein  += parsedResult.protein  || 0;
             totals.carbs    += parsedResult.carbs     || 0;
             totals.fat      += parsedResult.fat       || 0;
@@ -961,7 +967,7 @@
           // Build mode save path
           if (buildMode && postCalculate) {
             var nameInput = _A.$('fl-build-name');
-            var finalName = (nameInput ? nameInput.value.trim() : '') || postCalculate.name;
+            var finalName = nameInput ? nameInput.value.trim() : '';
             if (!finalName) { alert('Please enter a name.'); return; }
             saveBtn.disabled = true;
             saveBtn.textContent = 'Saving…';
