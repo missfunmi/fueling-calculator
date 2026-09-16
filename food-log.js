@@ -498,9 +498,10 @@
     function buildModeHTML() {
       var componentRows = buildComponents.map(function (bc, i) {
         var color = COMPONENT_COLORS[i % COMPONENT_COLORS.length];
+        var scaled = FoodLogData.scaleComponentMacros(bc.item, bc.amountG);
         var sub = [
-          (bc.item.caloriesPerServing != null ? bc.item.caloriesPerServing : 0) + ' kcal',
-          (bc.item.proteinPerServing  != null ? bc.item.proteinPerServing  : 0) + 'g P'
+          Math.round(scaled.calories != null ? scaled.calories : 0) + ' kcal',
+          Math.round(scaled.protein  != null ? scaled.protein  : 0) + 'g P'
         ];
         if (bc.item.servingSize != null && bc.item.servingSize > 0) sub.push('per ' + bc.item.servingSize + 'g');
         return '<div class="fl-component-row" data-build-idx="' + i + '">' +
@@ -574,7 +575,7 @@
           '</div>' +
           '<input class="fl-sheet-search" id="fl-picker-search" placeholder="Search…" type="search">' +
           '<div class="fl-sheet-list" id="fl-picker-list">' + (rows || '<div style="padding:24px 16px;text-align:center;color:var(--text-secondary);font-size:14px">No items in your library yet</div>') + '</div>' +
-          '<div class="fl-sheet-confirm-btn' + (n === 0 ? '" style="opacity:0.4;pointer-events:none' : '') + '" id="fl-picker-confirm">Add ' + (n || '') + ' item' + (n !== 1 ? 's' : '') + ' →</div>' +
+          '<div class="fl-sheet-confirm-btn' + (n === 0 ? '" style="opacity:0.4;pointer-events:none' : '') + '" id="fl-picker-confirm">Add ' + (n > 0 ? n + ' ' : '') + 'item' + (n !== 1 ? 's' : '') + ' →</div>' +
         '</div>' +
       '</div>';
     }
@@ -711,7 +712,7 @@
             var n = currentSelected.length;
             var confirmBtn = _A.$('fl-picker-confirm');
             if (!confirmBtn) return;
-            confirmBtn.textContent = 'Add ' + (n || '') + ' item' + (n !== 1 ? 's' : '') + ' →';
+            confirmBtn.textContent = 'Add ' + (n > 0 ? n + ' ' : '') + 'item' + (n !== 1 ? 's' : '') + ' →';
             confirmBtn.style.opacity = n === 0 ? '0.4' : '';
             confirmBtn.style.pointerEvents = n === 0 ? 'none' : '';
             var countEl = _A.$('fl-picker-count');
@@ -997,8 +998,7 @@
                 protein: formState.protein, carbs: formState.carbs,
                 fat: formState.fat, calories: formState.calories,
                 fiber: formState.fiber, sodium: formState.sodium,
-                aiEstimated: formState.aiEstimated, aiNotes: formState.aiNotes,
-                components: null
+                aiEstimated: formState.aiEstimated, aiNotes: formState.aiNotes
               });
             } else if (libraryOnlyMode) {
               await FoodLogData.saveLibraryItem(userId, {
@@ -1026,7 +1026,7 @@
               var saveLibCb = _A.$('fl-save-library');
               if (saveLibCb && saveLibCb.checked) {
                 await FoodLogData.saveLibraryItem(userId, {
-                  name: formState.name, category: formState.category,
+                  name: formState.name, category: normCategory,
                   proteinPerServing: formState.protein, carbsPerServing: formState.carbs,
                   fatPerServing: formState.fat, caloriesPerServing: formState.calories,
                   fiberPerServing: formState.fiber, sodiumPerServing: formState.sodium
