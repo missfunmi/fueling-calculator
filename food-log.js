@@ -352,18 +352,20 @@
     // Form state
     var src = isLibraryEdit ? libItem : (isEdit ? entry : prefill);
     var formState = {
-      name:     src ? (isLibraryEdit ? src.name : src.name) : '',
-      protein:  src ? (isLibraryEdit ? src.proteinPerServing  : src.protein)  : (libraryOnlyMode ? null : 0),
-      carbs:    src ? (isLibraryEdit ? src.carbsPerServing    : src.carbs)    : (libraryOnlyMode ? null : 0),
-      fat:      src ? (isLibraryEdit ? src.fatPerServing      : src.fat)      : (libraryOnlyMode ? null : 0),
-      calories: src ? (isLibraryEdit ? src.caloriesPerServing : src.calories) : (libraryOnlyMode ? null : 0),
-      fiber:    src ? (isLibraryEdit ? src.fiberPerServing    : src.fiber)    : null,
-      sodium:   src ? (isLibraryEdit ? src.sodiumPerServing   : src.sodium)   : null,
-      category: src ? (src.category || 'Breakfast') : 'Breakfast',
-      loggedAt: isEdit ? entry.loggedAt : (state.date === todayStr() ? new Date().toISOString() : new Date(state.date + 'T12:00:00').toISOString()),
+      name:        src ? (isLibraryEdit ? src.name               : src.name)               : '',
+      brand:       src ? (isLibraryEdit ? (src.brand || '')       : '')                     : '',
+      category:    isLibraryForm ? (src ? (src.category || '') : '') : (src ? (src.category || 'Breakfast') : 'Breakfast'),
+      servingSize: src ? (isLibraryEdit ? (src.servingSize != null ? src.servingSize : '') : '') : '',
+      protein:     src ? (isLibraryEdit ? src.proteinPerServing   : src.protein)   : (libraryOnlyMode ? null : 0),
+      carbs:       src ? (isLibraryEdit ? src.carbsPerServing     : src.carbs)     : (libraryOnlyMode ? null : 0),
+      fat:         src ? (isLibraryEdit ? src.fatPerServing       : src.fat)       : (libraryOnlyMode ? null : 0),
+      calories:    src ? (isLibraryEdit ? src.caloriesPerServing  : src.calories)  : (libraryOnlyMode ? null : 0),
+      fiber:       src ? (isLibraryEdit ? src.fiberPerServing     : src.fiber)     : null,
+      sodium:      src ? (isLibraryEdit ? src.sodiumPerServing    : src.sodium)    : null,
+      loggedAt:    isEdit ? entry.loggedAt : (state.date === todayStr() ? new Date().toISOString() : new Date(state.date + 'T12:00:00').toISOString()),
       aiEstimated: isEdit ? entry.aiEstimated : false,
-      aiNotes:  isEdit ? entry.aiNotes   : null,
-      libraryItemId: isEdit ? entry.libraryItemId : (prefill ? prefill.libraryItemId : null),
+      aiNotes:     isEdit ? entry.aiNotes    : null,
+      libraryItemId:     isEdit ? entry.libraryItemId     : (prefill ? prefill.libraryItemId     : null),
       servingMultiplier: isEdit ? entry.servingMultiplier : (prefill ? prefill.servingMultiplier : 1.0)
     };
     var parsed = isEdit || isLibraryEdit || libraryOnlyMode || !!prefill;
@@ -382,8 +384,65 @@
 
     function estimatedBlockHTML() {
       if (!parsed) return '';
+
+      function macroRow(label, key, unit) {
+        var val = formState[key];
+        var display = val != null ? val : '';
+        return '<div class="fl-macro-edit-row">' +
+          '<span class="fl-macro-edit-label">' + label + '</span>' +
+          '<div class="fl-macro-edit-value-wrap">' +
+            '<input class="fl-macro-edit-value" type="number" min="0" data-macro="' + key + '" value="' + display + '" placeholder="—">' +
+            '<span class="fl-macro-edit-unit">' + unit + '</span>' +
+          '</div>' +
+        '</div>';
+      }
+
+      if (isLibraryForm) {
+        return '<div class="fl-estimated">' +
+          '<div class="fl-estimated-title">Item Details</div>' +
+          // Brand
+          '<div class="fl-macro-edit-row">' +
+            '<span class="fl-macro-edit-label">Brand</span>' +
+            '<div class="fl-macro-edit-value-wrap" style="flex:1;margin-left:16px">' +
+              '<input class="fl-macro-edit-value" type="text" data-macro="brand" value="' + _A.escHtml(formState.brand) + '" placeholder="optional" style="width:100%;text-align:left">' +
+            '</div>' +
+          '</div>' +
+          // Name
+          '<div class="fl-macro-edit-row">' +
+            '<span class="fl-macro-edit-label">Name</span>' +
+            '<div class="fl-macro-edit-value-wrap" style="flex:1;margin-left:16px">' +
+              '<input class="fl-macro-edit-value" type="text" data-macro="name" value="' + _A.escHtml(formState.name) + '" style="width:100%;text-align:left">' +
+            '</div>' +
+          '</div>' +
+          // Category
+          '<div class="fl-macro-edit-row">' +
+            '<span class="fl-macro-edit-label">Category</span>' +
+            '<div class="fl-macro-edit-value-wrap" style="flex:1;margin-left:16px">' +
+              '<input class="fl-macro-edit-value" type="text" data-macro="category" value="' + _A.escHtml(formState.category) + '" placeholder="optional" style="width:100%;text-align:left">' +
+            '</div>' +
+          '</div>' +
+          // Per serving block
+          '<div style="margin-top:8px;font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:6px">Per Serving</div>' +
+          // Serving size
+          '<div class="fl-macro-edit-row">' +
+            '<span class="fl-macro-edit-label">Size</span>' +
+            '<div class="fl-macro-edit-value-wrap">' +
+              '<input class="fl-macro-edit-value" type="number" min="0" data-macro="servingSize" value="' + (formState.servingSize !== '' ? formState.servingSize : '') + '" placeholder="—">' +
+              '<span class="fl-macro-edit-unit">g</span>' +
+            '</div>' +
+          '</div>' +
+          macroRow('Calories', 'calories', 'kcal') +
+          macroRow('Protein',  'protein',  'g') +
+          macroRow('Carbs',    'carbs',    'g') +
+          macroRow('Fat',      'fat',      'g') +
+          macroRow('Fiber',    'fiber',    'g') +
+          macroRow('Sodium',   'sodium',   'mg') +
+        '</div>';
+      }
+
+      // Non-library (log entry) form — unchanged layout
       return '<div class="fl-estimated">' +
-        '<div class="fl-estimated-title">' + (isLibraryForm ? 'Per Serving' : 'Estimated Macros') + '</div>' +
+        '<div class="fl-estimated-title">Estimated Macros</div>' +
         '<div class="fl-macro-edit-row">' +
           '<span class="fl-macro-edit-label">Name</span>' +
           '<div class="fl-macro-edit-value-wrap" style="flex:1;margin-left:16px">' +
@@ -459,7 +518,10 @@
       _A.$$('[data-macro]', $body).forEach(function (input) {
         _A.on(input, 'input', function () {
           var key = input.dataset.macro;
-          formState[key] = key === 'name' ? input.value : (parseFloat(input.value) || 0);
+          var strKeys = ['name', 'brand', 'category'];
+          formState[key] = strKeys.indexOf(key) !== -1
+            ? input.value
+            : (input.value === '' ? null : parseFloat(input.value));
         });
       });
 
@@ -514,8 +576,11 @@
             }
           try {
             if (isLibraryEdit) {
+              var normCategory = formState.category ? formState.category.trim().toLowerCase() : null;
               await FoodLogData.updateLibraryItem(userId, libItem.id, {
-                name: formState.name, category: formState.category,
+                name: formState.name, category: normCategory,
+                brand: formState.brand || null,
+                servingSize: (formState.servingSize !== '' && formState.servingSize != null) ? parseFloat(formState.servingSize) : null,
                 proteinPerServing: formState.protein, carbsPerServing: formState.carbs,
                 fatPerServing: formState.fat, caloriesPerServing: formState.calories,
                 fiberPerServing: formState.fiber, sodiumPerServing: formState.sodium
@@ -533,8 +598,11 @@
                 aiEstimated: formState.aiEstimated, aiNotes: formState.aiNotes
               });
             } else if (libraryOnlyMode) {
+              var normCategory = formState.category ? formState.category.trim().toLowerCase() : null;
               await FoodLogData.saveLibraryItem(userId, {
-                name: formState.name, category: formState.category,
+                name: formState.name, category: normCategory,
+                brand: formState.brand || null,
+                servingSize: (formState.servingSize !== '' && formState.servingSize != null) ? parseFloat(formState.servingSize) : null,
                 proteinPerServing: formState.protein, carbsPerServing: formState.carbs,
                 fatPerServing: formState.fat, caloriesPerServing: formState.calories,
                 fiberPerServing: formState.fiber, sodiumPerServing: formState.sodium
