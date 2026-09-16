@@ -14,7 +14,6 @@
     library: [],
     editingEntry: null,
     libraryOnlyMode: false,
-    prefillFromLibrary: null,
     renderGen: 0
   };
 
@@ -375,8 +374,6 @@
     var libItem = state.editingLibraryItem || null;
     var isLibraryEdit = !!libItem && !isEdit;
     if (isLibraryEdit) state.editingLibraryItem = null;
-    var prefill = (!isEdit && !isLibraryEdit && state.prefillFromLibrary) ? state.prefillFromLibrary : null;
-    if (prefill) state.prefillFromLibrary = null;
     var $body = _A.$('food-log-entry-body');
 
     // Title and delete button
@@ -386,7 +383,7 @@
     delBtn.style.display = (isEdit || isLibraryEdit) ? '' : 'none';
 
     // Form state
-    var src = isLibraryEdit ? libItem : (isEdit ? entry : prefill);
+    var src = isLibraryEdit ? libItem : (isEdit ? entry : null);
     var formState = {
       name:        src ? (isLibraryEdit ? src.name               : src.name)               : '',
       brand:       src ? (isLibraryEdit ? (src.brand || '')       : '')                     : '',
@@ -401,14 +398,14 @@
       loggedAt:    isEdit ? entry.loggedAt : (state.date === todayStr() ? new Date().toISOString() : new Date(state.date + 'T12:00:00').toISOString()),
       aiEstimated: isEdit ? entry.aiEstimated : false,
       aiNotes:     isEdit ? entry.aiNotes    : null,
-      libraryItemId:     isEdit ? entry.libraryItemId     : (prefill ? prefill.libraryItemId     : null),
-      servingMultiplier: isEdit ? entry.servingMultiplier : (prefill ? prefill.servingMultiplier : 1.0),
+      libraryItemId:     isEdit ? entry.libraryItemId     : null,
+      servingMultiplier: isEdit ? entry.servingMultiplier : 1.0,
       buildFreeform: ''
     };
     var buildComponents = []; // [{item, amountG}]
     var buildMode = false;    // true = Build tab active
     var postCalculate = null; // {name, protein, carbs, fat, calories, fiber, sodium, components} | null
-    var parsed = isEdit || isLibraryEdit || libraryOnlyMode || !!prefill;
+    var parsed = isEdit || isLibraryEdit || libraryOnlyMode;
 
     function macroEditRowHTML(label, key, unit) {
       var val = formState[key];
@@ -662,6 +659,8 @@
         _A.on(input, 'change', function () {
           var idx = parseInt(input.dataset.buildAmount, 10);
           buildComponents[idx].amountG = parseFloat(input.value) || 0;
+          postCalculate = null;
+          render();
         });
       });
 
@@ -681,6 +680,10 @@
         _A.on(buildFreeformEl, 'input', function () {
           formState.buildFreeform = buildFreeformEl.value;
         });
+        _A.on(buildFreeformEl, 'change', function () {
+          postCalculate = null;
+          render();
+        });
       }
 
       // Add from library button (Build mode)
@@ -691,7 +694,7 @@
           var sheetEl = document.createElement('div');
           sheetEl.innerHTML = pickerSheetHTML(state.library, selectedIds);
           var overlay = sheetEl.firstChild;
-          $body.appendChild(overlay);
+          ($body.firstElementChild || $body).appendChild(overlay);
 
           var currentSelected = selectedIds.slice();
 
@@ -865,9 +868,10 @@
         _A.on(input, 'input', function () {
           var key = input.dataset.macro;
           var strKeys = ['name', 'brand', 'category'];
+          var notNullKeys = ['protein', 'carbs', 'fat', 'calories'];
           formState[key] = strKeys.indexOf(key) !== -1
             ? input.value
-            : (input.value === '' ? null : parseFloat(input.value));
+            : (input.value === '' ? (notNullKeys.indexOf(key) !== -1 ? 0 : null) : parseFloat(input.value));
         });
       });
 
