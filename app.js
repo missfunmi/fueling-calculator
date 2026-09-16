@@ -274,11 +274,17 @@
       return;
     }
 
-    var newEventDesktopBtn = '<button class="btn-new-product-desktop" id="btn-new-event-desktop">+ New Event</button>';
+    function injectEventsFab() {
+      var existing = $('events-fab');
+      if (existing) existing.parentNode.removeChild(existing);
+      var viewEl = document.getElementById('view-events');
+      viewEl.insertAdjacentHTML('beforeend', '<button class="fl-fab" id="events-fab" aria-label="New event"><i class="ti ti-plus"></i></button>');
+      on($('events-fab'), 'click', function () { navigate('create', { currentEventId: null, currentEvent: null }); });
+    }
 
     if (!events.length) {
-      $list.innerHTML = newEventDesktopBtn + '<div class="empty-state"><div style="font-size:48px">🚴</div><p>No events yet.</p><p>Tap + to plan your first one.</p></div>';
-      on($('btn-new-event-desktop'), 'click', function () { navigate('create', { currentEventId: null, currentEvent: null }); });
+      $list.innerHTML = '<div class="empty-state"><div style="font-size:48px">🚴</div><p>No events yet.</p><p>Tap + to plan your first one.</p></div>';
+      injectEventsFab();
       _refreshClaimIndicator();
       return;
     }
@@ -346,9 +352,8 @@
       '</details>';
     }
 
-    $list.innerHTML = newEventDesktopBtn + html;
-
-    on($('btn-new-event-desktop'), 'click', function () { navigate('create', { currentEventId: null, currentEvent: null }); });
+    $list.innerHTML = html;
+    injectEventsFab();
 
     $list.querySelectorAll('.event-card').forEach(function (card) {
       on(card, 'click', function () {
@@ -390,10 +395,6 @@
     var btn = $('btn-find-data');
     if (btn) { btn.disabled = false; btn.textContent = 'Find my data'; }
   };
-
-  on($('btn-new-event'), 'click', function () {
-    navigate('create', { currentEventId: null });
-  });
 
   // ── Create / Edit event ────────────────────────────────────────────────────
 
@@ -2138,15 +2139,6 @@
       '<div id="lib-pane-fuel"></div>' +
       '<div id="lib-pane-food" style="display:none"></div>';
 
-    // Toggle mobile header buttons based on active sub-tab
-    function updateLibHeaderBtns(tab) {
-      var fuelBtn = $('btn-new-product');
-      var foodBtn = $('btn-new-food-item');
-      if (fuelBtn) fuelBtn.style.display = tab === 'fuel' ? '' : 'none';
-      if (foodBtn) foodBtn.style.display = tab === 'food' ? '' : 'none';
-    }
-    updateLibHeaderBtns('fuel');
-
     // Wire sub-tab switching
     $$('.fl-lib-tab', $body).forEach(function (btn) {
       on(btn, 'click', function () {
@@ -2154,14 +2146,25 @@
         btn.classList.add('active');
         $('lib-pane-fuel').style.display = btn.dataset.libTab === 'fuel' ? '' : 'none';
         $('lib-pane-food').style.display = btn.dataset.libTab === 'food' ? '' : 'none';
-        updateLibHeaderBtns(btn.dataset.libTab);
       });
     });
 
-    // Mobile header button for adding a food item
-    on($('btn-new-food-item'), 'click', function () {
-      if (window.FoodLog) window.FoodLog.newFoodItem();
-    });
+    // Inject library FAB
+    (function () {
+      var existing = $('lib-fab');
+      if (existing) existing.parentNode.removeChild(existing);
+      var viewEl = document.getElementById('view-library');
+      viewEl.insertAdjacentHTML('beforeend', '<button class="fl-fab" id="lib-fab" aria-label="New item"><i class="ti ti-plus"></i></button>');
+      on($('lib-fab'), 'click', function () {
+        var activeTab = $$('.fl-lib-tab.active', $body)[0];
+        var tab = activeTab ? activeTab.dataset.libTab : 'fuel';
+        if (tab === 'food') {
+          if (window.FoodLog) window.FoodLog.newFoodItem();
+        } else {
+          navigate('product-form', { editingProductId: null });
+        }
+      });
+    }());
 
     // Render food library pane (food-log.js registers this)
     if (window.FoodLog && window.FoodLog.renderFoodLibraryPane) {
@@ -2181,12 +2184,8 @@
       return;
     }
 
-    var desktopBtn = '<button class="btn-new-product-desktop" id="btn-new-product-desktop">+ New Product</button>';
-
     if (!products.length) {
-      $fuel.innerHTML = desktopBtn + '<div class="empty-state"><div style="font-size:48px">📦</div><p>No products yet.</p><p>Tap + to add your first product.</p></div>';
-      var dbtn = $('btn-new-product-desktop');
-      if (dbtn) on(dbtn, 'click', function () { navigate('product-form', { editingProductId: null }); });
+      $fuel.innerHTML = '<div class="empty-state"><div style="font-size:48px">📦</div><p>No products yet.</p><p>Tap + to add your first product.</p></div>';
       return;
     }
 
@@ -2209,7 +2208,7 @@
       Object.keys(groups).filter(function (t) { return TYPE_ORDER.indexOf(t) === -1; }).sort()
     ).filter(function (t) { return groups[t]; });
 
-    $fuel.innerHTML = desktopBtn + types.map(function (type) {
+    $fuel.innerHTML = types.map(function (type) {
       return '<div class="product-group">' +
         '<div class="product-group-title">' + escHtml(TYPE_LABELS[type] || type) + 's</div>' +
         groups[type].map(function (p) {
@@ -2234,8 +2233,6 @@
       });
     });
 
-    var dbtn = $('btn-new-product-desktop');
-    if (dbtn) on(dbtn, 'click', function () { navigate('product-form', { editingProductId: null }); });
   }
 
   async function renderSettings() {
@@ -2250,7 +2247,7 @@
     targetsSection.style.cssText = 'margin-top:16px';
     targetsSection.innerHTML =
       '<div class="form-card" style="margin-top:0">' +
-        '<p style="margin:0 0 12px;font-weight:600">Daily Targets</p>' +
+        '<p style="margin:0 0 12px;font-weight:600">Food Log Targets</p>' +
         '<p style="margin:0 0 12px;font-size:14px;color:var(--text-secondary)">Leave a field blank to hide its progress bar in the Food Log.</p>' +
         '<div id="settings-targets-rows" style="border:1px solid var(--border);border-radius:var(--radius-md)">' +
           '<div style="padding:16px;color:var(--text-tertiary);font-size:14px">Loading…</div>' +
@@ -2313,12 +2310,13 @@
       var curInterval = Data.getDefaultExecInterval();
       planSection.innerHTML =
         '<div class="form-card" style="margin-top:16px">' +
-          '<p style="margin:0 0 8px;font-weight:600">Execution plan</p>' +
-          '<label style="display:flex;align-items:center;gap:10px;font-size:14px">' +
-            'Default step interval (minutes)' +
-            '<input id="settings-exec-interval" type="number" min="1" max="120" value="' + curInterval + '" ' +
-              'style="width:64px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text-primary);font-size:14px">' +
-          '</label>' +
+          '<p style="margin:0 0 8px;font-weight:600">Event Execution Plan</p>' +
+          '<div style="border:1px solid var(--border);border-radius:var(--radius-md)">' +
+            '<div class="fl-target-row">' +
+              '<span class="fl-targets-label">Default step interval (minutes)</span>' +
+              '<input id="settings-exec-interval" class="fl-targets-input" type="number" min="1" max="120" value="' + curInterval + '">' +
+            '</div>' +
+          '</div>' +
         '</div>';
       var intervalInput = $('settings-exec-interval');
       if (intervalInput) {
@@ -2364,10 +2362,6 @@
 
   renders.library = renderLibrary;
   renders.settings = renderSettings;
-
-  on($('btn-new-product'), 'click', function () {
-    navigate('product-form', { editingProductId: null });
-  });
 
   // ── Product form ──────────────────────────────────────────────────────────────
 

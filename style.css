@@ -796,6 +796,11 @@ input[type="date"].form-input {
     gap: 2px;
   }
 
+  #btn-settings-nav {
+    background: transparent;
+    margin-left: 8px;
+  }
+
   .top-nav-link {
     display: inline-flex;
     align-items: center;
@@ -1505,7 +1510,17 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   font-weight: 500;
   color: var(--text);
 }
-.fl-date-caret { font-size: 11px; color: var(--text-tertiary); }
+.fl-date-caret { font-size: 13px; color: var(--text-tertiary); }
+.fl-today-jump {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 
 /* Progress section */
 .fl-progress {

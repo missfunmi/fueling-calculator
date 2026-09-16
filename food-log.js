@@ -110,10 +110,12 @@
     return '<div class="fl-date-nav">' +
       '<button class="fl-date-nav-btn" id="fl-btn-prev">&#8249;</button>' +
       '<div class="fl-date-center">' +
-        (!isToday ? '<button class="fl-today-jump" id="fl-btn-today">Jump to today</button>' : '') +
+        (isToday
+          ? '<span class="fl-today-label">Today</span>'
+          : '<button class="fl-today-jump" id="fl-btn-today">Jump to today</button>') +
         '<label class="fl-date-label-wrap" for="fl-date-picker" style="cursor:pointer;display:flex;align-items:center;gap:4px">' +
           '<span class="fl-date-label">' + _A.escHtml(fmtDate(date)) + '</span>' +
-          '<span class="fl-date-caret">&#9662;</span>' +
+          '<span class="fl-date-caret"><i class="ti ti-chevron-down"></i></span>' +
         '</label>' +
         '<input type="date" id="fl-date-picker" value="' + date + '" max="' + todayStr() + '" ' +
           'style="position:absolute;opacity:0;pointer-events:none;width:0;height:0">' +
@@ -262,19 +264,12 @@
       return;
     }
 
-    var addBtn = '<button id="fl-lib-add-btn" class="btn-new-product-desktop">+ New Food Item</button>';
-
     if (!items.length) {
-      paneEl.innerHTML = addBtn + '<div style="padding:32px 16px;text-align:center;color:var(--text-tertiary);font-size:14px">No food items yet.</div>';
-      _A.on(_A.$('fl-lib-add-btn'), 'click', function () {
-        state.editingEntry = null;
-        state.libraryOnlyMode = true;
-        _A.navigate('food-log-entry');
-      });
+      paneEl.innerHTML = '<div style="padding:32px 16px;text-align:center;color:var(--text-tertiary);font-size:14px">No food items yet.</div>';
       return;
     }
 
-    paneEl.innerHTML = addBtn + items.map(function (item) {
+    paneEl.innerHTML = items.map(function (item) {
       var meta = [item.caloriesPerServing + ' kcal', item.proteinPerServing + 'g pro'];
       if (item.fiberPerServing != null) meta.push(item.fiberPerServing + 'g fiber');
       return '<div class="fl-lib-item" data-lib-id="' + item.id + '">' +
@@ -285,12 +280,6 @@
         '<button class="fl-lib-use-btn" data-use-id="' + item.id + '">Use</button>' +
       '</div>';
     }).join('');
-
-    _A.on(_A.$('fl-lib-add-btn'), 'click', function () {
-      state.editingEntry = null;
-      state.libraryOnlyMode = true;
-      _A.navigate('food-log-entry');
-    });
 
     _A.$$('.fl-lib-use-btn', paneEl).forEach(function (btn) {
       _A.on(btn, 'click', function (e) {
