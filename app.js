@@ -2373,7 +2373,7 @@
       product = products.find(function (p) { return p.id === state.editingProductId; }) || null;
     }
 
-    $('pf-title').textContent             = isEdit ? 'Edit Product' : 'New Product';
+    $('pf-title').textContent             = isEdit ? 'Edit Fuel Item' : 'New Fuel Item';
     $('btn-delete-product').style.display = isEdit ? '' : 'none';
     $('pf-brand').value    = product ? (product.brand    || '') : '';
     $('pf-name').value     = product ? product.name           : '';
