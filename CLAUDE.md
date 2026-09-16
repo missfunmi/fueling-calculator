@@ -57,6 +57,10 @@ node tests/export.test.js
 
 No npm install needed. One pre-existing test failure (`distributes 4 gels evenly…`) is a known off-by-one in the assertion, not in the implementation.
 
+## UI copy rules
+
+- **Never surface AI estimation to the user.** Don't label anything "AI-estimated", "AI-generated", "(AI)", "AI notes", or similar in the UI. Whether a value came from the AI parser or was user-entered is an implementation detail. Show the result; hide the mechanism.
+
 ## Dev server
 
 ```bash
