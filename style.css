@@ -1878,3 +1878,277 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   font-weight: 600;
   cursor: pointer;
 }
+
+/* ── Food log: Build mode ───────────────────────────────────────────────────── */
+.fl-mode-tabs {
+  display: flex;
+  background: var(--surface-2);
+  border-radius: var(--radius-md);
+  padding: 3px;
+  margin: 10px 16px 0;
+  gap: 2px;
+}
+.fl-mode-tab {
+  flex: 1;
+  padding: 7px 8px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--text-secondary);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.fl-mode-tab.active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+/* ── Build mode: component list ─────────────────────────────────────────────── */
+.fl-component-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 16px;
+}
+.fl-component-row {
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.fl-component-color {
+  width: 3px;
+  height: 28px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.fl-component-info { flex: 1; min-width: 0; }
+.fl-component-name {
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fl-component-sub { font-size: 11px; color: var(--text-tertiary); margin-top: 1px; }
+.fl-component-amount-wrap { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.fl-component-amount {
+  width: 56px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 12px;
+  text-align: right;
+  color: var(--text);
+}
+.fl-component-unit { font-size: 11px; color: var(--text-tertiary); }
+.fl-component-remove {
+  font-size: 18px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+  padding: 0 2px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.fl-add-from-lib-btn {
+  margin: 6px 16px 0;
+  background: rgba(26, 26, 46, 0.08);
+  color: var(--accent);
+  border-radius: var(--radius-sm);
+  padding: 9px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ── Build mode: estimated totals ───────────────────────────────────────────── */
+.fl-estimated-block {
+  margin: 8px 16px 0;
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  padding: 12px;
+}
+.fl-estimated-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-bottom: 10px;
+}
+.fl-estimated-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.fl-estimated-name-label { font-size: 12px; color: var(--text-secondary); flex-shrink: 0; width: 40px; }
+.fl-estimated-name-input {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 13px;
+  color: var(--text);
+}
+.fl-estimated-macros {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+.fl-estimated-macro { text-align: center; }
+.fl-estimated-macro-val {
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.fl-estimated-macro-label {
+  font-size: 9px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 1px;
+}
+
+/* ── Picker sheet ───────────────────────────────────────────────────────────── */
+.fl-sheet-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 50;
+  display: flex;
+  align-items: flex-end;
+}
+.fl-sheet {
+  background: var(--bg);
+  border-radius: 20px 20px 0 0;
+  width: 100%;
+  max-height: 75%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.fl-sheet-handle {
+  width: 36px;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  margin: 10px auto 0;
+  flex-shrink: 0;
+}
+.fl-sheet-header {
+  padding: 10px 16px 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.fl-sheet-title { font-size: 15px; font-weight: 600; flex: 1; }
+.fl-sheet-count { font-size: 12px; color: var(--text-tertiary); }
+.fl-sheet-search {
+  margin: 0 16px 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-size: 13px;
+  color: var(--text);
+  width: calc(100% - 32px);
+  flex-shrink: 0;
+}
+.fl-sheet-list {
+  overflow-y: auto;
+  flex: 1;
+  padding: 0 16px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.fl-sheet-list::-webkit-scrollbar { display: none; }
+.fl-picker-row {
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.fl-picker-check {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.fl-picker-check.checked { background: var(--accent); border-color: var(--accent); }
+.fl-picker-check.checked::after {
+  content: '✓';
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent-fg);
+}
+.fl-picker-info { flex: 1; min-width: 0; }
+.fl-picker-name { font-size: 13px; font-weight: 500; }
+.fl-picker-brand { font-size: 11px; color: var(--text-tertiary); }
+.fl-picker-macros { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+.fl-sheet-confirm-btn {
+  margin: 4px 16px 12px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.fl-sheet-confirm-btn:disabled,
+.fl-sheet-confirm-btn[disabled] { opacity: 0.4; pointer-events: none; }
+
+/* ── Timeline: component pills ──────────────────────────────────────────────── */
+.fl-entry-components {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 5px;
+}
+.fl-component-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--surface);
+  border-radius: 6px;
+  padding: 3px 7px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+.fl-component-pill-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.fl-entry-expand {
+  font-size: 11px;
+  color: var(--accent);
+  margin-top: 4px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
