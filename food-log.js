@@ -258,6 +258,12 @@
 
   // ── Food library pane ────────────────────────────────────────────────────────
 
+  function _titleCase(str) {
+    return str.split(' ').map(function (w) {
+      return w.charAt(0).toUpperCase() + w.slice(1);
+    }).join(' ');
+  }
+
   async function renderFoodLibraryPane(paneEl) {
     if (!paneEl) return;
     paneEl.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-tertiary)">Loading…</div>';
@@ -271,44 +277,47 @@
       return;
     }
 
+    state.library = items;
+
     if (!items.length) {
-      paneEl.innerHTML = '<div style="padding:32px 16px;text-align:center;color:var(--text-tertiary);font-size:14px">No food items yet.</div>';
+      paneEl.innerHTML = '<div style="padding:32px 16px;text-align:center;color:var(--text-tertiary);font-size:14px">No food items yet. Tap + to add your first item.</div>';
       return;
     }
 
-    paneEl.innerHTML = items.map(function (item) {
-      var meta = [item.caloriesPerServing + ' kcal', item.proteinPerServing + 'g protein'];
-      if (item.fiberPerServing != null) meta.push(item.fiberPerServing + 'g fiber');
-      return '<div class="fl-lib-item" data-lib-id="' + item.id + '">' +
-        '<div class="fl-lib-item-info">' +
-          '<div class="fl-lib-item-name">' + _A.escHtml(item.name) + '</div>' +
-          '<div class="fl-lib-item-meta">' + meta.join(' · ') + (item.servingUnit ? ' per ' + _A.escHtml(item.servingUnit) : '') + '</div>' +
-        '</div>' +
-        '<button class="fl-lib-use-btn" data-use-id="' + item.id + '">Use</button>' +
+    // Group by category (title-cased); uncategorised → 'Other' (sorted last)
+    var groups = {};
+    items.forEach(function (item) {
+      var key = item.category ? _titleCase(item.category) : 'Other';
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(item);
+    });
+    var sortedKeys = Object.keys(groups).filter(function (k) { return k !== 'Other'; }).sort();
+    if (groups['Other']) sortedKeys.push('Other');
+
+    paneEl.innerHTML = sortedKeys.map(function (key) {
+      return '<div class="product-group">' +
+        '<div class="product-group-title">' + _A.escHtml(key) + '</div>' +
+        groups[key].map(function (item) {
+          var fullName = (item.brand ? item.brand + ' ' : '') + item.name;
+          var meta = [];
+          if (item.caloriesPerServing) meta.push(item.caloriesPerServing + ' kcal');
+          if (item.proteinPerServing)  meta.push(item.proteinPerServing  + 'g protein');
+          if (item.carbsPerServing)    meta.push(item.carbsPerServing    + 'g carbs');
+          var suffix = item.servingSize
+            ? ' per ' + item.servingSize + 'g'
+            : (item.servingUnit ? ' per ' + _A.escHtml(item.servingUnit) : '');
+          return '<div class="product-row" data-lib-id="' + item.id + '">' +
+            '<div class="product-row-info">' +
+              '<div class="product-row-name">' + _A.escHtml(fullName) + '</div>' +
+              '<div class="product-row-meta">' + meta.join(' · ') + suffix + '</div>' +
+            '</div>' +
+            '<span style="color:var(--text-tertiary);font-size:20px">&#8250;</span>' +
+          '</div>';
+        }).join('') +
       '</div>';
     }).join('');
 
-    _A.$$('.fl-lib-use-btn', paneEl).forEach(function (btn) {
-      _A.on(btn, 'click', function (e) {
-        e.stopPropagation();
-        var id = btn.dataset.useId;
-        var item = items.filter(function (i) { return i.id === id; })[0];
-        if (!item) return;
-        state.editingEntry = null;
-        state.editingLibraryItem = null;
-        state.prefillFromLibrary = {
-          name: item.name, category: item.category || 'Snack',
-          protein: item.proteinPerServing, carbs: item.carbsPerServing,
-          fat: item.fatPerServing, calories: item.caloriesPerServing,
-          fiber: item.fiberPerServing, sodium: item.sodiumPerServing,
-          libraryItemId: item.id, servingMultiplier: 1.0,
-          aiEstimated: false, aiNotes: null
-        };
-        _A.navigate('food-log-entry');
-      });
-    });
-
-    _A.$$('.fl-lib-item', paneEl).forEach(function (row) {
+    _A.$$('.product-row', paneEl).forEach(function (row) {
       _A.on(row, 'click', function () {
         var id = row.dataset.libId;
         var item = items.filter(function (i) { return i.id === id; })[0];
