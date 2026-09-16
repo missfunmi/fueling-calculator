@@ -824,7 +824,6 @@
         _A.on(calcBtn, 'click', async function () {
           if (isCalculating) return;
           if (!buildComponents.length && !(formState.buildFreeform || '').trim()) return;
-          isCalculating = true;
           calcBtn.disabled = true;
           calcBtn.textContent = 'Calculating…';
 
@@ -836,6 +835,7 @@
           var freeformTextarea = _A.$('fl-build-freeform');
           if (freeformTextarea) freeformTextarea.disabled = true;
           try {
+            isCalculating = true;
             var parsedResult = null;
             if (freeText) {
               parsedResult = await FoodLogData.parseMeal(freeText, state.library);
@@ -947,9 +947,13 @@
         _A.on(input, 'input', function () {
           var key = input.dataset.macro;
           var strKeys = ['name', 'brand', 'category'];
+          // food_logs.protein/carbs/fat/calories are NOT NULL — coerce cleared
+          // fields to 0 for log-entry forms; library items allow null (unknown).
+          var logNonNullKeys = ['protein', 'carbs', 'fat', 'calories'];
+          var nullOnClear = isLibraryForm || logNonNullKeys.indexOf(key) === -1;
           formState[key] = strKeys.indexOf(key) !== -1
             ? input.value
-            : (input.value === '' ? null : parseFloat(input.value));
+            : (input.value === '' ? (nullOnClear ? null : 0) : parseFloat(input.value));
         });
       });
 
@@ -1037,9 +1041,8 @@
               var hasAnyMacro = ['protein','carbs','fat','calories'].some(function (k) { return formState[k] != null && formState[k] > 0; });
               if (!formState.name.trim()) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; alert('Please enter a name.'); return; }
               if (!hasAnyMacro) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; alert('Please enter at least one macro value.'); return; }
-              var hasMacros = ['protein','carbs','fat','calories','fiber','sodium'].some(function (k) { return formState[k] != null; });
               var hasServingSize = formState.servingSize !== '' && formState.servingSize != null && parseFloat(formState.servingSize) > 0;
-              if (hasMacros && !hasServingSize) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; alert('Serving size (g) is required when macros are set.'); return; }
+              if (!hasServingSize) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; alert('Serving size (g) is required when macros are set.'); return; }
             }
           try {
             var normCategory = formState.category ? formState.category.trim().toLowerCase() : null;
