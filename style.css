@@ -808,6 +808,7 @@ input[type="date"].form-input {
     /* reset mobile tab-btn styles */
     flex-direction: row;
     gap: 0;
+    white-space: nowrap;
   }
 
   .top-nav-link:hover {
@@ -844,7 +845,8 @@ input[type="date"].form-input {
 
   /* Hide per-view headers on list views — top nav handles navigation */
   #view-events .app-header,
-  #view-library .app-header { display: none; }
+  #view-library .app-header,
+  #view-food-log .app-header { display: none; }
 
   /* Show top-nav gear, hide in-header gear icons (redundant on desktop) */
   #btn-settings-nav { display: flex; }
@@ -1772,16 +1774,18 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 }
 
 /* Targets form */
-.fl-targets-grid {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 8px 16px;
+.fl-target-row {
+  display: flex;
   align-items: center;
-  padding: 16px;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
 }
+.fl-target-row:last-of-type { border-bottom: none; }
 .fl-targets-label { font-size: 14px; color: var(--text); }
 .fl-targets-input {
-  width: 88px;
+  width: 100px;
   padding: 6px 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);

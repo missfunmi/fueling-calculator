@@ -274,8 +274,11 @@
       return;
     }
 
+    var newEventDesktopBtn = '<button class="btn-new-product-desktop" id="btn-new-event-desktop">+ New Event</button>';
+
     if (!events.length) {
-      $list.innerHTML = '<div class="empty-state"><div style="font-size:48px">🚴</div><p>No events yet.</p><p>Tap + to plan your first one.</p></div>';
+      $list.innerHTML = newEventDesktopBtn + '<div class="empty-state"><div style="font-size:48px">🚴</div><p>No events yet.</p><p>Tap + to plan your first one.</p></div>';
+      on($('btn-new-event-desktop'), 'click', function () { navigate('create', { currentEventId: null, currentEvent: null }); });
       _refreshClaimIndicator();
       return;
     }
@@ -343,7 +346,9 @@
       '</details>';
     }
 
-    $list.innerHTML = html;
+    $list.innerHTML = newEventDesktopBtn + html;
+
+    on($('btn-new-event-desktop'), 'click', function () { navigate('create', { currentEventId: null, currentEvent: null }); });
 
     $list.querySelectorAll('.event-card').forEach(function (card) {
       on(card, 'click', function () {
@@ -387,10 +392,6 @@
   };
 
   on($('btn-new-event'), 'click', function () {
-    navigate('create', { currentEventId: null });
-  });
-
-  on($('btn-new-event-nav'), 'click', function () {
     navigate('create', { currentEventId: null });
   });
 
@@ -2137,6 +2138,15 @@
       '<div id="lib-pane-fuel"></div>' +
       '<div id="lib-pane-food" style="display:none"></div>';
 
+    // Toggle mobile header buttons based on active sub-tab
+    function updateLibHeaderBtns(tab) {
+      var fuelBtn = $('btn-new-product');
+      var foodBtn = $('btn-new-food-item');
+      if (fuelBtn) fuelBtn.style.display = tab === 'fuel' ? '' : 'none';
+      if (foodBtn) foodBtn.style.display = tab === 'food' ? '' : 'none';
+    }
+    updateLibHeaderBtns('fuel');
+
     // Wire sub-tab switching
     $$('.fl-lib-tab', $body).forEach(function (btn) {
       on(btn, 'click', function () {
@@ -2144,7 +2154,13 @@
         btn.classList.add('active');
         $('lib-pane-fuel').style.display = btn.dataset.libTab === 'fuel' ? '' : 'none';
         $('lib-pane-food').style.display = btn.dataset.libTab === 'food' ? '' : 'none';
+        updateLibHeaderBtns(btn.dataset.libTab);
       });
+    });
+
+    // Mobile header button for adding a food item
+    on($('btn-new-food-item'), 'click', function () {
+      if (window.FoodLog) window.FoodLog.newFoodItem();
     });
 
     // Render food library pane (food-log.js registers this)
@@ -2222,8 +2238,74 @@
     if (dbtn) on(dbtn, 'click', function () { navigate('product-form', { editingProductId: null }); });
   }
 
-  function renderSettings() {
+  async function renderSettings() {
     var isAnonymous = localStorage.getItem('fuelPlanner.isAnonymous') === 'true';
+    var userId = localStorage.getItem('fuelPlanner.userId');
+
+    // ── Food log daily targets ─────────────────────────────────────────────────
+    var existingTargetsSection = $('settings-targets-section');
+    if (existingTargetsSection) existingTargetsSection.parentNode.removeChild(existingTargetsSection);
+    var targetsSection = document.createElement('div');
+    targetsSection.id = 'settings-targets-section';
+    targetsSection.style.cssText = 'margin-top:16px';
+    targetsSection.innerHTML =
+      '<div class="form-card" style="margin-top:0">' +
+        '<p style="margin:0 0 12px;font-weight:600">Daily Targets</p>' +
+        '<p style="margin:0 0 12px;font-size:14px;color:var(--text-secondary)">Leave a field blank to hide its progress bar in the Food Log.</p>' +
+        '<div id="settings-targets-rows" style="border:1px solid var(--border);border-radius:var(--radius-md)">' +
+          '<div style="padding:16px;color:var(--text-tertiary);font-size:14px">Loading…</div>' +
+        '</div>' +
+        '<div style="margin-top:12px">' +
+          '<button id="settings-targets-save" class="btn-primary" style="width:100%">Save targets</button>' +
+        '</div>' +
+      '</div>';
+    var planEl = $('settings-plan-section');
+    if (planEl) planEl.parentNode.insertBefore(targetsSection, planEl);
+
+    if (userId) {
+      var targets = {};
+      try { targets = (await (window.FoodLogData && window.FoodLogData.getTargets(userId))) || {}; } catch (e) {}
+      var keys = [
+        { key: 'caloriesTarget', label: 'Calories', placeholder: 'kcal/day' },
+        { key: 'proteinTarget',  label: 'Protein',  placeholder: 'g/day' },
+        { key: 'carbsTarget',    label: 'Carbs',    placeholder: 'g/day' },
+        { key: 'fatTarget',      label: 'Fat',      placeholder: 'g/day' },
+        { key: 'fiberTarget',    label: 'Fiber',    placeholder: 'g/day' },
+        { key: 'sodiumTarget',   label: 'Sodium',   placeholder: 'mg/day' }
+      ];
+      var rowsEl = $('settings-targets-rows');
+      if (rowsEl) {
+        rowsEl.innerHTML = keys.map(function (f) {
+          var val = targets[f.key] != null ? targets[f.key] : '';
+          return '<div class="fl-target-row">' +
+            '<span class="fl-targets-label">' + f.label + '</span>' +
+            '<input class="fl-targets-input" type="number" min="0" data-tkey="' + f.key + '" value="' + val + '" placeholder="' + f.placeholder + '">' +
+          '</div>';
+        }).join('');
+      }
+    }
+
+    var saveTargetsBtn = $('settings-targets-save');
+    if (saveTargetsBtn && userId) {
+      on(saveTargetsBtn, 'click', async function () {
+        saveTargetsBtn.disabled = true;
+        saveTargetsBtn.textContent = 'Saving…';
+        var updated = {};
+        $$('[data-tkey]').forEach(function (inp) {
+          var val = inp.value.trim();
+          updated[inp.dataset.tkey] = val !== '' ? Math.max(0, parseFloat(val) || 0) : null;
+        });
+        try {
+          await window.FoodLogData.saveTargets(userId, updated);
+          showToast('Targets saved.');
+        } catch (e) {
+          showToast("Couldn't save targets — check your connection.");
+        } finally {
+          saveTargetsBtn.disabled = false;
+          saveTargetsBtn.textContent = 'Save targets';
+        }
+      });
+    }
 
     // ── Plan settings ──────────────────────────────────────────────────────────
     var planSection = $('settings-plan-section');

@@ -97,7 +97,7 @@
       macroRowHTML('Carbs',   carb, carbTarget, 'var(--m-carbs)',   'g'),
       macroRowHTML('Fat',     fat,  fatTarget,  'var(--m-fat)',     'g')
     ];
-    if (fib !== null) rows.push(macroRowHTML('Fiber', fib, fibTarget, 'var(--m-fiber)', 'g'));
+    if (fib !== null || fibTarget) rows.push(macroRowHTML('Fiber', fib != null ? fib : 0, fibTarget, 'var(--m-fiber)', 'g'));
     if (sod !== null) rows.push(macroRowHTML('Sodium', sod, null, 'var(--m-sodium)', 'mg'));
 
     return '<div class="fl-progress">' + calBarHTML() + rows.join('') + '</div>';
@@ -109,10 +109,14 @@
     var isToday = date === todayStr();
     return '<div class="fl-date-nav">' +
       '<button class="fl-date-nav-btn" id="fl-btn-prev">&#8249;</button>' +
-      '<div class="fl-date-center" id="fl-btn-today">' +
-        (isToday ? '<span class="fl-today-label">Today</span>' : '<span class="fl-today-label" style="color:var(--text-tertiary)">Jump to today</span>') +
-        '<span class="fl-date-label">' + _A.escHtml(fmtDate(date)) + '</span>' +
-        '<span class="fl-date-caret">&#9662;</span>' +
+      '<div class="fl-date-center">' +
+        (!isToday ? '<button class="fl-today-jump" id="fl-btn-today">Jump to today</button>' : '') +
+        '<label class="fl-date-label-wrap" for="fl-date-picker" style="cursor:pointer;display:flex;align-items:center;gap:4px">' +
+          '<span class="fl-date-label">' + _A.escHtml(fmtDate(date)) + '</span>' +
+          '<span class="fl-date-caret">&#9662;</span>' +
+        '</label>' +
+        '<input type="date" id="fl-date-picker" value="' + date + '" max="' + todayStr() + '" ' +
+          'style="position:absolute;opacity:0;pointer-events:none;width:0;height:0">' +
       '</div>' +
       '<button class="fl-date-nav-btn" id="fl-btn-next" ' + (isToday ? 'disabled style="opacity:0.3"' : '') + '>&#8250;</button>' +
     '</div>';
@@ -198,14 +202,33 @@
         renderFoodLog();
       }
     });
-    _A.on(_A.$('fl-btn-today'), 'click', function () {
-      state.date = todayStr();
-      renderFoodLog();
-    });
+    var btnToday = _A.$('fl-btn-today');
+    if (btnToday) {
+      _A.on(btnToday, 'click', function () {
+        state.date = todayStr();
+        renderFoodLog();
+      });
+    }
 
-    // Gear icon → targets (onclick replaces handler on each render)
+    // Date label click → open date picker
+    var datePicker = _A.$('fl-date-picker');
+    var dateWrap = _A.$$('.fl-date-label-wrap', $body)[0];
+    if (dateWrap && datePicker) {
+      _A.on(dateWrap, 'click', function () {
+        try { datePicker.showPicker(); } catch (e) { datePicker.focus(); }
+      });
+      _A.on(datePicker, 'change', function () {
+        if (datePicker.value && datePicker.value <= todayStr()) {
+          state.date = datePicker.value;
+          renderFoodLog();
+        }
+      });
+    }
+
+    // Gear icon → settings (onclick replaces handler on each render)
     _A.$('btn-food-log-targets').onclick = function () {
-      _A.navigate('food-log-targets');
+      _A.state.settingsReturnView = 'food-log';
+      _A.navigate('settings');
     };
 
     // FAB → new entry
@@ -239,7 +262,7 @@
       return;
     }
 
-    var addBtn = '<button id="fl-lib-add-btn" style="margin:16px;padding:10px 16px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-md);font-size:14px;font-weight:600;cursor:pointer;width:calc(100% - 32px)">+ Add food item</button>';
+    var addBtn = '<button id="fl-lib-add-btn" class="btn-new-product-desktop">+ New Food Item</button>';
 
     if (!items.length) {
       paneEl.innerHTML = addBtn + '<div style="padding:32px 16px;text-align:center;color:var(--text-tertiary);font-size:14px">No food items yet.</div>';
@@ -549,15 +572,15 @@
 
     function inputRow(label, key, placeholder) {
       var val = targets[key] != null ? targets[key] : '';
-      return '<div style="display:contents">' +
+      return '<div class="fl-target-row">' +
         '<span class="fl-targets-label">' + label + '</span>' +
         '<input class="fl-targets-input" type="number" min="0" data-key="' + key + '" value="' + val + '" placeholder="' + placeholder + '">' +
       '</div>';
     }
 
     $body.innerHTML =
-      '<p style="padding:16px 16px 0;font-size:14px;color:var(--text-secondary)">Leave a field blank to hide its progress bar.</p>' +
-      '<div class="fl-targets-grid">' +
+      '<p style="padding:16px 16px 8px;font-size:14px;color:var(--text-secondary)">Leave a field blank to hide its progress bar.</p>' +
+      '<div style="border:1px solid var(--border);border-radius:var(--radius-md);margin:0 16px">' +
         inputRow('Calories', 'caloriesTarget', 'kcal/day') +
         inputRow('Protein',  'proteinTarget',  'g/day') +
         inputRow('Carbs',    'carbsTarget',    'g/day') +
@@ -577,7 +600,7 @@
       var updated = {};
       _A.$$('[data-key]', $body).forEach(function (input) {
         var val = input.value.trim();
-        updated[input.dataset.key] = val !== '' ? parseFloat(val) : null;
+        updated[input.dataset.key] = val !== '' ? Math.max(0, parseFloat(val) || 0) : null;
       });
 
       try {
@@ -604,6 +627,11 @@
 
   window.FoodLog = {
     renderFoodLog: renderFoodLog,
-    renderFoodLibraryPane: renderFoodLibraryPane
+    renderFoodLibraryPane: renderFoodLibraryPane,
+    newFoodItem: function () {
+      state.editingEntry = null;
+      state.libraryOnlyMode = true;
+      _A.navigate('food-log-entry');
+    }
   };
 })();
