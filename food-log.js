@@ -499,8 +499,8 @@
       var componentRows = buildComponents.map(function (bc, i) {
         var color = COMPONENT_COLORS[i % COMPONENT_COLORS.length];
         var sub = [
-          bc.item.caloriesPerServing + ' kcal',
-          bc.item.proteinPerServing + 'g P'
+          (bc.item.caloriesPerServing != null ? bc.item.caloriesPerServing : 0) + ' kcal',
+          (bc.item.proteinPerServing  != null ? bc.item.proteinPerServing  : 0) + 'g P'
         ];
         if (bc.item.servingSize) sub.push('per ' + bc.item.servingSize + 'g');
         return '<div class="fl-component-row" data-build-idx="' + i + '">' +
@@ -549,7 +549,10 @@
     function pickerSheetHTML(library, selectedIds) {
       var rows = library.map(function (item) {
         var checked = selectedIds.indexOf(item.id) !== -1;
-        var meta = [item.caloriesPerServing + ' kcal', item.proteinPerServing + 'g P'];
+        var meta = [
+          (item.caloriesPerServing != null ? item.caloriesPerServing : 0) + ' kcal',
+          (item.proteinPerServing  != null ? item.proteinPerServing  : 0) + 'g P'
+        ];
         if (item.servingSize) meta.push('per ' + item.servingSize + 'g');
         return '<div class="fl-picker-row" data-picker-id="' + item.id + '">' +
           '<div class="fl-picker-check' + (checked ? ' checked' : '') + '"></div>' +
@@ -570,7 +573,7 @@
             '<span class="fl-sheet-count" id="fl-picker-count">' + (n ? n + ' selected' : '') + '</span>' +
           '</div>' +
           '<input class="fl-sheet-search" id="fl-picker-search" placeholder="Search…" type="search">' +
-          '<div class="fl-sheet-list" id="fl-picker-list">' + rows + '</div>' +
+          '<div class="fl-sheet-list" id="fl-picker-list">' + (rows || '<div style="padding:24px 16px;text-align:center;color:var(--text-secondary);font-size:14px">No items in your library yet</div>') + '</div>' +
           '<div class="fl-sheet-confirm-btn' + (n === 0 ? '" style="opacity:0.4;pointer-events:none' : '') + '" id="fl-picker-confirm">Add ' + (n || '') + ' item' + (n !== 1 ? 's' : '') + ' →</div>' +
         '</div>' +
       '</div>';
@@ -659,8 +662,10 @@
         _A.on(input, 'change', function () {
           var idx = parseInt(input.dataset.buildAmount, 10);
           buildComponents[idx].amountG = parseFloat(input.value) || 0;
-          postCalculate = null;
-          render();
+          if (postCalculate !== null) {
+            postCalculate = null;
+            render();
+          }
         });
       });
 
@@ -681,8 +686,10 @@
           formState.buildFreeform = buildFreeformEl.value;
         });
         _A.on(buildFreeformEl, 'change', function () {
-          postCalculate = null;
-          render();
+          if (postCalculate !== null) {
+            postCalculate = null;
+            render();
+          }
         });
       }
 
@@ -815,8 +822,8 @@
                 fiber: parsedResult.fiber, sodium: parsedResult.sodium
               });
             } catch (e) {
-              calcBtn.disabled = false;
-              calcBtn.textContent = 'Calculate';
+              var btn = _A.$('fl-calc-btn');
+              if (btn) { btn.disabled = false; btn.textContent = 'Calculate'; }
               return;
             }
           }
@@ -960,8 +967,8 @@
               if (!hasAnyMacro) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; alert('Please enter at least one macro value.'); return; }
             }
           try {
+            var normCategory = formState.category ? formState.category.trim().toLowerCase() : null;
             if (isLibraryEdit) {
-              var normCategory = formState.category ? formState.category.trim().toLowerCase() : null;
               await FoodLogData.updateLibraryItem(userId, libItem.id, {
                 name: formState.name, category: normCategory,
                 brand: formState.brand || null,
@@ -983,7 +990,6 @@
                 aiEstimated: formState.aiEstimated, aiNotes: formState.aiNotes
               });
             } else if (libraryOnlyMode) {
-              var normCategory = formState.category ? formState.category.trim().toLowerCase() : null;
               await FoodLogData.saveLibraryItem(userId, {
                 name: formState.name, category: normCategory,
                 brand: formState.brand || null,

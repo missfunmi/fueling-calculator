@@ -228,7 +228,7 @@
   // ── Helpers ──────────────────────────────────────────────────────────────────
 
   function scaleComponentMacros(item, amountG) {
-    var ratio = item.servingSize ? amountG / item.servingSize : 1;
+    var ratio = (item.servingSize != null && item.servingSize > 0) ? amountG / item.servingSize : 1;
     function sc(val) { return val != null ? Math.round(val * ratio * 10) / 10 : null; }
     return {
       protein:  sc(item.proteinPerServing),
