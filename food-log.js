@@ -17,16 +17,28 @@
 
   // ── Item display helpers ─────────────────────────────────────────────────────
 
-  // Returns array of formatted macro strings for a library item.
-  function itemMacroMeta(item) {
+  // Core display primitive — accepts {calories, protein, carbs, fat, fiber, sodium}.
+  function macroMetaFromValues(v) {
     var meta = [];
-    if (item.caloriesPerServing != null) meta.push(Math.round(item.caloriesPerServing) + ' kcal');
-    if (item.proteinPerServing  != null) meta.push(Math.round(item.proteinPerServing)  + 'g protein');
-    if (item.carbsPerServing    != null) meta.push(Math.round(item.carbsPerServing)    + 'g carbs');
-    if (item.fatPerServing      != null) meta.push(Math.round(item.fatPerServing)      + 'g fat');
-    if (item.fiberPerServing    != null) meta.push(Math.round(item.fiberPerServing)    + 'g fiber');
-    if (item.sodiumPerServing   != null) meta.push(Math.round(item.sodiumPerServing)   + 'mg sodium');
+    if (v.calories != null) meta.push(Math.round(v.calories) + ' kcal');
+    if (v.protein  != null) meta.push(Math.round(v.protein)  + 'g protein');
+    if (v.carbs    != null) meta.push(Math.round(v.carbs)    + 'g carbs');
+    if (v.fat      != null) meta.push(Math.round(v.fat)      + 'g fat');
+    if (v.fiber    != null) meta.push(Math.round(v.fiber)    + 'g fiber');
+    if (v.sodium   != null) meta.push(Math.round(v.sodium)   + 'mg sodium');
     return meta;
+  }
+
+  // Returns formatted macro strings for a library item (per-serving field names).
+  function itemMacroMeta(item) {
+    return macroMetaFromValues({
+      calories: item.caloriesPerServing,
+      protein:  item.proteinPerServing,
+      carbs:    item.carbsPerServing,
+      fat:      item.fatPerServing,
+      fiber:    item.fiberPerServing,
+      sodium:   item.sodiumPerServing
+    });
   }
 
   // Returns serving context string ('per 63g', 'per 1 scoop', or '') — no leading space.
@@ -531,13 +543,7 @@
       var componentRows = buildComponents.map(function (bc, i) {
         var color = COMPONENT_COLORS[i % COMPONENT_COLORS.length];
         var scaled = FoodLogData.scaleComponentMacros(bc.item, bc.amountG);
-        var sub = [];
-        if (scaled.calories != null) sub.push(Math.round(scaled.calories) + ' kcal');
-        if (scaled.protein  != null) sub.push(Math.round(scaled.protein)  + 'g protein');
-        if (scaled.carbs    != null) sub.push(Math.round(scaled.carbs)    + 'g carbs');
-        if (scaled.fat      != null) sub.push(Math.round(scaled.fat)      + 'g fat');
-        if (scaled.fiber    != null) sub.push(Math.round(scaled.fiber)    + 'g fiber');
-        if (scaled.sodium   != null) sub.push(Math.round(scaled.sodium)   + 'mg sodium');
+        var sub = macroMetaFromValues(scaled);
         if (bc.item.servingSize != null && bc.item.servingSize > 0) sub.push('per ' + bc.amountG + 'g');
         return '<div class="fl-component-row">' +
           '<div class="fl-component-color" style="background:' + color + '"></div>' +
@@ -834,6 +840,12 @@
           var freeText = (formState.buildFreeform || '').trim();
           var freeformTextarea = _A.$('fl-build-freeform');
           if (freeformTextarea) freeformTextarea.disabled = true;
+          var amountInputs = _A.$$('[data-build-amount]', $body);
+          var removeBtns   = _A.$$('[data-build-remove]', $body);
+          var modeTabs     = _A.$$('.fl-mode-tab', $body);
+          amountInputs.forEach(function (el) { el.disabled = true; });
+          removeBtns.forEach(function (el) { el.style.pointerEvents = 'none'; el.style.opacity = '0.4'; });
+          modeTabs.forEach(function (el) { el.style.pointerEvents = 'none'; el.style.opacity = '0.5'; });
           try {
             isCalculating = true;
             var parsedResult = null;
@@ -913,9 +925,13 @@
 
             render();
           } catch (e) {
+            postCalculate = null;
             calcBtn.disabled = false;
             calcBtn.textContent = 'Calculate';
             if (freeformTextarea) freeformTextarea.disabled = false;
+            amountInputs.forEach(function (el) { el.disabled = false; });
+            removeBtns.forEach(function (el) { el.style.pointerEvents = ''; el.style.opacity = ''; });
+            modeTabs.forEach(function (el) { el.style.pointerEvents = ''; el.style.opacity = ''; });
           } finally {
             isCalculating = false;
           }
