@@ -5,6 +5,14 @@
   var _A = window._App; // navigate, renders, $, $$, on, escHtml
 
   var COMPONENT_COLORS = ['#5b9bd5', '#e8a04b', '#6abf69', '#e8585e', '#9b7dd4', '#4bbfbf'];
+  var CATEGORY_COLORS = {
+    'breakfast':    { bg: 'var(--amber-bg)',  color: 'var(--amber-text)'  },
+    'lunch':        { bg: 'var(--blue-bg)',   color: 'var(--blue-text)'   },
+    'dinner':       { bg: '#ede8ff',          color: '#4c1d95'            },
+    'snack':        { bg: 'var(--green-bg)',  color: 'var(--green-text)'  },
+    'pre-workout':  { bg: 'var(--red-bg)',    color: 'var(--red-text)'    },
+    'post-workout': { bg: 'var(--green-bg)',  color: 'var(--green-text)'  }
+  };
 
   // Module state
   var state = {
@@ -146,8 +154,10 @@
       logs.map(function (log) {
         var macroParts = [Math.round(log.calories) + ' kcal'];
         if (log.protein != null) macroParts.push(Math.round(log.protein) + 'g protein');
-        if (log.carbs   != null) macroParts.push(Math.round(log.carbs)   + 'g carbohydrates');
+        if (log.carbs   != null) macroParts.push(Math.round(log.carbs)   + 'g carbs');
         if (log.fat     != null) macroParts.push(Math.round(log.fat)     + 'g fat');
+        if (log.fiber   != null) macroParts.push(Math.round(log.fiber)   + 'g fiber');
+        if (log.sodium  != null) macroParts.push(Math.round(log.sodium)  + 'mg sodium');
         var macroHTML = macroParts.map(function (p) {
           return '<span style="white-space:nowrap">' + _A.escHtml(p) + '</span>';
         }).join(' · ');
@@ -177,7 +187,11 @@
           '<div class="fl-entry-body" data-entry-id="' + log.id + '">' +
             '<div class="fl-entry-name">' + _A.escHtml(log.name) + '</div>' +
             '<div class="fl-entry-meta">' +
-              '<span class="fl-category-badge">' + _A.escHtml(log.category || 'Other') + '</span>' +
+              (function() {
+                var cat = (log.category || '').trim().toLowerCase();
+                var cs = CATEGORY_COLORS[cat];
+                return '<span class="fl-category-badge"' + (cs ? ' style="background:' + cs.bg + ';color:' + cs.color + '"' : '') + '>' + _A.escHtml(log.category || 'Other') + '</span>';
+              })() +
               macroHTML +
             '</div>' +
             pillsHTML +
@@ -338,6 +352,9 @@
           if (item.caloriesPerServing != null) meta.push(item.caloriesPerServing + ' kcal');
           if (item.proteinPerServing  != null) meta.push(item.proteinPerServing  + 'g protein');
           if (item.carbsPerServing    != null) meta.push(item.carbsPerServing    + 'g carbs');
+          if (item.fatPerServing      != null) meta.push(item.fatPerServing      + 'g fat');
+          if (item.fiberPerServing    != null) meta.push(item.fiberPerServing    + 'g fiber');
+          if (item.sodiumPerServing   != null) meta.push(item.sodiumPerServing   + 'mg sodium');
           var suffix = (item.servingSize != null && item.servingSize > 0)
             ? ' per ' + item.servingSize + 'g'
             : (item.servingUnit ? ' per ' + _A.escHtml(item.servingUnit) : '');
@@ -385,7 +402,7 @@
     // Form state
     var src = isLibraryEdit ? libItem : (isEdit ? entry : null);
     var formState = {
-      name:        src ? (isLibraryEdit ? src.name               : src.name)               : '',
+      name:        src ? src.name : '',
       brand:       src ? (isLibraryEdit ? (src.brand || '')       : '')                     : '',
       category:    isLibraryForm ? (src ? (src.category || '') : '') : (src ? (src.category || 'Breakfast') : 'Breakfast'),
       servingSize: src ? (isLibraryEdit ? (src.servingSize != null ? src.servingSize : '') : '') : '',
@@ -464,7 +481,7 @@
           '<div class="fl-macro-edit-row">' +
             '<span class="fl-macro-edit-label">Size</span>' +
             '<div class="fl-macro-edit-value-wrap">' +
-              '<input class="fl-macro-edit-value" type="number" min="0" data-macro="servingSize" value="' + (formState.servingSize !== '' ? formState.servingSize : '') + '" placeholder="—">' +
+              '<input class="fl-macro-edit-value" type="number" min="0" data-macro="servingSize" value="' + formState.servingSize + '" placeholder="—">' +
               '<span class="fl-macro-edit-unit">g</span>' +
             '</div>' +
           '</div>' +
@@ -499,12 +516,13 @@
       var componentRows = buildComponents.map(function (bc, i) {
         var color = COMPONENT_COLORS[i % COMPONENT_COLORS.length];
         var scaled = FoodLogData.scaleComponentMacros(bc.item, bc.amountG);
-        var sub = [
-          Math.round(scaled.calories != null ? scaled.calories : 0) + ' kcal',
-          Math.round(scaled.protein  != null ? scaled.protein  : 0) + 'g P'
-        ];
-        if (bc.item.servingSize != null && bc.item.servingSize > 0) sub.push('per ' + bc.item.servingSize + 'g');
-        return '<div class="fl-component-row" data-build-idx="' + i + '">' +
+        var sub = [];
+        if (scaled.calories != null) sub.push(Math.round(scaled.calories) + ' kcal');
+        if (scaled.protein  != null) sub.push(Math.round(scaled.protein)  + 'g protein');
+        if (scaled.carbs    != null) sub.push(Math.round(scaled.carbs)    + 'g carbs');
+        if (scaled.fat      != null) sub.push(Math.round(scaled.fat)      + 'g fat');
+        if (bc.amountG > 0) sub.push('per ' + bc.amountG + 'g');
+        return '<div class="fl-component-row">' +
           '<div class="fl-component-color" style="background:' + color + '"></div>' +
           '<div class="fl-component-info">' +
             '<div class="fl-component-name">' + _A.escHtml((bc.item.brand ? bc.item.brand + ' ' : '') + bc.item.name) + '</div>' +
@@ -550,10 +568,11 @@
     function pickerSheetHTML(library, selectedIds) {
       var rows = library.map(function (item) {
         var checked = selectedIds.indexOf(item.id) !== -1;
-        var meta = [
-          (item.caloriesPerServing != null ? item.caloriesPerServing : 0) + ' kcal',
-          (item.proteinPerServing  != null ? item.proteinPerServing  : 0) + 'g P'
-        ];
+        var meta = [];
+        if (item.caloriesPerServing != null) meta.push(item.caloriesPerServing + ' kcal');
+        if (item.proteinPerServing  != null) meta.push(item.proteinPerServing  + 'g protein');
+        if (item.carbsPerServing    != null) meta.push(item.carbsPerServing    + 'g carbs');
+        if (item.fatPerServing      != null) meta.push(item.fatPerServing      + 'g fat');
         if (item.servingSize != null && item.servingSize > 0) meta.push('per ' + item.servingSize + 'g');
         return '<div class="fl-picker-row" data-picker-id="' + item.id + '">' +
           '<div class="fl-picker-check' + (checked ? ' checked' : '') + '"></div>' +
@@ -656,7 +675,6 @@
           buildMode = newMode;
           postCalculate = null;
           render();
-          if (buildMode && _A.$('fl-build-freeform')) _A.$('fl-build-freeform').value = formState.buildFreeform || '';
         });
       });
 
@@ -665,10 +683,8 @@
         _A.on(input, 'change', function () {
           var idx = parseInt(input.dataset.buildAmount, 10);
           buildComponents[idx].amountG = parseFloat(input.value) || 0;
-          if (postCalculate !== null) {
-            postCalculate = null;
-            render();
-          }
+          if (postCalculate !== null) postCalculate = null;
+          render();
         });
       });
 
@@ -839,12 +855,17 @@
             });
           }
 
-          // Suggest name from first library item or freeform
-          var suggestedName = buildComponents.length
-            ? (buildComponents[0].item.brand
-                ? buildComponents[0].item.brand + ' ' + buildComponents[0].item.name
-                : buildComponents[0].item.name)
-            : (freeText.split(',')[0].replace(/^\d+g?\s*/i, '').trim() || 'Meal');
+          // Suggest name from library items or freeform
+          var suggestedName;
+          if (buildComponents.length === 1) {
+            suggestedName = (buildComponents[0].item.brand
+              ? buildComponents[0].item.brand + ' ' + buildComponents[0].item.name
+              : buildComponents[0].item.name);
+          } else if (buildComponents.length > 1) {
+            suggestedName = buildComponents.map(function (bc) { return bc.item.name; }).slice(0, 3).join(' & ');
+          } else {
+            suggestedName = freeText.split(',')[0].replace(/^\d+g?\s*/i, '').trim() || 'Meal';
+          }
 
           postCalculate = {
             name:     suggestedName,

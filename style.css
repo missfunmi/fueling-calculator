@@ -2082,7 +2082,7 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 }
 .fl-picker-info { flex: 1; min-width: 0; }
 .fl-picker-name { font-size: 13px; font-weight: 500; }
-.fl-picker-brand { font-size: 11px; color: var(--text-tertiary); }
+.fl-picker-brand { font-size: 11px; color: var(--text-secondary); }
 .fl-picker-macros { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
 .fl-sheet-confirm-btn {
   margin: 4px 16px 12px;
