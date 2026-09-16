@@ -143,17 +143,20 @@
     }
     return '<div class="fl-timeline">' +
       logs.map(function (log) {
-        var macroParts = [Math.round(log.calories) + ' kcal'];
-        if (log.protein) macroParts.push(Math.round(log.protein) + 'g protein');
-        if (log.carbs)   macroParts.push(Math.round(log.carbs)   + 'g carbohydrates');
-        if (log.fat)     macroParts.push(Math.round(log.fat)     + 'g fat');
+        var macroParts = [Math.round(log.calories) + ' kcal'];
+        if (log.protein) macroParts.push(Math.round(log.protein) + 'g protein');
+        if (log.carbs)   macroParts.push(Math.round(log.carbs)   + 'g carbohydrates');
+        if (log.fat)     macroParts.push(Math.round(log.fat)     + 'g fat');
+        var macroHTML = macroParts.map(function (p) {
+          return '<span style="white-space:nowrap">' + _A.escHtml(p) + '</span>';
+        }).join(' · ');
         return '<div class="fl-timeline-entry">' +
           '<div class="fl-time-col"><span class="fl-time-text">' + fmtTime(log.loggedAt) + '</span></div>' +
           '<div class="fl-entry-body" data-entry-id="' + log.id + '">' +
             '<div class="fl-entry-name">' + _A.escHtml(log.name) + '</div>' +
             '<div class="fl-entry-meta">' +
               '<span class="fl-category-badge">' + _A.escHtml(log.category || 'Other') + '</span>' +
-              _A.escHtml(macroParts.join(' · ')) +
+              macroHTML +
             '</div>' +
           '</div>' +
         '</div>';
@@ -406,16 +409,16 @@
     function render() {
       $body.innerHTML =
         '<div style="padding:16px">' +
-          (!isEdit ? '<label style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);margin-bottom:6px">What did you eat?</label>' : '') +
-          (!isEdit ? '<textarea class="fl-freeform-area" id="fl-freeform" placeholder="e.g. chicken rice bowl, 2 eggs and toast, post-workout shake \xd71.5…"></textarea>' : '') +
-          (!isEdit ? '<button class="fl-parse-btn" id="fl-parse-btn">Calculate</button>' : '') +
+          (!isEdit && !isLibraryEdit ? '<label style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);margin-bottom:6px">What did you eat?</label>' : '') +
+          (!isEdit && !isLibraryEdit ? '<textarea class="fl-freeform-area" id="fl-freeform" placeholder="e.g. chicken rice bowl, 2 eggs and toast, post-workout shake \xd71.5…"></textarea>' : '') +
+          (!isEdit && !isLibraryEdit ? '<button class="fl-parse-btn" id="fl-parse-btn">Calculate</button>' : '') +
           estimatedBlockHTML() +
           '<div style="margin-top:16px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);margin-bottom:6px">Category</div>' +
           categoryChipsHTML() +
-          '<div style="margin-top:12px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);margin-bottom:6px">Time</div>' +
-          '<input id="fl-time-input" type="time" value="' + fmtInputTime(formState.loggedAt) + '" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-size:14px">' +
-          (parsed && !isEdit ? '<label class="fl-save-library-row"><input type="checkbox" id="fl-save-library"> Save to library</label>' : '') +
-          (parsed || isEdit ? '<div style="display:flex;gap:8px;margin-top:24px"><button id="fl-save-btn" class="btn-primary" style="flex:1">Save</button></div>' : '') +
+          (!isLibraryEdit ? '<div style="margin-top:12px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);margin-bottom:6px">Time</div>' : '') +
+          (!isLibraryEdit ? '<input id="fl-time-input" type="time" value="' + fmtInputTime(formState.loggedAt) + '" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-size:14px">' : '') +
+          (parsed && !isEdit && !isLibraryEdit ? '<label class="fl-save-library-row"><input type="checkbox" id="fl-save-library"> Save to library</label>' : '') +
+          (parsed || isEdit || isLibraryEdit ? '<div style="display:flex;gap:8px;margin-top:24px"><button id="fl-save-btn" class="btn-primary" style="flex:1">Save</button></div>' : '') +
         '</div>';
 
       attachHandlers();
