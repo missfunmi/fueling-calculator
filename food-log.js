@@ -145,9 +145,9 @@
     return '<div class="fl-timeline">' +
       logs.map(function (log) {
         var macroParts = [Math.round(log.calories) + ' kcal'];
-        if (log.protein) macroParts.push(Math.round(log.protein) + 'g protein');
-        if (log.carbs)   macroParts.push(Math.round(log.carbs)   + 'g carbohydrates');
-        if (log.fat)     macroParts.push(Math.round(log.fat)     + 'g fat');
+        if (log.protein != null) macroParts.push(Math.round(log.protein) + 'g protein');
+        if (log.carbs   != null) macroParts.push(Math.round(log.carbs)   + 'g carbohydrates');
+        if (log.fat     != null) macroParts.push(Math.round(log.fat)     + 'g fat');
         var macroHTML = macroParts.map(function (p) {
           return '<span style="white-space:nowrap">' + _A.escHtml(p) + '</span>';
         }).join(' · ');
@@ -424,7 +424,7 @@
 
       function macroRow(label, key, unit) {
         var val = formState[key];
-        var display = val != null ? val : '';
+        var display = val != null ? Math.round(val) : '';
         return '<div class="fl-macro-edit-row">' +
           '<span class="fl-macro-edit-label">' + label + '</span>' +
           '<div class="fl-macro-edit-value-wrap">' +
@@ -557,7 +557,7 @@
         return '<div class="fl-picker-row" data-picker-id="' + item.id + '">' +
           '<div class="fl-picker-check' + (checked ? ' checked' : '') + '"></div>' +
           '<div class="fl-picker-info">' +
-            '<div class="fl-picker-name">' + _A.escHtml((item.brand ? item.brand + ' ' : '') + item.name) + '</div>' +
+            '<div class="fl-picker-name">' + _A.escHtml(item.name) + '</div>' +
             (item.brand ? '<div class="fl-picker-brand">' + _A.escHtml(item.brand) + '</div>' : '') +
             '<div class="fl-picker-macros">' + meta.join(' · ') + '</div>' +
           '</div>' +
@@ -614,7 +614,9 @@
             ? '<div style="margin-top:12px">' +
                 '<div style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:6px">Category</div>' +
                 categoryChipsHTML() +
-              '</div>'
+              '</div>' +
+              '<div style="margin-top:12px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);margin-bottom:6px">Time</div>' +
+              '<input id="fl-time-input" type="time" value="' + fmtInputTime(formState.loggedAt) + '" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-size:14px">'
             : '') +
           (!postCalculate
             ? '<button class="fl-parse-btn" id="fl-calc-btn" style="margin-top:12px">Calculate</button>'
