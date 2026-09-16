@@ -8,7 +8,7 @@
   var CATEGORY_COLORS = {
     'breakfast':    { bg: 'var(--amber-bg)',  color: 'var(--amber-text)'  },
     'lunch':        { bg: 'var(--blue-bg)',   color: 'var(--blue-text)'   },
-    'dinner':       { bg: '#ede8ff',          color: '#4c1d95'            },
+    'dinner':       { bg: 'var(--purple-bg)', color: 'var(--purple-text)' },
     'snack':        { bg: 'var(--green-bg)',  color: 'var(--green-text)'  },
     'pre-workout':  { bg: 'var(--red-bg)',    color: 'var(--red-text)'    },
     'post-workout': { bg: 'var(--green-bg)',  color: 'var(--green-text)'  }
@@ -521,7 +521,7 @@
         if (scaled.protein  != null) sub.push(Math.round(scaled.protein)  + 'g protein');
         if (scaled.carbs    != null) sub.push(Math.round(scaled.carbs)    + 'g carbs');
         if (scaled.fat      != null) sub.push(Math.round(scaled.fat)      + 'g fat');
-        if (bc.amountG > 0) sub.push('per ' + bc.amountG + 'g');
+        if (bc.item.servingSize != null && bc.item.servingSize > 0) sub.push('per ' + bc.amountG + 'g');
         return '<div class="fl-component-row">' +
           '<div class="fl-component-color" style="background:' + color + '"></div>' +
           '<div class="fl-component-info">' +
@@ -561,7 +561,10 @@
           '<div class="fl-estimated-macro"><div class="fl-estimated-macro-val">' + Math.round(pc.protein) + 'g</div><div class="fl-estimated-macro-label">protein</div></div>' +
           '<div class="fl-estimated-macro"><div class="fl-estimated-macro-val">' + Math.round(pc.carbs) + 'g</div><div class="fl-estimated-macro-label">carbs</div></div>' +
           '<div class="fl-estimated-macro"><div class="fl-estimated-macro-val">' + Math.round(pc.fat) + 'g</div><div class="fl-estimated-macro-label">fat</div></div>' +
+          (pc.fiber  != null ? '<div class="fl-estimated-macro"><div class="fl-estimated-macro-val">' + Math.round(pc.fiber)  + 'g</div><div class="fl-estimated-macro-label">fiber</div></div>' : '') +
+          (pc.sodium != null ? '<div class="fl-estimated-macro"><div class="fl-estimated-macro-val">' + Math.round(pc.sodium) + 'mg</div><div class="fl-estimated-macro-label">sodium</div></div>' : '') +
         '</div>' +
+        (pc.hasMissingMacros ? '<div class="fl-estimated-caveat">* some values may be missing</div>' : '') +
       '</div>';
     }
 
@@ -812,16 +815,21 @@
             try {
               parsedResult = await FoodLogData.parseMeal(freeText, state.library);
             } catch (e) {
-              var btn = _A.$('fl-calc-btn');
-              if (btn) { btn.disabled = false; btn.textContent = 'Calculate'; }
+              calcBtn.disabled = false;
+              calcBtn.textContent = 'Calculate';
               return;
             }
           }
 
           // Sum library components from current buildComponents (post-await)
           var totals = { protein: 0, carbs: 0, fat: 0, calories: 0, fiber: null, sodium: null };
+          var hasMissingMacros = false;
           var componentRecords = buildComponents.map(function (bc) {
             var scaled = FoodLogData.scaleComponentMacros(bc.item, bc.amountG);
+            if (scaled.protein  == null) hasMissingMacros = true;
+            if (scaled.carbs    == null) hasMissingMacros = true;
+            if (scaled.fat      == null) hasMissingMacros = true;
+            if (scaled.calories == null) hasMissingMacros = true;
             totals.protein  += scaled.protein  || 0;
             totals.carbs    += scaled.carbs    || 0;
             totals.fat      += scaled.fat      || 0;
@@ -875,6 +883,7 @@
             calories: Math.round(totals.calories * 10) / 10,
             fiber:    totals.fiber  != null ? Math.round(totals.fiber  * 10) / 10 : null,
             sodium:   totals.sodium != null ? Math.round(totals.sodium * 10) / 10 : null,
+            hasMissingMacros: hasMissingMacros,
             components: componentRecords.concat(freeComponents)
           };
 
@@ -953,6 +962,7 @@
           if (buildMode && postCalculate) {
             var nameInput = _A.$('fl-build-name');
             var finalName = (nameInput ? nameInput.value.trim() : '') || postCalculate.name;
+            if (!finalName) { alert('Please enter a name.'); return; }
             saveBtn.disabled = true;
             saveBtn.textContent = 'Saving…';
             try {

@@ -23,6 +23,8 @@
   --red-text: #7a0f00;
   --blue-bg: #e5f1ff;
   --blue-text: #0a52a0;
+  --purple-bg: #ede8ff;
+  --purple-text: #4c1d95;
 
   --radius-sm: 8px;
   --radius-md: 12px;
@@ -1981,7 +1983,7 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 }
 .fl-estimated-macros {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
   gap: 4px;
 }
 .fl-estimated-macro { text-align: center; }
@@ -1996,6 +1998,11 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-top: 1px;
+}
+.fl-estimated-caveat {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 6px;
 }
 
 /* ── Picker sheet ───────────────────────────────────────────────────────────── */
