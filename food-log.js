@@ -413,8 +413,8 @@
           (!isEdit && !isLibraryEdit ? '<textarea class="fl-freeform-area" id="fl-freeform" placeholder="e.g. chicken rice bowl, 2 eggs and toast, post-workout shake \xd71.5…"></textarea>' : '') +
           (!isEdit && !isLibraryEdit ? '<button class="fl-parse-btn" id="fl-parse-btn">Calculate</button>' : '') +
           estimatedBlockHTML() +
-          '<div style="margin-top:16px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);margin-bottom:6px">Category</div>' +
-          categoryChipsHTML() +
+          (!isLibraryEdit && !libraryOnlyMode ? '<div style="margin-top:16px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);margin-bottom:6px">Category</div>' : '') +
+          (!isLibraryEdit && !libraryOnlyMode ? categoryChipsHTML() : '') +
           (!isLibraryEdit ? '<div style="margin-top:12px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);margin-bottom:6px">Time</div>' : '') +
           (!isLibraryEdit ? '<input id="fl-time-input" type="time" value="' + fmtInputTime(formState.loggedAt) + '" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-size:14px">' : '') +
           (parsed && !isEdit && !isLibraryEdit ? '<label class="fl-save-library-row"><input type="checkbox" id="fl-save-library"> Save to library</label>' : '') +
