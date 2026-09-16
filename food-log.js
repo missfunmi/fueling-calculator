@@ -343,8 +343,10 @@
       var display = val != null ? Math.round(val) : '';
       return '<div class="fl-macro-edit-row">' +
         '<span class="fl-macro-edit-label">' + label + '</span>' +
-        '<input class="fl-macro-edit-value" type="number" data-macro="' + key + '" value="' + display + '" placeholder="—">' +
-        '<span style="font-size:12px;color:var(--text-tertiary);margin-left:4px">' + unit + '</span>' +
+        '<div class="fl-macro-edit-value-wrap">' +
+          '<input class="fl-macro-edit-value" type="number" data-macro="' + key + '" value="' + display + '" placeholder="—">' +
+          '<span class="fl-macro-edit-unit">' + unit + '</span>' +
+        '</div>' +
       '</div>';
     }
 
@@ -354,7 +356,9 @@
         '<div class="fl-estimated-title">Estimated Macros</div>' +
         '<div class="fl-macro-edit-row">' +
           '<span class="fl-macro-edit-label">Name</span>' +
-          '<input class="fl-macro-edit-value" type="text" data-macro="name" value="' + _A.escHtml(formState.name) + '" style="width:180px">' +
+          '<div class="fl-macro-edit-value-wrap" style="flex:1;margin-left:16px">' +
+            '<input class="fl-macro-edit-value" type="text" data-macro="name" value="' + _A.escHtml(formState.name) + '" style="width:100%;text-align:left">' +
+          '</div>' +
         '</div>' +
         macroEditRowHTML('Calories', 'calories', 'kcal') +
         macroEditRowHTML('Protein',  'protein',  'g') +
@@ -394,10 +398,8 @@
           categoryChipsHTML() +
           '<div style="margin-top:12px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);margin-bottom:6px">Time</div>' +
           '<input id="fl-time-input" type="time" value="' + fmtInputTime(formState.loggedAt) + '" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-size:14px">' +
-          (!isEdit ? '<label class="fl-save-library-row"><input type="checkbox" id="fl-save-library"> Save to library</label>' : '') +
-          '<div style="display:flex;gap:8px;margin-top:24px">' +
-            '<button id="fl-save-btn" class="btn-primary" style="flex:1" ' + (!parsed ? 'disabled' : '') + '>Save</button>' +
-          '</div>' +
+          (parsed && !isEdit ? '<label class="fl-save-library-row"><input type="checkbox" id="fl-save-library"> Save to library</label>' : '') +
+          (parsed || isEdit ? '<div style="display:flex;gap:8px;margin-top:24px"><button id="fl-save-btn" class="btn-primary" style="flex:1">Save</button></div>' : '') +
         '</div>';
 
       attachHandlers();
@@ -454,14 +456,11 @@
             formState.libraryItemId    = result.library_item_id;
             formState.servingMultiplier = result.serving_multiplier || 1.0;
             parsed = true;
-            var saveBtn2 = _A.$('fl-save-btn');
-            if (saveBtn2) saveBtn2.disabled = false;
             render();
+            if (_A.$('fl-freeform')) _A.$('fl-freeform').value = freeform;
           } catch (e) {
             parseBtn.disabled = false;
             parseBtn.textContent = 'Calculate';
-            parsed = true;
-            render();
           }
         });
       }

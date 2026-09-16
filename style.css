@@ -1733,6 +1733,13 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 }
 .fl-macro-edit-row:last-child { border-bottom: none; }
 .fl-macro-edit-label { font-size: 14px; color: var(--text-secondary); }
+.fl-macro-edit-value-wrap {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  border-bottom: 1.5px solid var(--border);
+  padding-bottom: 1px;
+}
 .fl-macro-edit-value {
   font-size: 15px;
   font-weight: 600;
@@ -1741,11 +1748,13 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   border: none;
   background: none;
   text-align: right;
-  width: 80px;
+  width: 64px;
   padding: 0;
   font-family: inherit;
 }
-.fl-macro-edit-value:focus { outline: 2px solid var(--accent); border-radius: 4px; }
+.fl-macro-edit-value:focus { outline: none; }
+.fl-macro-edit-value-wrap:focus-within { border-bottom-color: var(--accent); }
+.fl-macro-edit-unit { font-size: 12px; color: var(--text-tertiary); white-space: nowrap; }
 .fl-ai-notes {
   font-size: 12px;
   color: var(--text-tertiary);
