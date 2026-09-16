@@ -2252,9 +2252,6 @@
         '<div id="settings-targets-rows" style="border:1px solid var(--border);border-radius:var(--radius-md)">' +
           '<div style="padding:16px;color:var(--text-tertiary);font-size:14px">Loading…</div>' +
         '</div>' +
-        '<div style="margin-top:12px">' +
-          '<button id="settings-targets-save" class="btn-primary" style="width:100%">Save targets</button>' +
-        '</div>' +
       '</div>';
     var planEl = $('settings-plan-section');
     if (planEl) planEl.parentNode.insertBefore(targetsSection, planEl);
@@ -2282,26 +2279,27 @@
       }
     }
 
-    var saveTargetsBtn = $('settings-targets-save');
-    if (saveTargetsBtn && userId) {
-      on(saveTargetsBtn, 'click', async function () {
-        saveTargetsBtn.disabled = true;
-        saveTargetsBtn.textContent = 'Saving…';
-        var updated = {};
-        $$('[data-tkey]').forEach(function (inp) {
+    if (userId) {
+      var rowsEl2 = $('settings-targets-rows');
+      if (rowsEl2) {
+        rowsEl2.addEventListener('blur', async function (e) {
+          var inp = e.target.closest('[data-tkey]');
+          if (!inp) return;
           var val = inp.value.trim();
-          updated[inp.dataset.tkey] = val !== '' ? Math.max(0, parseFloat(val) || 0) : null;
-        });
-        try {
-          await window.FoodLogData.saveTargets(userId, updated);
-          showToast('Targets saved.');
-        } catch (e) {
-          showToast("Couldn't save targets — check your connection.");
-        } finally {
-          saveTargetsBtn.disabled = false;
-          saveTargetsBtn.textContent = 'Save targets';
-        }
-      });
+          if (val !== '' && parseFloat(val) < 0) { inp.value = '0'; val = '0'; }
+          var updated = {};
+          $$('[data-tkey]').forEach(function (i) {
+            var v = i.value.trim();
+            updated[i.dataset.tkey] = v !== '' ? Math.max(0, parseFloat(v) || 0) : null;
+          });
+          try {
+            await window.FoodLogData.saveTargets(userId, updated);
+            showToast('Settings updated.');
+          } catch (e) {
+            showToast("Couldn't save — check your connection.");
+          }
+        }, true);
+      }
     }
 
     // ── Plan settings ──────────────────────────────────────────────────────────
@@ -2320,13 +2318,13 @@
         '</div>';
       var intervalInput = $('settings-exec-interval');
       if (intervalInput) {
-        on(intervalInput, 'change', function () {
+        on(intervalInput, 'blur', function () {
           var n = parseInt(intervalInput.value, 10);
           if (!isNaN(n) && n > 0) {
             Data.setDefaultExecInterval(n);
-            showToast('Default interval updated.');
+            showToast('Settings updated.');
           } else {
-            intervalInput.value = String(Data.getDefaultExecInterval());
+            intervalInput.value = String(Math.max(1, Data.getDefaultExecInterval()));
           }
         });
       }
