@@ -143,16 +143,17 @@
     }
     return '<div class="fl-timeline">' +
       logs.map(function (log) {
-        var macroStr = Math.round(log.calories) + ' kcal';
-        if (log.protein) macroStr += ' · ' + Math.round(log.protein) + 'g protein';
+        var macroParts = [Math.round(log.calories) + ' kcal'];
+        if (log.protein) macroParts.push(Math.round(log.protein) + 'g pro');
+        if (log.carbs)   macroParts.push(Math.round(log.carbs)   + 'g carbs');
+        if (log.fat)     macroParts.push(Math.round(log.fat)     + 'g fat');
         return '<div class="fl-timeline-entry">' +
           '<div class="fl-time-col"><span class="fl-time-text">' + fmtTime(log.loggedAt) + '</span></div>' +
           '<div class="fl-entry-body" data-entry-id="' + log.id + '">' +
             '<div class="fl-entry-name">' + _A.escHtml(log.name) + '</div>' +
             '<div class="fl-entry-meta">' +
               '<span class="fl-category-badge">' + _A.escHtml(log.category || 'Other') + '</span>' +
-              _A.escHtml(macroStr) +
-              (log.aiEstimated ? ' <span style="color:var(--text-tertiary);font-size:11px">~est</span>' : '') +
+              _A.escHtml(macroParts.join(' · ')) +
             '</div>' +
           '</div>' +
         '</div>';
@@ -291,6 +292,7 @@
         var item = items.filter(function (i) { return i.id === id; })[0];
         if (!item) return;
         state.editingEntry = null;
+        state.editingLibraryItem = null;
         state.prefillFromLibrary = {
           name: item.name, category: item.category || 'Snack',
           protein: item.proteinPerServing, carbs: item.carbsPerServing,
@@ -299,6 +301,17 @@
           libraryItemId: item.id, servingMultiplier: 1.0,
           aiEstimated: false, aiNotes: null
         };
+        _A.navigate('food-log-entry');
+      });
+    });
+
+    _A.$$('.fl-lib-item', paneEl).forEach(function (row) {
+      _A.on(row, 'click', function () {
+        var id = row.dataset.libId;
+        var item = items.filter(function (i) { return i.id === id; })[0];
+        if (!item) return;
+        state.editingEntry = null;
+        state.editingLibraryItem = item;
         _A.navigate('food-log-entry');
       });
     });
@@ -311,32 +324,36 @@
     var isEdit = !!entry;
     var libraryOnlyMode = state.libraryOnlyMode || false;
     state.libraryOnlyMode = false;
-    var prefill = (!isEdit && state.prefillFromLibrary) ? state.prefillFromLibrary : null;
+    var libItem = state.editingLibraryItem || null;
+    var isLibraryEdit = !!libItem && !isEdit;
+    if (isLibraryEdit) state.editingLibraryItem = null;
+    var prefill = (!isEdit && !isLibraryEdit && state.prefillFromLibrary) ? state.prefillFromLibrary : null;
     if (prefill) state.prefillFromLibrary = null;
     var $body = _A.$('food-log-entry-body');
 
     // Title and delete button
-    _A.$('fle-title').textContent = isEdit ? 'Edit Meal' : 'Log Meal';
+    _A.$('fle-title').textContent = isEdit ? 'Edit Meal' : (isLibraryEdit ? 'Edit Food Item' : 'Log Meal');
     var delBtn = _A.$('btn-fle-delete');
-    delBtn.style.display = isEdit ? '' : 'none';
+    delBtn.style.display = (isEdit || isLibraryEdit) ? '' : 'none';
 
     // Form state
+    var src = isLibraryEdit ? libItem : (isEdit ? entry : prefill);
     var formState = {
-      name:     isEdit ? entry.name      : (prefill ? prefill.name      : ''),
-      protein:  isEdit ? entry.protein   : (prefill ? prefill.protein   : 0),
-      carbs:    isEdit ? entry.carbs     : (prefill ? prefill.carbs     : 0),
-      fat:      isEdit ? entry.fat       : (prefill ? prefill.fat       : 0),
-      calories: isEdit ? entry.calories  : (prefill ? prefill.calories  : 0),
-      fiber:    isEdit ? entry.fiber     : (prefill ? prefill.fiber     : null),
-      sodium:   isEdit ? entry.sodium    : (prefill ? prefill.sodium    : null),
-      category: isEdit ? (entry.category || 'Breakfast') : (prefill ? (prefill.category || 'Breakfast') : 'Breakfast'),
-      loggedAt: isEdit ? entry.loggedAt  : (state.date === todayStr() ? new Date().toISOString() : new Date(state.date + 'T12:00:00').toISOString()),
+      name:     src ? (isLibraryEdit ? src.name : src.name) : '',
+      protein:  src ? (isLibraryEdit ? src.proteinPerServing  : src.protein)  : 0,
+      carbs:    src ? (isLibraryEdit ? src.carbsPerServing    : src.carbs)    : 0,
+      fat:      src ? (isLibraryEdit ? src.fatPerServing      : src.fat)      : 0,
+      calories: src ? (isLibraryEdit ? src.caloriesPerServing : src.calories) : 0,
+      fiber:    src ? (isLibraryEdit ? src.fiberPerServing    : src.fiber)    : null,
+      sodium:   src ? (isLibraryEdit ? src.sodiumPerServing   : src.sodium)   : null,
+      category: src ? (src.category || 'Breakfast') : 'Breakfast',
+      loggedAt: isEdit ? entry.loggedAt : (state.date === todayStr() ? new Date().toISOString() : new Date(state.date + 'T12:00:00').toISOString()),
       aiEstimated: isEdit ? entry.aiEstimated : false,
       aiNotes:  isEdit ? entry.aiNotes   : null,
       libraryItemId: isEdit ? entry.libraryItemId : (prefill ? prefill.libraryItemId : null),
       servingMultiplier: isEdit ? entry.servingMultiplier : (prefill ? prefill.servingMultiplier : 1.0)
     };
-    var parsed = isEdit || !!prefill;
+    var parsed = isEdit || isLibraryEdit || !!prefill;
 
     function macroEditRowHTML(label, key, unit) {
       var val = formState[key];
@@ -366,7 +383,6 @@
         macroEditRowHTML('Fat',      'fat',      'g') +
         macroEditRowHTML('Fiber',    'fiber',    'g') +
         macroEditRowHTML('Sodium',   'sodium',   'mg') +
-        (formState.aiNotes ? '<div class="fl-ai-notes">AI note: ' + _A.escHtml(formState.aiNotes) + '</div>' : '') +
       '</div>';
     }
 
@@ -474,7 +490,17 @@
           saveBtn.textContent = 'Saving…';
           var userId = localStorage.getItem('fuelPlanner.userId');
           try {
-            if (isEdit) {
+            if (isLibraryEdit) {
+              await FoodLogData.updateLibraryItem(userId, libItem.id, {
+                name: formState.name, category: formState.category,
+                proteinPerServing: formState.protein, carbsPerServing: formState.carbs,
+                fatPerServing: formState.fat, caloriesPerServing: formState.calories,
+                fiberPerServing: formState.fiber, sodiumPerServing: formState.sodium
+              });
+              state.editingEntry = null;
+              _A.navigate('library');
+              return;
+            } else if (isEdit) {
               await FoodLogData.updateLog(userId, entry.id, {
                 name: formState.name, category: formState.category,
                 loggedAt: formState.loggedAt,
@@ -528,18 +554,29 @@
     // Back and delete handlers (onclick replaces handler on each render)
     _A.$('btn-fle-back').onclick = function () {
       state.editingEntry = null;
-      _A.navigate('food-log');
+      _A.navigate(isLibraryEdit || libraryOnlyMode ? 'library' : 'food-log');
     };
 
     _A.$('btn-fle-delete').onclick = async function () {
-      if (!confirm('Delete this entry?')) return;
       var userId = localStorage.getItem('fuelPlanner.userId');
-      try {
-        await FoodLogData.deleteLog(userId, entry.id);
-        state.editingEntry = null;
-        _A.navigate('food-log');
-      } catch (e) {
-        alert('Could not delete — check your connection.');
+      if (isLibraryEdit) {
+        if (!confirm('Delete this food item from your library?')) return;
+        try {
+          await FoodLogData.deleteLibraryItem(userId, libItem.id);
+          state.editingEntry = null;
+          _A.navigate('library');
+        } catch (e) {
+          alert('Could not delete — check your connection.');
+        }
+      } else {
+        if (!confirm('Delete this entry?')) return;
+        try {
+          await FoodLogData.deleteLog(userId, entry.id);
+          state.editingEntry = null;
+          _A.navigate('food-log');
+        } catch (e) {
+          alert('Could not delete — check your connection.');
+        }
       }
     };
 
