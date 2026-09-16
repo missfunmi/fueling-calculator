@@ -2007,7 +2007,7 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 
 /* ── Picker sheet ───────────────────────────────────────────────────────────── */
 .fl-sheet-overlay {
-  position: absolute;
+  position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.4);
   z-index: 50;

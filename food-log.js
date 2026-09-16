@@ -152,7 +152,8 @@
     }
     return '<div class="fl-timeline">' +
       logs.map(function (log) {
-        var macroParts = [Math.round(log.calories) + ' kcal'];
+        var macroParts = [];
+        if (log.calories != null) macroParts.push(Math.round(log.calories) + ' kcal');
         if (log.protein != null) macroParts.push(Math.round(log.protein) + 'g protein');
         if (log.carbs   != null) macroParts.push(Math.round(log.carbs)   + 'g carbs');
         if (log.fat     != null) macroParts.push(Math.round(log.fat)     + 'g fat');
@@ -441,18 +442,6 @@
     function estimatedBlockHTML() {
       if (!parsed) return '';
 
-      function macroRow(label, key, unit) {
-        var val = formState[key];
-        var display = val != null ? Math.round(val) : '';
-        return '<div class="fl-macro-edit-row">' +
-          '<span class="fl-macro-edit-label">' + label + '</span>' +
-          '<div class="fl-macro-edit-value-wrap">' +
-            '<input class="fl-macro-edit-value" type="number" min="0" data-macro="' + key + '" value="' + display + '" placeholder="—">' +
-            '<span class="fl-macro-edit-unit">' + unit + '</span>' +
-          '</div>' +
-        '</div>';
-      }
-
       if (isLibraryForm) {
         return '<div class="fl-estimated">' +
           '<div class="fl-estimated-title">Item Details</div>' +
@@ -487,12 +476,12 @@
               '<span class="fl-macro-edit-unit">g</span>' +
             '</div>' +
           '</div>' +
-          macroRow('Calories', 'calories', 'kcal') +
-          macroRow('Protein',  'protein',  'g') +
-          macroRow('Carbs',    'carbs',    'g') +
-          macroRow('Fat',      'fat',      'g') +
-          macroRow('Fiber',    'fiber',    'g') +
-          macroRow('Sodium',   'sodium',   'mg') +
+          macroEditRowHTML('Calories', 'calories', 'kcal') +
+          macroEditRowHTML('Protein',  'protein',  'g') +
+          macroEditRowHTML('Carbs',    'carbs',    'g') +
+          macroEditRowHTML('Fat',      'fat',      'g') +
+          macroEditRowHTML('Fiber',    'fiber',    'g') +
+          macroEditRowHTML('Sodium',   'sodium',   'mg') +
         '</div>';
       }
 
@@ -621,7 +610,13 @@
       return hh + ':' + mm;
     }
 
+    function removePickerOverlay() {
+      var o = document.getElementById('fl-picker-overlay');
+      if (o && o.parentNode) o.parentNode.removeChild(o);
+    }
+
     function render() {
+      removePickerOverlay();
       var modeToggle = (!isEdit && !isLibraryForm)
         ? '<div class="fl-mode-tabs">' +
             '<div class="fl-mode-tab' + (!buildMode ? ' active' : '') + '" data-mode="describe">Describe</div>' +
@@ -812,6 +807,8 @@
           // not at click time. This prevents a removed component from being
           // included if the user taps × during the parseMeal round-trip.
           var freeText = (formState.buildFreeform || '').trim();
+          var freeformTextarea = _A.$('fl-build-freeform');
+          if (freeformTextarea) freeformTextarea.disabled = true;
           var parsedResult = null;
           if (freeText) {
             try {
@@ -819,6 +816,7 @@
             } catch (e) {
               calcBtn.disabled = false;
               calcBtn.textContent = 'Calculate';
+              if (freeformTextarea) freeformTextarea.disabled = false;
               return;
             }
           }
@@ -975,7 +973,7 @@
               var userId = localStorage.getItem('fuelPlanner.userId');
               await FoodLogData.saveLog(userId, {
                 name:              finalName,
-                category:          formState.category || 'Breakfast',
+                category:          (formState.category || 'breakfast').trim().toLowerCase(),
                 loggedAt:          formState.loggedAt,
                 freeformInput:     formState.buildFreeform || null,
                 protein:           postCalculate.protein,
@@ -1030,7 +1028,7 @@
               return;
             } else if (isEdit) {
               await FoodLogData.updateLog(userId, entry.id, {
-                name: formState.name, category: formState.category,
+                name: formState.name, category: normCategory,
                 loggedAt: formState.loggedAt,
                 protein: formState.protein, carbs: formState.carbs,
                 fat: formState.fat, calories: formState.calories,
@@ -1051,7 +1049,7 @@
               return;
             } else {
               await FoodLogData.saveLog(userId, {
-                name: formState.name, category: formState.category,
+                name: formState.name, category: normCategory,
                 loggedAt: formState.loggedAt, freeformInput: (_A.$('fl-freeform') && _A.$('fl-freeform').value) || null,
                 protein: formState.protein, carbs: formState.carbs,
                 fat: formState.fat, calories: formState.calories,
@@ -1083,6 +1081,7 @@
 
     // Back and delete handlers (onclick replaces handler on each render)
     _A.$('btn-fle-back').onclick = function () {
+      removePickerOverlay();
       state.editingEntry = null;
       _A.navigate(isLibraryEdit || libraryOnlyMode ? 'library' : 'food-log');
     };
