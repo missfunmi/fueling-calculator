@@ -1606,17 +1606,28 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   width: 56px;
   flex-shrink: 0;
   padding-top: 2px;
-  padding-right: 12px;
+  padding-right: 16px;
   text-align: right;
   position: relative;
+}
+.fl-time-col::before {
+  content: '';
+  position: absolute;
+  right: -4px;
+  top: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  z-index: 1;
 }
 .fl-time-col::after {
   content: '';
   position: absolute;
-  right: 0;
-  top: 8px;
+  right: -1px;
+  top: 14px;
   bottom: -16px;
-  width: 1px;
+  width: 2px;
   background: var(--border);
 }
 .fl-timeline-entry:last-child .fl-time-col::after { display: none; }
