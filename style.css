@@ -1811,6 +1811,9 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 .fl-targets-input:focus { outline: none; border-color: var(--accent); }
+.fl-targets-input::-webkit-inner-spin-button,
+.fl-targets-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.fl-targets-input { -moz-appearance: textfield; }
 
 /* Library sub-tab toggle */
 .fl-lib-tabs {
