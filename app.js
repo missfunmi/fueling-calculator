@@ -137,7 +137,8 @@
     // Show/hide tab bar (hide on detail and form views)
     var hideTabBar = (view === 'detail' || view === 'create' ||
                       view === 'product-form' || view === 'landing' ||
-                      view === 'claim' || view === 'recovery' || view === 'settings');
+                      view === 'claim' || view === 'recovery' || view === 'settings' ||
+                      view === 'food-log-entry' || view === 'food-log-targets');
     var tabBar = $('tab-bar');
     if (tabBar) tabBar.style.display = hideTabBar ? 'none' : '';
 
@@ -273,8 +274,17 @@
       return;
     }
 
+    function injectEventsFab() {
+      var existing = $('events-fab');
+      if (existing) existing.parentNode.removeChild(existing);
+      var viewEl = document.getElementById('view-events');
+      viewEl.insertAdjacentHTML('beforeend', '<button class="fl-fab" id="events-fab" aria-label="New event"><i class="ti ti-plus"></i></button>');
+      on($('events-fab'), 'click', function () { navigate('create', { currentEventId: null, currentEvent: null }); });
+    }
+
     if (!events.length) {
       $list.innerHTML = '<div class="empty-state"><div style="font-size:48px">🚴</div><p>No events yet.</p><p>Tap + to plan your first one.</p></div>';
+      injectEventsFab();
       _refreshClaimIndicator();
       return;
     }
@@ -343,6 +353,7 @@
     }
 
     $list.innerHTML = html;
+    injectEventsFab();
 
     $list.querySelectorAll('.event-card').forEach(function (card) {
       on(card, 'click', function () {
@@ -384,14 +395,6 @@
     var btn = $('btn-find-data');
     if (btn) { btn.disabled = false; btn.textContent = 'Find my data'; }
   };
-
-  on($('btn-new-event'), 'click', function () {
-    navigate('create', { currentEventId: null });
-  });
-
-  on($('btn-new-event-nav'), 'click', function () {
-    navigate('create', { currentEventId: null });
-  });
 
   // ── Create / Edit event ────────────────────────────────────────────────────
 
@@ -2126,23 +2129,63 @@
 
   async function renderLibrary() {
     var $body = $('library-body');
-    showContainerSpinner($body);
+
+    // Sub-tab header
+    $body.innerHTML =
+      '<div class="fl-lib-tabs" id="lib-subtab-bar">' +
+        '<button class="fl-lib-tab active" data-lib-tab="fuel">Fuel</button>' +
+        '<button class="fl-lib-tab"        data-lib-tab="food">Food</button>' +
+      '</div>' +
+      '<div id="lib-pane-fuel"></div>' +
+      '<div id="lib-pane-food" style="display:none"></div>';
+
+    // Wire sub-tab switching
+    $$('.fl-lib-tab', $body).forEach(function (btn) {
+      on(btn, 'click', function () {
+        $$('.fl-lib-tab', $body).forEach(function (b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        $('lib-pane-fuel').style.display = btn.dataset.libTab === 'fuel' ? '' : 'none';
+        $('lib-pane-food').style.display = btn.dataset.libTab === 'food' ? '' : 'none';
+      });
+    });
+
+    // Inject library FAB
+    (function () {
+      var existing = $('lib-fab');
+      if (existing) existing.parentNode.removeChild(existing);
+      var viewEl = document.getElementById('view-library');
+      viewEl.insertAdjacentHTML('beforeend', '<button class="fl-fab" id="lib-fab" aria-label="New item"><i class="ti ti-plus"></i></button>');
+      on($('lib-fab'), 'click', function () {
+        var activeTab = $$('.fl-lib-tab.active', $body)[0];
+        var tab = activeTab ? activeTab.dataset.libTab : 'fuel';
+        if (tab === 'food') {
+          if (window.FoodLog) window.FoodLog.newFoodItem();
+        } else {
+          navigate('product-form', { editingProductId: null });
+        }
+      });
+    }());
+
+    // Render food library pane (food-log.js registers this)
+    if (window.FoodLog && window.FoodLog.renderFoodLibraryPane) {
+      window.FoodLog.renderFoodLibraryPane($('lib-pane-food'));
+    }
+
+    // Render fuel pane (existing logic, targeting lib-pane-fuel)
+    var $fuel = $('lib-pane-fuel');
+    showContainerSpinner($fuel);
 
     var products;
     try {
       products = await Data.getProducts();
     } catch (e) {
-      $body.innerHTML = '';
+      $fuel.innerHTML = '';
       showToast("Couldn't load library — check your connection.");
       return;
     }
 
-    var desktopBtn = '<button class="btn-new-product-desktop" id="btn-new-product-desktop">+ New Product</button>';
-
     if (!products.length) {
-      $body.innerHTML = desktopBtn + '<div class="empty-state"><div style="font-size:48px">📦</div><p>No products yet.</p><p>Tap + to add your first product.</p></div>';
-      var dbtn = $('btn-new-product-desktop');
-      if (dbtn) on(dbtn, 'click', function () { navigate('product-form', { editingProductId: null }); });
+      $fuel.innerHTML = '<div class="empty-state"><div style="font-size:48px">📦</div><p>No products yet.</p><p>Tap + to add your first product.</p></div>';
       return;
     }
 
@@ -2165,7 +2208,7 @@
       Object.keys(groups).filter(function (t) { return TYPE_ORDER.indexOf(t) === -1; }).sort()
     ).filter(function (t) { return groups[t]; });
 
-    $body.innerHTML = desktopBtn + types.map(function (type) {
+    $fuel.innerHTML = types.map(function (type) {
       return '<div class="product-group">' +
         '<div class="product-group-title">' + escHtml(TYPE_LABELS[type] || type) + 's</div>' +
         groups[type].map(function (p) {
@@ -2184,18 +2227,80 @@
       '</div>';
     }).join('');
 
-    $$('.product-row', $body).forEach(function (row) {
+    $$('.product-row', $fuel).forEach(function (row) {
       on(row, 'click', function () {
         navigate('product-form', { editingProductId: row.dataset.productId });
       });
     });
 
-    var dbtn = $('btn-new-product-desktop');
-    if (dbtn) on(dbtn, 'click', function () { navigate('product-form', { editingProductId: null }); });
   }
 
-  function renderSettings() {
+  async function renderSettings() {
     var isAnonymous = localStorage.getItem('fuelPlanner.isAnonymous') === 'true';
+    var userId = localStorage.getItem('fuelPlanner.userId');
+
+    // ── Food log daily targets ─────────────────────────────────────────────────
+    var existingTargetsSection = $('settings-targets-section');
+    if (existingTargetsSection) existingTargetsSection.parentNode.removeChild(existingTargetsSection);
+    var targetsSection = document.createElement('div');
+    targetsSection.id = 'settings-targets-section';
+    targetsSection.style.cssText = 'margin-top:16px';
+    targetsSection.innerHTML =
+      '<div class="form-card" style="margin-top:0">' +
+        '<p style="margin:0 0 12px;font-weight:600">Food Log Targets</p>' +
+        '<p style="margin:0 0 12px;font-size:14px;color:var(--text-secondary)">Leave a field blank to hide its progress bar in the Food Log.</p>' +
+        '<div id="settings-targets-rows" style="border:1px solid var(--border);border-radius:var(--radius-md)">' +
+          '<div style="padding:16px;color:var(--text-tertiary);font-size:14px">Loading…</div>' +
+        '</div>' +
+      '</div>';
+    var planEl = $('settings-plan-section');
+    if (planEl) planEl.parentNode.insertBefore(targetsSection, planEl);
+
+    if (userId) {
+      var targets = {};
+      try { targets = (await (window.FoodLogData && window.FoodLogData.getTargets(userId))) || {}; } catch (e) {}
+      var keys = [
+        { key: 'caloriesTarget', label: 'Calories', placeholder: 'kcal/day' },
+        { key: 'proteinTarget',  label: 'Protein',  placeholder: 'g/day' },
+        { key: 'carbsTarget',    label: 'Carbs',    placeholder: 'g/day' },
+        { key: 'fatTarget',      label: 'Fat',      placeholder: 'g/day' },
+        { key: 'fiberTarget',    label: 'Fiber',    placeholder: 'g/day' },
+        { key: 'sodiumTarget',   label: 'Sodium',   placeholder: 'mg/day' }
+      ];
+      var rowsEl = $('settings-targets-rows');
+      if (rowsEl) {
+        rowsEl.innerHTML = keys.map(function (f) {
+          var val = targets[f.key] != null ? targets[f.key] : '';
+          return '<div class="fl-target-row">' +
+            '<span class="fl-targets-label">' + f.label + '</span>' +
+            '<input class="fl-targets-input" type="number" min="0" data-tkey="' + f.key + '" value="' + val + '" placeholder="' + f.placeholder + '">' +
+          '</div>';
+        }).join('');
+      }
+    }
+
+    if (userId) {
+      var rowsEl2 = $('settings-targets-rows');
+      if (rowsEl2) {
+        rowsEl2.addEventListener('blur', async function (e) {
+          var inp = e.target.closest('[data-tkey]');
+          if (!inp) return;
+          var val = inp.value.trim();
+          if (val !== '' && parseFloat(val) < 0) { inp.value = '0'; val = '0'; }
+          var updated = {};
+          $$('[data-tkey]').forEach(function (i) {
+            var v = i.value.trim();
+            updated[i.dataset.tkey] = v !== '' ? Math.max(0, parseFloat(v) || 0) : null;
+          });
+          try {
+            await window.FoodLogData.saveTargets(userId, updated);
+            showToast('Settings updated.');
+          } catch (e) {
+            showToast("Couldn't save — check your connection.");
+          }
+        }, true);
+      }
+    }
 
     // ── Plan settings ──────────────────────────────────────────────────────────
     var planSection = $('settings-plan-section');
@@ -2203,22 +2308,23 @@
       var curInterval = Data.getDefaultExecInterval();
       planSection.innerHTML =
         '<div class="form-card" style="margin-top:16px">' +
-          '<p style="margin:0 0 8px;font-weight:600">Execution plan</p>' +
-          '<label style="display:flex;align-items:center;gap:10px;font-size:14px">' +
-            'Default step interval (minutes)' +
-            '<input id="settings-exec-interval" type="number" min="1" max="120" value="' + curInterval + '" ' +
-              'style="width:64px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text-primary);font-size:14px">' +
-          '</label>' +
+          '<p style="margin:0 0 8px;font-weight:600">Event Execution Plan</p>' +
+          '<div style="border:1px solid var(--border);border-radius:var(--radius-md)">' +
+            '<div class="fl-target-row">' +
+              '<span class="fl-targets-label">Default step interval (minutes)</span>' +
+              '<input id="settings-exec-interval" class="fl-targets-input" type="number" min="1" max="120" value="' + curInterval + '">' +
+            '</div>' +
+          '</div>' +
         '</div>';
       var intervalInput = $('settings-exec-interval');
       if (intervalInput) {
-        on(intervalInput, 'change', function () {
+        on(intervalInput, 'blur', function () {
           var n = parseInt(intervalInput.value, 10);
           if (!isNaN(n) && n > 0) {
             Data.setDefaultExecInterval(n);
-            showToast('Default interval updated.');
+            showToast('Settings updated.');
           } else {
-            intervalInput.value = String(Data.getDefaultExecInterval());
+            intervalInput.value = String(Math.max(1, Data.getDefaultExecInterval()));
           }
         });
       }
@@ -2255,10 +2361,6 @@
   renders.library = renderLibrary;
   renders.settings = renderSettings;
 
-  on($('btn-new-product'), 'click', function () {
-    navigate('product-form', { editingProductId: null });
-  });
-
   // ── Product form ──────────────────────────────────────────────────────────────
 
   async function renderProductForm() {
@@ -2271,7 +2373,7 @@
       product = products.find(function (p) { return p.id === state.editingProductId; }) || null;
     }
 
-    $('pf-title').textContent             = isEdit ? 'Edit Product' : 'New Product';
+    $('pf-title').textContent             = isEdit ? 'Edit Fuel Item' : 'New Fuel Item';
     $('btn-delete-product').style.display = isEdit ? '' : 'none';
     $('pf-brand').value    = product ? (product.brand    || '') : '';
     $('pf-name').value     = product ? product.name           : '';

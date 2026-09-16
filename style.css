@@ -796,6 +796,11 @@ input[type="date"].form-input {
     gap: 2px;
   }
 
+  #btn-settings-nav {
+    background: transparent;
+    margin-left: 8px;
+  }
+
   .top-nav-link {
     display: inline-flex;
     align-items: center;
@@ -808,6 +813,7 @@ input[type="date"].form-input {
     /* reset mobile tab-btn styles */
     flex-direction: row;
     gap: 0;
+    white-space: nowrap;
   }
 
   .top-nav-link:hover {
@@ -844,7 +850,8 @@ input[type="date"].form-input {
 
   /* Hide per-view headers on list views — top nav handles navigation */
   #view-events .app-header,
-  #view-library .app-header { display: none; }
+  #view-library .app-header,
+  #view-food-log .app-header { display: none; }
 
   /* Show top-nav gear, hide in-header gear icons (redundant on desktop) */
   #btn-settings-nav { display: flex; }
@@ -1454,3 +1461,420 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   margin-left: 8px;
 }
 
+/* ── Food Log ─────────────────────────────────────────────────────────────── */
+
+:root {
+  --m-cal:     #1a1a2e;
+  --m-protein: #0a52a0;
+  --m-carbs:   #b45309;
+  --m-fat:     #6d28d9;
+  --m-fiber:   #1a7a31;
+  --m-sodium:  #0e6674;
+}
+
+/* Date navigation */
+.fl-date-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.fl-date-nav-btn {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: var(--text-secondary);
+  padding: 4px 8px;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+.fl-date-nav-btn:hover { background: var(--surface-2); }
+.fl-date-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  gap: 2px;
+}
+.fl-today-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.fl-date-label {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text);
+}
+.fl-date-caret { font-size: 13px; color: var(--text-tertiary); }
+.fl-today-jump {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+/* Progress section */
+.fl-progress {
+  padding: 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.fl-cal-row {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.fl-cal-number {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--m-cal);
+  font-variant-numeric: tabular-nums;
+}
+.fl-cal-target {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+.fl-cal-bar-track {
+  height: 6px;
+  background: var(--surface-2);
+  border-radius: 3px;
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+.fl-cal-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--m-cal);
+  transition: width 0.3s;
+}
+.fl-macro-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+.fl-macro-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.fl-macro-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  width: 56px;
+  flex-shrink: 0;
+}
+.fl-macro-bar-track {
+  flex: 1;
+  height: 4px;
+  background: var(--surface-2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.fl-macro-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s;
+}
+.fl-macro-value {
+  font-size: 13px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  min-width: 72px;
+  text-align: right;
+}
+
+/* Timeline */
+.fl-timeline {
+  padding: 16px 0;
+}
+.fl-timeline-entry {
+  display: flex;
+  gap: 0;
+  padding: 0 0 16px 0;
+}
+.fl-time-col {
+  width: 56px;
+  flex-shrink: 0;
+  padding-top: 2px;
+  padding-right: 16px;
+  text-align: right;
+  position: relative;
+}
+.fl-time-col::before {
+  content: '';
+  position: absolute;
+  right: -4px;
+  top: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  z-index: 1;
+}
+.fl-time-col::after {
+  content: '';
+  position: absolute;
+  right: -1px;
+  top: 14px;
+  bottom: -16px;
+  width: 2px;
+  background: var(--border);
+}
+.fl-timeline-entry:last-child .fl-time-col::after { display: none; }
+.fl-time-text {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.fl-entry-body {
+  flex: 1;
+  padding: 0 16px;
+  cursor: pointer;
+}
+.fl-entry-name {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+.fl-entry-meta {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.fl-category-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-right: 6px;
+  background: var(--surface-2);
+  color: var(--text-secondary);
+}
+.fl-empty-timeline {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 14px;
+}
+
+/* Floating + button */
+.fl-fab {
+  position: fixed;
+  bottom: calc(var(--tab-bar-height) + 16px);
+  right: 16px;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+/* Entry form */
+.fl-freeform-area {
+  width: 100%;
+  min-height: 80px;
+  padding: 12px;
+  font-size: 15px;
+  font-family: inherit;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  resize: vertical;
+  box-sizing: border-box;
+}
+.fl-freeform-area:focus { outline: none; border-color: var(--accent); }
+.fl-parse-btn {
+  width: 100%;
+  padding: 12px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 8px;
+}
+.fl-parse-btn:disabled { opacity: 0.6; cursor: default; }
+
+/* Estimated macros block */
+.fl-estimated {
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  padding: 12px 16px;
+  margin-top: 16px;
+}
+.fl-estimated-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  margin-bottom: 10px;
+}
+.fl-macro-edit-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+.fl-macro-edit-row:last-child { border-bottom: none; }
+.fl-macro-edit-label { font-size: 14px; color: var(--text-secondary); }
+.fl-macro-edit-value-wrap {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  border-bottom: 1.5px solid var(--border);
+  padding-bottom: 1px;
+}
+.fl-macro-edit-value {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  border: none;
+  background: none;
+  text-align: right;
+  width: 64px;
+  padding: 0;
+  font-family: inherit;
+}
+.fl-macro-edit-value:focus { outline: none; }
+.fl-macro-edit-value-wrap:focus-within { border-bottom-color: var(--accent); }
+.fl-macro-edit-unit { font-size: 12px; color: var(--text-tertiary); white-space: nowrap; }
+.fl-ai-notes {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  font-style: italic;
+  margin-top: 8px;
+}
+
+/* Category chips */
+.fl-category-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 12px 0;
+}
+.fl-chip {
+  padding: 5px 12px;
+  border-radius: 16px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+}
+.fl-chip.active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+/* Save-to-library checkbox row */
+.fl-save-library-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+/* Targets form */
+.fl-target-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.fl-target-row:last-of-type { border-bottom: none; }
+.fl-targets-label { font-size: 14px; color: var(--text); }
+.fl-targets-input {
+  width: 100px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.fl-targets-input:focus { outline: none; border-color: var(--accent); }
+.fl-targets-input::-webkit-inner-spin-button,
+.fl-targets-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.fl-targets-input { -moz-appearance: textfield; }
+
+/* Library sub-tab toggle */
+.fl-lib-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  margin-bottom: 0;
+}
+.fl-lib-tab {
+  flex: 1;
+  padding: 10px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+}
+.fl-lib-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+/* Food library list */
+.fl-lib-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  gap: 12px;
+}
+.fl-lib-item-info { flex: 1; }
+.fl-lib-item-name { font-size: 15px; font-weight: 500; color: var(--text); }
+.fl-lib-item-meta { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+.fl-lib-use-btn {
+  padding: 5px 12px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}

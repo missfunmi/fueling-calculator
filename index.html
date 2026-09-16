@@ -17,8 +17,8 @@
     <div class="top-nav-links">
       <button class="tab-btn top-nav-link" data-tab-view="events">Events</button>
       <button class="tab-btn top-nav-link" data-tab-view="library">Library</button>
+      <button class="tab-btn top-nav-link" data-tab-view="food-log">Food Log</button>
       <button id="btn-settings-nav" class="btn-icon top-nav-settings" aria-label="Settings"><i class="ti ti-settings"></i></button>
-      <button id="btn-new-event-nav" class="top-nav-cta">+ New Event</button>
     </div>
   </nav>
 
@@ -48,7 +48,6 @@
   <div id="view-events" class="view active">
     <header class="app-header">
       <h1>Events</h1>
-      <button id="btn-new-event" class="btn-icon" aria-label="New event"><i class="ti ti-plus"></i></button>
       <button id="btn-settings-events" class="btn-icon btn-icon-settings" aria-label="Settings"><i class="ti ti-settings"></i></button>
     </header>
     <div id="events-list" class="view-body"></div>
@@ -175,7 +174,6 @@
   <div id="view-library" class="view">
     <header class="app-header">
       <h1>Library</h1>
-      <button id="btn-new-product" class="btn-icon" aria-label="New product"><i class="ti ti-plus"></i></button>
       <button id="btn-settings-library" class="btn-icon btn-icon-settings" aria-label="Settings"><i class="ti ti-settings"></i></button>
     </header>
     <div class="view-body">
@@ -240,6 +238,34 @@
       <div id="settings-plan-section"></div>
       <div id="settings-account-section"></div>
     </div>
+  </div>
+
+  <!-- ── Food Log view ──────────────────────────────────────────── -->
+  <div id="view-food-log" class="view">
+    <header class="app-header">
+      <h1>Food Log</h1>
+      <button id="btn-food-log-targets" class="btn-icon btn-icon-settings" aria-label="Settings"><i class="ti ti-settings"></i></button>
+    </header>
+    <div class="view-body" style="padding:0" id="food-log-body"></div>
+  </div>
+
+  <!-- ── Food log entry form ────────────────────────────────────── -->
+  <div id="view-food-log-entry" class="view">
+    <header class="app-header">
+      <button id="btn-fle-back" class="btn-back" aria-label="Back"><i class="ti ti-arrow-left"></i></button>
+      <h1 id="fle-title">Log Meal</h1>
+      <button id="btn-fle-delete" class="btn-icon btn-danger" aria-label="Delete" style="display:none"><i class="ti ti-trash"></i></button>
+    </header>
+    <div class="view-body" id="food-log-entry-body"></div>
+  </div>
+
+  <!-- ── Food log targets settings ─────────────────────────────── -->
+  <div id="view-food-log-targets" class="view">
+    <header class="app-header">
+      <button id="btn-flt-back" class="btn-back" aria-label="Back"><i class="ti ti-arrow-left"></i></button>
+      <h1>Daily Targets</h1>
+    </header>
+    <div class="view-body" id="food-log-targets-body"></div>
   </div>
 
 </div><!-- #app -->
@@ -337,6 +363,7 @@
 <nav class="tab-bar" id="tab-bar">
   <button class="tab-btn active" data-tab-view="events">Events</button>
   <button class="tab-btn" data-tab-view="library">Library</button>
+  <button class="tab-btn" data-tab-view="food-log">Food Log</button>
 </nav>
 
 <!-- ── Loading spinner ─────────────────────────────────────────────── -->
@@ -361,5 +388,7 @@
 <script src="data.js"></script>
 <script src="export.js"></script>
 <script src="app.js"></script>
+<script src="food-log-data.js"></script>
+<script src="food-log.js"></script>
 </body>
 </html>

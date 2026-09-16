@@ -3,3 +3,4 @@
 .notes/
 node_modules/
 .worktrees/
+supabase/.temp/
