@@ -9,6 +9,7 @@
     'breakfast':    { bg: 'var(--amber-bg)',  color: 'var(--amber-text)'  },
     'lunch':        { bg: 'var(--blue-bg)',   color: 'var(--blue-text)'   },
     'dinner':       { bg: 'var(--purple-bg)', color: 'var(--purple-text)' },
+    'fuel':         { bg: 'var(--red-bg)',    color: 'var(--red-text)'    },
     'snack':        { bg: 'var(--green-bg)',  color: 'var(--green-text)'  },
     'pre-workout':  { bg: 'var(--red-bg)',    color: 'var(--red-text)'    },
     'post-workout': { bg: 'var(--green-bg)',  color: 'var(--green-text)'  }
@@ -364,7 +365,7 @@
           return '<div class="product-row" data-lib-id="' + item.id + '">' +
             '<div class="product-row-info">' +
               '<div class="product-row-name">' + _A.escHtml(fullName) + '</div>' +
-              '<div class="product-row-meta">' + meta.join(' · ') + suffix + '</div>' +
+              '<div class="product-row-meta">' + (meta.length ? meta.join(' · ') + suffix : suffix) + '</div>' +
             '</div>' +
             '<span style="color:var(--text-tertiary);font-size:20px">&#8250;</span>' +
           '</div>';
@@ -598,7 +599,7 @@
     function categoryChipsHTML() {
       return '<div class="fl-category-chips">' +
         categories.map(function (c) {
-          return '<button class="fl-chip' + (formState.category === c ? ' active' : '') + '" data-category="' + c + '">' + c + '</button>';
+          return '<button class="fl-chip' + (formState.category.toLowerCase() === c.toLowerCase() ? ' active' : '') + '" data-category="' + c + '">' + c + '</button>';
         }).join('') +
       '</div>';
     }
@@ -876,7 +877,7 @@
           } else if (buildComponents.length > 1) {
             suggestedName = buildComponents.map(function (bc) { return bc.item.name; }).slice(0, 3).join(' & ');
           } else {
-            suggestedName = freeText.split(',')[0].replace(/^\d+g?\s*/i, '').trim() || 'Meal';
+            suggestedName = freeText.split(',')[0].replace(/^[\d.]+\s*[a-z]*\s*/i, '').trim() || 'Meal';
           }
 
           postCalculate = {
