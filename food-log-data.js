@@ -39,9 +39,9 @@
   }
 
   async function getLogs(userId, date) {
-    // date: 'YYYY-MM-DD'
-    var from = date + 'T00:00:00.000Z';
-    var to   = date + 'T23:59:59.999Z';
+    // date: 'YYYY-MM-DD' in LOCAL time — convert local day boundaries to UTC for the query
+    var from = new Date(date + 'T00:00:00').toISOString();
+    var to   = new Date(date + 'T23:59:59.999').toISOString();
     var rows = await req('GET',
       'food_logs?user_id=eq.' + encodeURIComponent(userId) +
       '&logged_at=gte.' + encodeURIComponent(from) +

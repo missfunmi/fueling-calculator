@@ -17,7 +17,10 @@
   };
 
   function todayStr() {
-    return new Date().toISOString().slice(0, 10);
+    var d = new Date();
+    return d.getFullYear() + '-' +
+      String(d.getMonth() + 1).padStart(2, '0') + '-' +
+      String(d.getDate()).padStart(2, '0');
   }
 
   function fmtDate(str) {
@@ -136,7 +139,7 @@
 
   function timelineHTML(logs) {
     if (!logs || !logs.length) {
-      return '<div class="fl-empty-timeline">No entries yet — tap + to log a meal.</div>';
+      return '<div class="fl-empty-timeline">No entries yet. Tap + to log a meal.</div>';
     }
     return '<div class="fl-timeline">' +
       logs.map(function (log) {
@@ -327,7 +330,7 @@
       fiber:    isEdit ? entry.fiber     : (prefill ? prefill.fiber     : null),
       sodium:   isEdit ? entry.sodium    : (prefill ? prefill.sodium    : null),
       category: isEdit ? (entry.category || 'Breakfast') : (prefill ? (prefill.category || 'Breakfast') : 'Breakfast'),
-      loggedAt: isEdit ? entry.loggedAt  : new Date().toISOString(),
+      loggedAt: isEdit ? entry.loggedAt  : (state.date === todayStr() ? new Date().toISOString() : new Date(state.date + 'T12:00:00').toISOString()),
       aiEstimated: isEdit ? entry.aiEstimated : false,
       aiNotes:  isEdit ? entry.aiNotes   : null,
       libraryItemId: isEdit ? entry.libraryItemId : (prefill ? prefill.libraryItemId : null),
