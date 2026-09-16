@@ -104,13 +104,16 @@
 
   function rowToItem(r) {
     return {
-      id: r.id, userId: r.user_id, name: r.name, category: r.category || '',
+      id: r.id, userId: r.user_id, name: r.name,
+      brand:             r.brand || null,
+      category:          r.category || '',
       proteinPerServing: r.protein_per_serving,
       carbsPerServing:   r.carbs_per_serving,
       fatPerServing:     r.fat_per_serving,
       caloriesPerServing: r.calories_per_serving,
       fiberPerServing:   r.fiber_per_serving,
       sodiumPerServing:  r.sodium_per_serving,
+      servingSize:       r.serving_size != null ? r.serving_size : null,
       servingUnit:       r.serving_unit || null,
       createdAt:         r.created_at
     };
@@ -134,7 +137,9 @@
       calories_per_serving: item.caloriesPerServing || 0,
       fiber_per_serving:   item.fiberPerServing  != null ? item.fiberPerServing  : null,
       sodium_per_serving:  item.sodiumPerServing != null ? item.sodiumPerServing : null,
-      serving_unit:        item.servingUnit || null
+      serving_unit:        item.servingUnit || null,
+      brand:               item.brand        || null,
+      serving_size:        item.servingSize  != null ? item.servingSize : null
     });
     if (!rows || !rows[0]) throw new Error('saveLibraryItem: no row returned');
     return rowToItem(rows[0]);
@@ -151,6 +156,8 @@
     if (fields.fiberPerServing    !== undefined) body.fiber_per_serving   = fields.fiberPerServing;
     if (fields.sodiumPerServing   !== undefined) body.sodium_per_serving  = fields.sodiumPerServing;
     if (fields.servingUnit        !== undefined) body.serving_unit        = fields.servingUnit;
+    if (fields.brand              !== undefined) body.brand               = fields.brand;
+    if (fields.servingSize        !== undefined) body.serving_size        = fields.servingSize;
     var rows = await req('PATCH',
       'food_library?id=eq.' + encodeURIComponent(id) + '&user_id=eq.' + encodeURIComponent(userId),
       body, 'return=representation'
@@ -216,6 +223,21 @@
     return data;
   }
 
+  // ── Helpers ──────────────────────────────────────────────────────────────────
+
+  function scaleComponentMacros(item, amountG) {
+    var ratio = item.servingSize ? amountG / item.servingSize : 1;
+    function sc(val) { return val != null ? Math.round(val * ratio * 10) / 10 : null; }
+    return {
+      protein:  sc(item.proteinPerServing),
+      carbs:    sc(item.carbsPerServing),
+      fat:      sc(item.fatPerServing),
+      calories: sc(item.caloriesPerServing),
+      fiber:    sc(item.fiberPerServing),
+      sodium:   sc(item.sodiumPerServing)
+    };
+  }
+
   // ── Exports ──────────────────────────────────────────────────────────────────
 
   window.FoodLogData = {
@@ -223,6 +245,9 @@
     getLibrary: getLibrary, saveLibraryItem: saveLibraryItem,
     updateLibraryItem: updateLibraryItem, deleteLibraryItem: deleteLibraryItem,
     getTargets: getTargets, saveTargets: saveTargets,
-    parseMeal: parseMeal
+    parseMeal: parseMeal,
+    scaleComponentMacros: scaleComponentMacros
   };
 })();
+
+if (typeof module !== 'undefined') module.exports = window.FoodLogData;
