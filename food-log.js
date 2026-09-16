@@ -152,6 +152,27 @@
         var macroHTML = macroParts.map(function (p) {
           return '<span style="white-space:nowrap">' + _A.escHtml(p) + '</span>';
         }).join(' · ');
+        var pillsHTML = '';
+        if (log.components && log.components.length) {
+          var libItems  = log.components.filter(function (c) { return c.library_item_id; });
+          var freeItems = log.components.filter(function (c) { return !c.library_item_id; });
+          var pills = libItems.map(function (c, i) {
+            var color = COMPONENT_COLORS[i % COMPONENT_COLORS.length];
+            var label = (c.amount_g != null ? c.amount_g + 'g ' : '') + c.name;
+            return '<span class="fl-component-pill">' +
+              '<span class="fl-component-pill-dot" style="background:' + color + '"></span>' +
+              _A.escHtml(label) +
+            '</span>';
+          });
+          if (freeItems.length) {
+            var freeLabel = freeItems.map(function (c) { return c.name; }).join(' · ');
+            pills.push('<span class="fl-component-pill">' + _A.escHtml(freeLabel) + '</span>');
+          }
+          pillsHTML =
+            '<div class="fl-entry-components" id="fl-ec-' + log.id + '">' + pills.join('') + '</div>' +
+            '<div class="fl-entry-expand" data-ec-id="' + log.id + '">▲ Collapse</div>';
+        }
+
         return '<div class="fl-timeline-entry">' +
           '<div class="fl-time-col"><span class="fl-time-text">' + fmtTime(log.loggedAt) + '</span></div>' +
           '<div class="fl-entry-body" data-entry-id="' + log.id + '">' +
@@ -160,6 +181,7 @@
               '<span class="fl-category-badge">' + _A.escHtml(log.category || 'Other') + '</span>' +
               macroHTML +
             '</div>' +
+            pillsHTML +
           '</div>' +
         '</div>';
       }).join('') +
@@ -254,6 +276,18 @@
         var id = el.dataset.entryId;
         state.editingEntry = state.logs.filter(function (l) { return l.id === id; })[0] || null;
         _A.navigate('food-log-entry');
+      });
+    });
+
+    // Component pills collapse/expand
+    _A.$$('.fl-entry-expand', $body).forEach(function (btn) {
+      _A.on(btn, 'click', function (e) {
+        e.stopPropagation();
+        var ecEl = _A.$('fl-ec-' + btn.dataset.ecId);
+        if (!ecEl) return;
+        var isVisible = ecEl.style.display !== 'none';
+        ecEl.style.display = isVisible ? 'none' : '';
+        btn.textContent = isVisible ? '▼ Show components' : '▲ Collapse';
       });
     });
   }
