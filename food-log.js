@@ -685,8 +685,8 @@
           (parsed && !isEdit && !isLibraryForm
             ? '<label class="fl-save-library-row"><input type="checkbox" id="fl-save-library"> Save to library</label>' +
               '<div id="fl-save-library-size-row" style="display:none;margin-top:6px;padding-left:2px">' +
-                '<label style="font-size:13px;color:var(--text-2)">Serving size (g)' +
-                  '<input class="fl-macro-edit-value" type="number" min="0" id="fl-save-library-size" style="display:block;margin-top:4px">' +
+                '<label style="font-size:13px;color:var(--text-2);display:flex;align-items:center;gap:8px">Serving size (g)' +
+                  '<input class="fl-macro-edit-value" type="number" min="0" id="fl-save-library-size" style="width:80px">' +
                 '</label>' +
               '</div>'
             : '') +
@@ -752,6 +752,7 @@
       var addBtn = _A.$('fl-build-add-btn');
       if (addBtn) {
         _A.on(addBtn, 'click', function () {
+          if (isCalculating) return;
           var selectedIds = buildComponents.map(function (bc) { return bc.item.id; });
           var sheetEl = document.createElement('div');
           sheetEl.innerHTML = pickerSheetHTML(state.library, selectedIds);
@@ -1062,16 +1063,19 @@
 
           if (!formState.name) { alert('Please enter a name.'); return; }
           var saveLibCb = _A.$('fl-save-library');
+          var libSizeInput = _A.$('fl-save-library-size');
+          var libSizeVal = '';
           if (saveLibCb && saveLibCb.checked) {
-            var libSizeInput = _A.$('fl-save-library-size');
-            var libSizeVal = libSizeInput ? libSizeInput.value.trim() : '';
+            libSizeVal = libSizeInput ? libSizeInput.value.trim() : '';
             if (!libSizeVal || parseFloat(libSizeVal) <= 0) {
-              alert('Serving size is required when macros are set.');
+              alert('Serving size is required when saving to library.');
               return;
             }
           }
           saveBtn.disabled = true;
           saveBtn.textContent = 'Saving…';
+          if (saveLibCb) saveLibCb.disabled = true;
+          if (libSizeInput) libSizeInput.disabled = true;
           var userId = localStorage.getItem('fuelPlanner.userId');
           if (isLibraryForm) {
               // Clamp negatives
@@ -1146,6 +1150,8 @@
           } catch (e) {
             saveBtn.disabled = false;
             saveBtn.textContent = 'Save';
+            if (saveLibCb) saveLibCb.disabled = false;
+            if (libSizeInput) libSizeInput.disabled = false;
             alert('Could not save — check your connection.');
           }
         });
