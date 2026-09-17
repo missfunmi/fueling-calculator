@@ -1160,7 +1160,10 @@
               var _szRaw = formState.logServingSize;
               var _sz = (_szRaw === '' || _szRaw === null) ? null : Number(_szRaw);
               if (_sz !== null && isNaN(_sz)) _sz = null;
-              var _unit = entry.libraryItemId
+              var _linkedLibForSave = entry.libraryItemId
+                ? (state.library || []).filter(function(i) { return i.id === entry.libraryItemId; })[0]
+                : null;
+              var _unit = _linkedLibForSave
                 ? (entry.logServingUnit !== null && entry.logServingUnit !== undefined ? entry.logServingUnit : null)
                 : (typeof formState.logServingUnit === 'string' ? formState.logServingUnit : '').trim() || null;
               editPayload.logServingSize = _sz;
