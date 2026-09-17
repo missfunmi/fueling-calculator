@@ -581,7 +581,7 @@
         var color = COMPONENT_COLORS[i % COMPONENT_COLORS.length];
         var scaled = FoodLogData.scaleComponentMacros(bc.item, bc.amountG);
         var sub = macroMetaFromValues(scaled);
-        sub.push('per ' + bc.amountG + (bc.item.servingUnit ? ' ' + _A.escHtml(bc.item.servingUnit) : 'g'));
+        if (bc.amountG != null && bc.amountG > 0) sub.push('per ' + bc.amountG + (bc.item.servingUnit ? ' ' + _A.escHtml(bc.item.servingUnit) : 'g'));
         return '<div class="fl-component-row">' +
           '<div class="fl-component-color" style="background:' + color + '"></div>' +
           '<div class="fl-component-info">' +
