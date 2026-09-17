@@ -204,6 +204,9 @@
         var macroHTML = macroParts.map(function (p) {
           return '<span style="white-space:nowrap">' + _A.escHtml(p) + '</span>';
         }).join(' · ');
+        var servingMeta = log.logServingSize != null
+          ? (log.logServingSize + (log.logServingUnit ? ' ' + log.logServingUnit : ''))
+          : null;
         var pillsHTML = '';
         if (log.components && log.components.length) {
           var libItems  = log.components.filter(function (c) { return c.library_item_id; });
@@ -228,7 +231,7 @@
         return '<div class="fl-timeline-entry">' +
           '<div class="fl-time-col"><span class="fl-time-text">' + fmtTime(log.loggedAt) + '</span></div>' +
           '<div class="fl-entry-body" data-entry-id="' + log.id + '">' +
-            '<div class="fl-entry-name">' + _A.escHtml(log.name) + '</div>' +
+            '<div class="fl-entry-name">' + _A.escHtml(log.name) + (servingMeta ? '<span class="fl-entry-serving" style="font-size:11px;color:var(--text-tertiary);font-weight:400;margin-left:6px">' + _A.escHtml(servingMeta) + '</span>' : '') + '</div>' +
             '<div class="fl-entry-meta">' +
               (function() {
                 var cat = (log.category || '').trim().toLowerCase();
@@ -456,6 +459,8 @@
       aiNotes:     isEdit ? entry.aiNotes    : null,
       libraryItemId:     isEdit ? entry.libraryItemId     : null,
       servingMultiplier: isEdit ? entry.servingMultiplier : 1.0,
+      logServingSize: isEdit ? (entry.logServingSize ?? null) : null,
+      logServingUnit: isEdit ? (entry.logServingUnit || '') : '',
       buildFreeform: ''
     };
     var buildComponents = []; // [{item, amountG}]
@@ -548,6 +553,24 @@
         macroEditRowHTML('Fat',      'fat',      'g') +
         macroEditRowHTML('Fiber',    'fiber',    'g') +
         macroEditRowHTML('Sodium',   'sodium',   'mg') +
+        '<div class="fl-macro-edit-row">' +
+          '<span class="fl-macro-edit-label">Serving</span>' +
+          '<div class="fl-macro-edit-value-wrap">' +
+            '<input class="fl-macro-edit-value" type="number" min="0" data-macro="logServingSize" value="' + (formState.logServingSize != null ? formState.logServingSize : '') + '" placeholder="—">' +
+            '<input type="text" class="fl-macro-edit-unit fl-unit-input" data-macro="logServingUnit" value="' + _A.escHtml(formState.logServingUnit ?? '') + '" placeholder="g" list="fl-unit-suggestions" autocomplete="off">' +
+            '<datalist id="fl-unit-suggestions">' +
+              '<option value="g">' +
+              '<option value="oz">' +
+              '<option value="ml">' +
+              '<option value="tsp">' +
+              '<option value="tbsp">' +
+              '<option value="cup">' +
+              '<option value="slice">' +
+              '<option value="piece">' +
+              '<option value="serving">' +
+            '</datalist>' +
+          '</div>' +
+        '</div>' +
       '</div>';
     }
 
@@ -1133,14 +1156,20 @@
               _A.navigate('library');
               return;
             } else if (isEdit) {
-              await FoodLogData.updateLog(userId, entry.id, {
+              var editPayload = {
                 name: formState.name, category: normCategory,
                 loggedAt: formState.loggedAt,
                 protein: formState.protein, carbs: formState.carbs,
                 fat: formState.fat, calories: formState.calories,
                 fiber: formState.fiber, sodium: formState.sodium,
                 aiEstimated: formState.aiEstimated, aiNotes: formState.aiNotes
-              });
+              };
+              if (formState.logServingSize !== null || formState.logServingUnit) {
+                editPayload.logServingSize = formState.logServingSize != null
+                  ? Number(formState.logServingSize) : null;
+                editPayload.logServingUnit = formState.logServingUnit?.trim() || null;
+              }
+              await FoodLogData.updateLog(userId, entry.id, editPayload);
             } else if (libraryOnlyMode) {
               await FoodLogData.saveLibraryItem(userId, {
                 name: formState.name, category: normCategory,
