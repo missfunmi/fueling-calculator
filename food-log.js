@@ -686,7 +686,7 @@
             ? '<label class="fl-save-library-row"><input type="checkbox" id="fl-save-library"> Save to library</label>' +
               '<div id="fl-save-library-size-row" style="display:none;margin-top:6px;padding-left:2px">' +
                 '<label style="font-size:13px;color:var(--text-2)">Serving size (g)' +
-                  '<input class="fl-macro-edit-value" type="number" min="0" id="fl-save-library-size" placeholder="e.g. 100" style="display:block;margin-top:4px">' +
+                  '<input class="fl-macro-edit-value" type="number" min="0" id="fl-save-library-size" style="display:block;margin-top:4px">' +
                 '</label>' +
               '</div>'
             : '') +
@@ -1061,6 +1061,15 @@
           }
 
           if (!formState.name) { alert('Please enter a name.'); return; }
+          var saveLibCb = _A.$('fl-save-library');
+          if (saveLibCb && saveLibCb.checked) {
+            var libSizeInput = _A.$('fl-save-library-size');
+            var libSizeVal = libSizeInput ? libSizeInput.value.trim() : '';
+            if (!libSizeVal || parseFloat(libSizeVal) <= 0) {
+              alert('Serving size is required when macros are set.');
+              return;
+            }
+          }
           saveBtn.disabled = true;
           saveBtn.textContent = 'Saving…';
           var userId = localStorage.getItem('fuelPlanner.userId');
@@ -1122,16 +1131,7 @@
                 servingMultiplier: formState.servingMultiplier,
                 aiEstimated: formState.aiEstimated, aiNotes: formState.aiNotes
               });
-              var saveLibCb = _A.$('fl-save-library');
               if (saveLibCb && saveLibCb.checked) {
-                var libSizeInput = _A.$('fl-save-library-size');
-                var libSizeVal = libSizeInput ? libSizeInput.value.trim() : '';
-                if (!libSizeVal || parseFloat(libSizeVal) <= 0) {
-                  saveBtn.disabled = false;
-                  saveBtn.textContent = 'Save';
-                  alert('Serving size (g) is required when macros are set.');
-                  return;
-                }
                 await FoodLogData.saveLibraryItem(userId, {
                   name: formState.name, category: normCategory,
                   proteinPerServing: formState.protein, carbsPerServing: formState.carbs,
