@@ -701,7 +701,18 @@
                   '<input class="fl-macro-edit-value" type="number" min="0" id="fl-save-library-size" style="width:80px" placeholder="—">' +
                   '<input type="text" class="fl-unit-input" id="fl-save-library-unit" placeholder="g" list="fl-unit-suggestions" autocomplete="off">' +
                 '</label>' +
-              '</div>'
+              '</div>' +
+              '<datalist id="fl-unit-suggestions">' +
+                '<option value="g">' +
+                '<option value="oz">' +
+                '<option value="ml">' +
+                '<option value="tsp">' +
+                '<option value="tbsp">' +
+                '<option value="cup">' +
+                '<option value="slice">' +
+                '<option value="piece">' +
+                '<option value="serving">' +
+              '</datalist>'
             : '') +
           (parsed || isEdit || isLibraryForm
             ? '<div style="display:flex;gap:8px;margin-top:24px"><button id="fl-save-btn" class="btn-primary" style="flex:1">Save</button></div>'
@@ -1104,7 +1115,7 @@
               if (!formState.name.trim()) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; alert('Please enter a name.'); return; }
               if (!hasAnyMacro) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; alert('Please enter at least one macro value.'); return; }
               var hasServingSize = formState.servingSize !== '' && formState.servingSize != null && parseFloat(formState.servingSize) > 0;
-              if (!hasServingSize) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; alert('Serving size (g) is required when macros are set.'); return; }
+              if (!hasServingSize) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; alert('Serving size is required when macros are set.'); return; }
             }
           try {
             var normCategory = formState.category ? formState.category.trim().toLowerCase() : null;
