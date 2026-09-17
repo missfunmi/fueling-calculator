@@ -624,6 +624,7 @@
           (pc.fiber  != null ? '<div class="fl-estimated-macro"><div class="fl-estimated-macro-val">' + Math.round(pc.fiber)  + 'g</div><div class="fl-estimated-macro-label">fiber</div></div>' : '') +
           (pc.sodium != null ? '<div class="fl-estimated-macro"><div class="fl-estimated-macro-val">' + Math.round(pc.sodium) + 'mg</div><div class="fl-estimated-macro-label">sodium</div></div>' : '') +
         '</div>' +
+        (pc.hasMissingMacros ? '<div class="fl-estimated-caveat">* some values may be missing</div>' : '') +
       '</div>';
     }
 
@@ -901,8 +902,13 @@
 
             // Sum library components from current buildComponents (post-await)
             var totals = { protein: 0, carbs: 0, fat: 0, calories: 0, fiber: null, sodium: null };
+            var hasMissingMacros = false;
             var componentRecords = buildComponents.map(function (bc) {
               var scaled = FoodLogData.scaleComponentMacros(bc.item, bc.amountG);
+              if (scaled.protein  == null) hasMissingMacros = true;
+              if (scaled.carbs    == null) hasMissingMacros = true;
+              if (scaled.fat      == null) hasMissingMacros = true;
+              if (scaled.calories == null) hasMissingMacros = true;
               totals.protein  += scaled.protein  || 0;
               totals.carbs    += scaled.carbs    || 0;
               totals.fat      += scaled.fat      || 0;
@@ -923,6 +929,10 @@
             // Merge parsed freeform result
             var freeComponents = [];
             if (parsedResult) {
+              if (parsedResult.protein  == null) hasMissingMacros = true;
+              if (parsedResult.carbs    == null) hasMissingMacros = true;
+              if (parsedResult.fat      == null) hasMissingMacros = true;
+              if (parsedResult.calories == null) hasMissingMacros = true;
               totals.protein  += parsedResult.protein  || 0;
               totals.carbs    += parsedResult.carbs     || 0;
               totals.fat      += parsedResult.fat       || 0;
@@ -957,6 +967,7 @@
               calories: Math.round(totals.calories * 10) / 10,
               fiber:    totals.fiber  != null ? Math.round(totals.fiber  * 10) / 10 : null,
               sodium:   totals.sodium != null ? Math.round(totals.sodium * 10) / 10 : null,
+              hasMissingMacros: hasMissingMacros,
               components: componentRecords.concat(freeComponents)
             };
 
