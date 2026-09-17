@@ -2130,20 +2130,23 @@
   async function renderLibrary() {
     var $body = $('library-body');
 
+    var initialTab = state.libraryTab || 'fuel';
+
     // Sub-tab header
     $body.innerHTML =
       '<div class="fl-lib-tabs" id="lib-subtab-bar">' +
-        '<button class="fl-lib-tab active" data-lib-tab="fuel">Fuel</button>' +
-        '<button class="fl-lib-tab"        data-lib-tab="food">Food</button>' +
+        '<button class="fl-lib-tab' + (initialTab === 'fuel' ? ' active' : '') + '" data-lib-tab="fuel">Fuel</button>' +
+        '<button class="fl-lib-tab' + (initialTab === 'food' ? ' active' : '') + '" data-lib-tab="food">Food</button>' +
       '</div>' +
-      '<div id="lib-pane-fuel"></div>' +
-      '<div id="lib-pane-food" style="display:none"></div>';
+      '<div id="lib-pane-fuel"' + (initialTab === 'food' ? ' style="display:none"' : '') + '></div>' +
+      '<div id="lib-pane-food"' + (initialTab === 'fuel' ? ' style="display:none"' : '') + '></div>';
 
     // Wire sub-tab switching
     $$('.fl-lib-tab', $body).forEach(function (btn) {
       on(btn, 'click', function () {
         $$('.fl-lib-tab', $body).forEach(function (b) { b.classList.remove('active'); });
         btn.classList.add('active');
+        state.libraryTab = btn.dataset.libTab;
         $('lib-pane-fuel').style.display = btn.dataset.libTab === 'fuel' ? '' : 'none';
         $('lib-pane-food').style.display = btn.dataset.libTab === 'food' ? '' : 'none';
       });
@@ -2406,7 +2409,7 @@
     if (saveBtn) saveBtn.disabled = true;
     try {
       await Data.saveProduct(product);
-      navigate('library');
+      navigate('library', { libraryTab: 'fuel' });
     } catch (e) {
       showToast("Couldn't save — check your connection.");
     } finally {
@@ -2419,7 +2422,7 @@
     if (!confirm('Delete this product from your library? Existing plans won\'t be affected.')) return;
     try {
       await Data.deleteProduct(state.editingProductId);
-      navigate('library');
+      navigate('library', { libraryTab: 'fuel' });
     } catch (e) {
       showToast("Couldn't delete — check your connection.");
     }
