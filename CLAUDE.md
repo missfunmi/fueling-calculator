@@ -8,6 +8,8 @@ Vanilla JS, no build step. Four files that matter:
 |------|------|
 | `data.js` | All storage: Supabase reads/writes, localStorage, ID generation, plan math |
 | `app.js` | All UI: rendering, event handlers, navigation state |
+| `food-log.js` | Food log + food library UI (all `renderFoodLog*` functions) |
+| `food-log-data.js` | Food log + library data layer: Supabase reads/writes, `rowToLog`, `rowToItem`, `saveLog`, `saveLibraryItem`, `updateLog`, `updateLibraryItem` |
 | `export.js` | Clipboard/text export logic |
 | `style.css` | Design tokens + all component styles |
 
@@ -18,6 +20,17 @@ Vanilla JS, no build step. Four files that matter:
 - **Before any UI feature**: `superpowers:brainstorming` first, then `frontend-design`
 - **Before debugging**: `superpowers:systematic-debugging`
 - **After implementing**: publish an Artifact showing the key UI states using the exact tokens from `style.css`
+
+## Development workflow (multi-task features)
+
+For features that touch multiple files or require a DB migration, use the subagent-driven development workflow:
+
+1. **Branch** off master: `feature/<descriptor>` (see Branch / PR conventions below)
+2. **Spec** → `docs/superpowers/specs/YYYY-MM-DD-<feature>-design.md`
+3. **Plan** → `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`
+4. **Commit** spec + plan to the feature branch before implementation begins
+5. **Implement** using `superpowers:subagent-driven-development` — one subagent per task, review after each
+6. **PR** using `superpowers:finishing-a-development-branch`
 
 ## Branch / PR conventions
 
