@@ -1135,7 +1135,7 @@
                 fiberPerServing: formState.fiber, sodiumPerServing: formState.sodium
               });
               state.editingEntry = null;
-              _A.navigate('library');
+              _A.navigate('library', { libraryTab: 'food' });
               return;
             } else if (isEdit) {
               var editPayload = {
@@ -1169,7 +1169,7 @@
                 fiberPerServing: formState.fiber, sodiumPerServing: formState.sodium
               });
               state.editingEntry = null;
-              _A.navigate('library');
+              _A.navigate('library', { libraryTab: 'food' });
               return;
             } else {
               await FoodLogData.saveLog(userId, {
@@ -1211,7 +1211,7 @@
     _A.$('btn-fle-back').onclick = function () {
       removePickerOverlay();
       state.editingEntry = null;
-      _A.navigate(isLibraryEdit || libraryOnlyMode ? 'library' : 'food-log');
+      _A.navigate(isLibraryEdit || libraryOnlyMode ? 'library' : 'food-log', (isLibraryEdit || libraryOnlyMode) ? { libraryTab: 'food' } : undefined);
     };
 
     _A.$('btn-fle-delete').onclick = async function () {
@@ -1221,7 +1221,7 @@
         try {
           await FoodLogData.deleteLibraryItem(userId, libItem.id);
           state.editingEntry = null;
-          _A.navigate('library');
+          _A.navigate('library', { libraryTab: 'food' });
         } catch (e) {
           alert('Could not delete — check your connection.');
         }
