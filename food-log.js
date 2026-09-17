@@ -553,7 +553,7 @@
         macroEditRowHTML('Fat',      'fat',      'g') +
         macroEditRowHTML('Fiber',    'fiber',    'g') +
         macroEditRowHTML('Sodium',   'sodium',   'mg') +
-        '<div class="fl-macro-edit-row">' +
+        (isEdit ? '<div class="fl-macro-edit-row">' +
           '<span class="fl-macro-edit-label">Serving</span>' +
           '<div class="fl-macro-edit-value-wrap">' +
             '<input class="fl-macro-edit-value" type="number" min="0" data-macro="logServingSize" value="' + (formState.logServingSize != null ? formState.logServingSize : '') + '" placeholder="—">' +
@@ -570,7 +570,7 @@
               '<option value="serving">' +
             '</datalist>' +
           '</div>' +
-        '</div>' +
+        '</div>' : '') +
       '</div>';
     }
 
@@ -1164,10 +1164,12 @@
                 fiber: formState.fiber, sodium: formState.sodium,
                 aiEstimated: formState.aiEstimated, aiNotes: formState.aiNotes
               };
-              if (formState.logServingSize !== null || formState.logServingUnit) {
-                editPayload.logServingSize = formState.logServingSize != null
-                  ? Number(formState.logServingSize) : null;
-                editPayload.logServingUnit = formState.logServingUnit?.trim() || null;
+              var _sz = (formState.logServingSize !== '' && formState.logServingSize !== null)
+                ? Number(formState.logServingSize) : null;
+              var _unit = formState.logServingUnit?.trim() || null;
+              if (_sz !== null || _unit) {
+                editPayload.logServingSize = _sz;
+                editPayload.logServingUnit = _unit;
               }
               await FoodLogData.updateLog(userId, entry.id, editPayload);
             } else if (libraryOnlyMode) {
