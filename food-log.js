@@ -44,7 +44,7 @@
   // Returns serving context string ('per 63g', 'per 1 scoop', or '') — no leading space.
   function itemServingContext(item) {
     if (item.servingSize != null && item.servingSize > 0) {
-      return 'per ' + item.servingSize + (item.servingUnit ? ' ' + _A.escHtml(item.servingUnit) : 'g');
+      return 'per ' + item.servingSize + (item.servingUnit ? ' ' + _A.escHtml(item.servingUnit) : _A.escHtml('g'));
     }
     if (item.servingUnit) return 'per ' + _A.escHtml(item.servingUnit);
     return '';
@@ -483,6 +483,18 @@
       '</div>';
     }
 
+    var UNIT_DATALIST = '<datalist id="fl-unit-suggestions">' +
+      '<option value="g">' +
+      '<option value="oz">' +
+      '<option value="ml">' +
+      '<option value="tsp">' +
+      '<option value="tbsp">' +
+      '<option value="cup">' +
+      '<option value="slice">' +
+      '<option value="piece">' +
+      '<option value="serving">' +
+      '</datalist>';
+
     function estimatedBlockHTML() {
       if (!parsed) return '';
 
@@ -518,17 +530,7 @@
             '<div class="fl-macro-edit-value-wrap">' +
               '<input class="fl-macro-edit-value" type="number" min="0" data-macro="servingSize" value="' + formState.servingSize + '" placeholder="—">' +
               '<input type="text" class="fl-macro-edit-unit fl-unit-input" data-macro="servingUnit" value="' + _A.escHtml(formState.servingUnit ?? '') + '" placeholder="g" list="fl-unit-suggestions" autocomplete="off">' +
-              '<datalist id="fl-unit-suggestions">' +
-                '<option value="g">' +
-                '<option value="oz">' +
-                '<option value="ml">' +
-                '<option value="tsp">' +
-                '<option value="tbsp">' +
-                '<option value="cup">' +
-                '<option value="slice">' +
-                '<option value="piece">' +
-                '<option value="serving">' +
-              '</datalist>' +
+              UNIT_DATALIST +
             '</div>' +
           '</div>' +
           macroEditRowHTML('Calories', 'calories', 'kcal') +
@@ -567,17 +569,7 @@
               (_lockedUnit
                 ? '<span class="fl-macro-edit-unit">' + _A.escHtml(_lockedUnit) + '</span>'
                 : '<input type="text" class="fl-macro-edit-unit fl-unit-input" data-macro="logServingUnit" value="' + _A.escHtml(formState.logServingUnit ?? '') + '" placeholder="g" list="fl-unit-suggestions" autocomplete="off">' +
-                  '<datalist id="fl-unit-suggestions">' +
-                    '<option value="g">' +
-                    '<option value="oz">' +
-                    '<option value="ml">' +
-                    '<option value="tsp">' +
-                    '<option value="tbsp">' +
-                    '<option value="cup">' +
-                    '<option value="slice">' +
-                    '<option value="piece">' +
-                    '<option value="serving">' +
-                  '</datalist>') +
+                  UNIT_DATALIST) +
             '</div>' +
           '</div>';
         })() : '') +
@@ -735,17 +727,7 @@
                   '<input type="text" class="fl-unit-input" id="fl-save-library-unit" placeholder="g" list="fl-unit-suggestions" autocomplete="off">' +
                 '</label>' +
               '</div>' +
-              '<datalist id="fl-unit-suggestions">' +
-                '<option value="g">' +
-                '<option value="oz">' +
-                '<option value="ml">' +
-                '<option value="tsp">' +
-                '<option value="tbsp">' +
-                '<option value="cup">' +
-                '<option value="slice">' +
-                '<option value="piece">' +
-                '<option value="serving">' +
-              '</datalist>'
+              UNIT_DATALIST
             : '') +
           (parsed || isEdit || isLibraryForm
             ? '<div style="display:flex;gap:8px;margin-top:24px"><button id="fl-save-btn" class="btn-primary" style="flex:1">Save</button></div>'
@@ -1175,13 +1157,11 @@
                 fiber: formState.fiber, sodium: formState.sodium,
                 aiEstimated: formState.aiEstimated, aiNotes: formState.aiNotes
               };
-              var _sz = (formState.logServingSize !== '' && formState.logServingSize !== null)
-                ? Number(formState.logServingSize) : null;
-              var _linkedLibForSave = entry && entry.libraryItemId
-                ? (state.library || []).filter(function(i) { return i.id === entry.libraryItemId; })[0]
-                : null;
-              var _unit = _linkedLibForSave
-                ? (_linkedLibForSave.servingUnit || 'g')
+              var _szRaw = formState.logServingSize;
+              var _sz = (_szRaw === '' || _szRaw === null) ? null : Number(_szRaw);
+              if (_sz !== null && isNaN(_sz)) _sz = null;
+              var _unit = entry.libraryItemId
+                ? (entry.logServingUnit !== null && entry.logServingUnit !== undefined ? entry.logServingUnit : null)
                 : (typeof formState.logServingUnit === 'string' ? formState.logServingUnit : '').trim() || null;
               editPayload.logServingSize = _sz;
               editPayload.logServingUnit = _unit;
