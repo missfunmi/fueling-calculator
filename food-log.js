@@ -581,7 +581,7 @@
         var color = COMPONENT_COLORS[i % COMPONENT_COLORS.length];
         var scaled = FoodLogData.scaleComponentMacros(bc.item, bc.amountG);
         var sub = macroMetaFromValues(scaled);
-        if (bc.amountG != null && bc.amountG > 0) sub.push('per ' + bc.amountG + (bc.item.servingUnit ? ' ' + _A.escHtml(bc.item.servingUnit) : 'g'));
+        if (bc.amountG != null && bc.amountG > 0 && bc.item.servingSize != null && bc.item.servingSize > 0) sub.push('per ' + bc.amountG + (bc.item.servingUnit ? ' ' + _A.escHtml(bc.item.servingUnit) : _A.escHtml('g')));
         return '<div class="fl-component-row">' +
           '<div class="fl-component-color" style="background:' + color + '"></div>' +
           '<div class="fl-component-info">' +
@@ -1164,7 +1164,7 @@
                 ? (state.library || []).filter(function(i) { return i.id === entry.libraryItemId; })[0]
                 : null;
               var _unit = _linkedLibForSave
-                ? (entry.logServingUnit !== null && entry.logServingUnit !== undefined ? entry.logServingUnit : null)
+                ? (entry.logServingUnit !== null && entry.logServingUnit !== undefined ? entry.logServingUnit : (_linkedLibForSave.servingUnit || null))
                 : (typeof formState.logServingUnit === 'string' ? formState.logServingUnit : '').trim() || null;
               editPayload.logServingSize = _sz;
               editPayload.logServingUnit = _unit;
