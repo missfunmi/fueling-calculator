@@ -215,7 +215,7 @@
           var freeItems = log.components.filter(function (c) { return !c.library_item_id; });
           var pills = libItems.map(function (c, i) {
             var color = COMPONENT_COLORS[i % COMPONENT_COLORS.length];
-            var label = (c.amount_g != null ? c.amount_g + 'g ' : '') + c.name;
+            var label = (c.amount_g != null ? c.amount_g + (c.serving_unit ? ' ' + c.serving_unit : 'g') + ' ' : '') + c.name;
             return '<span class="fl-component-pill">' +
               '<span class="fl-component-pill-dot" style="background:' + color + '"></span>' +
               _A.escHtml(label) +
@@ -555,24 +555,32 @@
         macroEditRowHTML('Fat',      'fat',      'g') +
         macroEditRowHTML('Fiber',    'fiber',    'g') +
         macroEditRowHTML('Sodium',   'sodium',   'mg') +
-        (isEdit ? '<div class="fl-macro-edit-row">' +
-          '<span class="fl-macro-edit-label">Serving</span>' +
-          '<div class="fl-macro-edit-value-wrap">' +
-            '<input class="fl-macro-edit-value" type="number" min="0" data-macro="logServingSize" value="' + (formState.logServingSize != null ? formState.logServingSize : '') + '" placeholder="—">' +
-            '<input type="text" class="fl-macro-edit-unit fl-unit-input" data-macro="logServingUnit" value="' + _A.escHtml(formState.logServingUnit ?? '') + '" placeholder="g" list="fl-unit-suggestions" autocomplete="off">' +
-            '<datalist id="fl-unit-suggestions">' +
-              '<option value="g">' +
-              '<option value="oz">' +
-              '<option value="ml">' +
-              '<option value="tsp">' +
-              '<option value="tbsp">' +
-              '<option value="cup">' +
-              '<option value="slice">' +
-              '<option value="piece">' +
-              '<option value="serving">' +
-            '</datalist>' +
-          '</div>' +
-        '</div>' : '') +
+        (isEdit ? (function() {
+          var _linkedLib = entry && entry.libraryItemId
+            ? (state.library || []).filter(function(i) { return i.id === entry.libraryItemId; })[0]
+            : null;
+          var _lockedUnit = _linkedLib ? (_linkedLib.servingUnit || 'g') : null;
+          return '<div class="fl-macro-edit-row">' +
+            '<span class="fl-macro-edit-label">Serving</span>' +
+            '<div class="fl-macro-edit-value-wrap">' +
+              '<input class="fl-macro-edit-value" type="number" min="0" data-macro="logServingSize" value="' + (formState.logServingSize != null ? formState.logServingSize : '') + '" placeholder="—">' +
+              (_lockedUnit
+                ? '<span class="fl-macro-edit-unit">' + _A.escHtml(_lockedUnit) + '</span>'
+                : '<input type="text" class="fl-macro-edit-unit fl-unit-input" data-macro="logServingUnit" value="' + _A.escHtml(formState.logServingUnit ?? '') + '" placeholder="g" list="fl-unit-suggestions" autocomplete="off">' +
+                  '<datalist id="fl-unit-suggestions">' +
+                    '<option value="g">' +
+                    '<option value="oz">' +
+                    '<option value="ml">' +
+                    '<option value="tsp">' +
+                    '<option value="tbsp">' +
+                    '<option value="cup">' +
+                    '<option value="slice">' +
+                    '<option value="piece">' +
+                    '<option value="serving">' +
+                  '</datalist>') +
+            '</div>' +
+          '</div>';
+        })() : '') +
       '</div>';
     }
 
@@ -581,7 +589,7 @@
         var color = COMPONENT_COLORS[i % COMPONENT_COLORS.length];
         var scaled = FoodLogData.scaleComponentMacros(bc.item, bc.amountG);
         var sub = macroMetaFromValues(scaled);
-        if (bc.item.servingSize != null && bc.item.servingSize > 0) sub.push('per ' + bc.amountG + (bc.item.servingUnit ? ' ' + _A.escHtml(bc.item.servingUnit) : 'g'));
+        sub.push('per ' + bc.amountG + (bc.item.servingUnit ? ' ' + _A.escHtml(bc.item.servingUnit) : 'g'));
         return '<div class="fl-component-row">' +
           '<div class="fl-component-color" style="background:' + color + '"></div>' +
           '<div class="fl-component-info">' +
@@ -927,8 +935,9 @@
               if (scaled.sodium != null) { if (totals.sodium == null) totals.sodium = 0; totals.sodium += scaled.sodium; }
               return {
                 library_item_id: bc.item.id,
-                name:     (bc.item.brand ? bc.item.brand + ' ' : '') + bc.item.name,
-                amount_g: bc.amountG,
+                name:        (bc.item.brand ? bc.item.brand + ' ' : '') + bc.item.name,
+                amount_g:    bc.amountG,
+                serving_unit: bc.item.servingUnit || null,
                 protein:  scaled.protein,  carbs:    scaled.carbs,
                 fat:      scaled.fat,      calories: scaled.calories,
                 fiber:    scaled.fiber,    sodium:   scaled.sodium
@@ -1168,7 +1177,12 @@
               };
               var _sz = (formState.logServingSize !== '' && formState.logServingSize !== null)
                 ? Number(formState.logServingSize) : null;
-              var _unit = (typeof formState.logServingUnit === 'string' ? formState.logServingUnit : '').trim() || null;
+              var _linkedLibForSave = entry && entry.libraryItemId
+                ? (state.library || []).filter(function(i) { return i.id === entry.libraryItemId; })[0]
+                : null;
+              var _unit = _linkedLibForSave
+                ? (_linkedLibForSave.servingUnit || 'g')
+                : (typeof formState.logServingUnit === 'string' ? formState.logServingUnit : '').trim() || null;
               editPayload.logServingSize = _sz;
               editPayload.logServingUnit = _unit;
               await FoodLogData.updateLog(userId, entry.id, editPayload);
