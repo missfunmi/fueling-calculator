@@ -682,7 +682,14 @@
               '<div style="margin-top:12px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);margin-bottom:6px">Time</div>' +
               '<input id="fl-time-input" type="time" value="' + fmtInputTime(formState.loggedAt) + '" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-size:14px">'
             : '') +
-          (parsed && !isEdit && !isLibraryForm ? '<label class="fl-save-library-row"><input type="checkbox" id="fl-save-library"> Save to library</label>' : '') +
+          (parsed && !isEdit && !isLibraryForm
+            ? '<label class="fl-save-library-row"><input type="checkbox" id="fl-save-library"> Save to library</label>' +
+              '<div id="fl-save-library-size-row" style="display:none;margin-top:6px;padding-left:2px">' +
+                '<label style="font-size:13px;color:var(--text-2)">Serving size (g)' +
+                  '<input class="fl-macro-edit-value" type="number" min="0" id="fl-save-library-size" placeholder="e.g. 100" style="display:block;margin-top:4px">' +
+                '</label>' +
+              '</div>'
+            : '') +
           (parsed || isEdit || isLibraryForm
             ? '<div style="display:flex;gap:8px;margin-top:24px"><button id="fl-save-btn" class="btn-primary" style="flex:1">Save</button></div>'
             : '');
@@ -958,6 +965,15 @@
         });
       }
 
+      // "Save to library" checkbox — show/hide serving size row
+      var saveLibCb = _A.$('fl-save-library');
+      if (saveLibCb) {
+        _A.on(saveLibCb, 'change', function () {
+          var sizeRow = _A.$('fl-save-library-size-row');
+          if (sizeRow) sizeRow.style.display = saveLibCb.checked ? 'block' : 'none';
+        });
+      }
+
       // Macro edit inputs
       _A.$$('[data-macro]', $body).forEach(function (input) {
         _A.on(input, 'input', function () {
@@ -1108,11 +1124,20 @@
               });
               var saveLibCb = _A.$('fl-save-library');
               if (saveLibCb && saveLibCb.checked) {
+                var libSizeInput = _A.$('fl-save-library-size');
+                var libSizeVal = libSizeInput ? libSizeInput.value.trim() : '';
+                if (!libSizeVal || parseFloat(libSizeVal) <= 0) {
+                  saveBtn.disabled = false;
+                  saveBtn.textContent = 'Save';
+                  alert('Serving size (g) is required when macros are set.');
+                  return;
+                }
                 await FoodLogData.saveLibraryItem(userId, {
                   name: formState.name, category: normCategory,
                   proteinPerServing: formState.protein, carbsPerServing: formState.carbs,
                   fatPerServing: formState.fat, caloriesPerServing: formState.calories,
-                  fiberPerServing: formState.fiber, sodiumPerServing: formState.sodium
+                  fiberPerServing: formState.fiber, sodiumPerServing: formState.sodium,
+                  servingSize: parseFloat(libSizeVal)
                 });
               }
             }
