@@ -43,7 +43,9 @@
 
   // Returns serving context string ('per 63g', 'per 1 scoop', or '') — no leading space.
   function itemServingContext(item) {
-    if (item.servingSize != null && item.servingSize > 0) return 'per ' + item.servingSize + 'g';
+    if (item.servingSize != null && item.servingSize > 0) {
+      return 'per ' + item.servingSize + (item.servingUnit ? ' ' + _A.escHtml(item.servingUnit) : 'g');
+    }
     if (item.servingUnit) return 'per ' + _A.escHtml(item.servingUnit);
     return '';
   }
@@ -231,7 +233,7 @@
         return '<div class="fl-timeline-entry">' +
           '<div class="fl-time-col"><span class="fl-time-text">' + fmtTime(log.loggedAt) + '</span></div>' +
           '<div class="fl-entry-body" data-entry-id="' + log.id + '">' +
-            '<div class="fl-entry-name">' + _A.escHtml(log.name) + (servingMeta ? '<span class="fl-entry-serving" style="font-size:11px;color:var(--text-tertiary);font-weight:400;margin-left:6px">' + _A.escHtml(servingMeta) + '</span>' : '') + '</div>' +
+            '<div class="fl-entry-name">' + _A.escHtml(log.name) + (servingMeta ? '<span class="fl-entry-serving">' + _A.escHtml(servingMeta) + '</span>' : '') + '</div>' +
             '<div class="fl-entry-meta">' +
               (function() {
                 var cat = (log.category || '').trim().toLowerCase();
@@ -1026,7 +1028,7 @@
       _A.$$('[data-macro]', $body).forEach(function (input) {
         _A.on(input, 'input', function () {
           var key = input.dataset.macro;
-          var strKeys = ['name', 'brand', 'category'];
+          var strKeys = ['name', 'brand', 'category', 'servingUnit', 'logServingUnit'];
           // food_logs.protein/carbs/fat/calories are NOT NULL — coerce cleared
           // fields to 0 for log-entry forms; library items allow null (unknown).
           var logNonNullKeys = ['protein', 'carbs', 'fat', 'calories'];
@@ -1166,11 +1168,9 @@
               };
               var _sz = (formState.logServingSize !== '' && formState.logServingSize !== null)
                 ? Number(formState.logServingSize) : null;
-              var _unit = formState.logServingUnit?.trim() || null;
-              if (_sz !== null || _unit) {
-                editPayload.logServingSize = _sz;
-                editPayload.logServingUnit = _unit;
-              }
+              var _unit = (typeof formState.logServingUnit === 'string' ? formState.logServingUnit : '').trim() || null;
+              editPayload.logServingSize = _sz;
+              editPayload.logServingUnit = _unit;
               await FoodLogData.updateLog(userId, entry.id, editPayload);
             } else if (libraryOnlyMode) {
               await FoodLogData.saveLibraryItem(userId, {
