@@ -35,6 +35,8 @@
       aiEstimated: r.ai_estimated || false,
       aiNotes: r.ai_notes || null,
       components: r.components || null,
+      logServingSize: r.log_serving_size ?? null,
+      logServingUnit: r.log_serving_unit ?? null,
       createdAt: r.created_at
     };
   }
@@ -69,7 +71,9 @@
       serving_multiplier: entry.servingMultiplier || 1.0,
       ai_estimated:      entry.aiEstimated || false,
       ai_notes:          entry.aiNotes || null,
-      components:        entry.components || null
+      components:        entry.components || null,
+      log_serving_size:  entry.logServingSize != null ? entry.logServingSize : null,
+      log_serving_unit:  entry.logServingUnit != null ? entry.logServingUnit : null
     });
     if (!rows || !rows[0]) throw new Error('saveLog: no row returned');
     return rowToLog(rows[0]);
@@ -86,9 +90,11 @@
     if (fields.calories  !== undefined) body.calories  = fields.calories;
     if (fields.fiber     !== undefined) body.fiber     = fields.fiber;
     if (fields.sodium    !== undefined) body.sodium    = fields.sodium;
-    if (fields.aiNotes     !== undefined) body.ai_notes   = fields.aiNotes;
-    if (fields.aiEstimated !== undefined) body.ai_estimated = fields.aiEstimated;
-    if (fields.components  !== undefined) body.components = fields.components;
+    if (fields.aiNotes       !== undefined) body.ai_notes        = fields.aiNotes;
+    if (fields.aiEstimated   !== undefined) body.ai_estimated    = fields.aiEstimated;
+    if (fields.components    !== undefined) body.components      = fields.components;
+    if (fields.logServingSize !== undefined) body.log_serving_size = fields.logServingSize;
+    if (fields.logServingUnit !== undefined) body.log_serving_unit = fields.logServingUnit;
     var rows = await req('PATCH',
       'food_logs?id=eq.' + encodeURIComponent(id) + '&user_id=eq.' + encodeURIComponent(userId),
       body, 'return=representation'
