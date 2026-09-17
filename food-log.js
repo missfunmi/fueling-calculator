@@ -444,6 +444,7 @@
       brand:       src ? (isLibraryEdit ? (src.brand || '')       : '')                     : '',
       category:    isLibraryForm ? (src ? (src.category || '') : '') : (src ? (src.category || 'Breakfast') : 'Breakfast'),
       servingSize: src ? (isLibraryEdit ? (src.servingSize != null ? src.servingSize : '') : '') : '',
+      servingUnit: src ? (isLibraryEdit ? (src.servingUnit || '') : '') : '',
       protein:     src ? (isLibraryEdit ? src.proteinPerServing   : src.protein)   : (libraryOnlyMode ? null : 0),
       carbs:       src ? (isLibraryEdit ? src.carbsPerServing     : src.carbs)     : (libraryOnlyMode ? null : 0),
       fat:         src ? (isLibraryEdit ? src.fatPerServing       : src.fat)       : (libraryOnlyMode ? null : 0),
@@ -509,7 +510,18 @@
             '<span class="fl-macro-edit-label">Size</span>' +
             '<div class="fl-macro-edit-value-wrap">' +
               '<input class="fl-macro-edit-value" type="number" min="0" data-macro="servingSize" value="' + formState.servingSize + '" placeholder="—">' +
-              '<span class="fl-macro-edit-unit">g</span>' +
+              '<input type="text" class="fl-macro-edit-unit fl-unit-input" data-macro="servingUnit" value="' + _A.escHtml(formState.servingUnit ?? '') + '" placeholder="g" list="fl-unit-suggestions" autocomplete="off">' +
+              '<datalist id="fl-unit-suggestions">' +
+                '<option value="g">' +
+                '<option value="oz">' +
+                '<option value="ml">' +
+                '<option value="tsp">' +
+                '<option value="tbsp">' +
+                '<option value="cup">' +
+                '<option value="slice">' +
+                '<option value="piece">' +
+                '<option value="serving">' +
+              '</datalist>' +
             '</div>' +
           '</div>' +
           macroEditRowHTML('Calories', 'calories', 'kcal') +
@@ -685,8 +697,9 @@
           (parsed && !isEdit && !isLibraryForm
             ? '<label class="fl-save-library-row"><input type="checkbox" id="fl-save-library"> Save to library</label>' +
               '<div id="fl-save-library-size-row" style="display:none;margin-top:6px;padding-left:2px">' +
-                '<label style="font-size:13px;color:var(--text-2);display:flex;align-items:center;gap:8px">Serving size (g)' +
-                  '<input class="fl-macro-edit-value" type="number" min="0" id="fl-save-library-size" style="width:80px">' +
+                '<label style="font-size:13px;color:var(--text-2);display:flex;align-items:center;gap:8px">Serving size' +
+                  '<input class="fl-macro-edit-value" type="number" min="0" id="fl-save-library-size" style="width:80px" placeholder="—">' +
+                  '<input type="text" class="fl-unit-input" id="fl-save-library-unit" placeholder="g" list="fl-unit-suggestions" autocomplete="off">' +
                 '</label>' +
               '</div>'
             : '') +
@@ -1064,18 +1077,22 @@
           if (!formState.name) { alert('Please enter a name.'); return; }
           var saveLibCb = _A.$('fl-save-library');
           var libSizeInput = _A.$('fl-save-library-size');
+          var libUnitInput = _A.$('fl-save-library-unit');
           var libSizeVal = '';
+          var servingUnit = null;
           if (saveLibCb && saveLibCb.checked) {
             libSizeVal = libSizeInput ? libSizeInput.value.trim() : '';
             if (!libSizeVal || parseFloat(libSizeVal) <= 0) {
               alert('Serving size is required when saving to library.');
               return;
             }
+            servingUnit = libUnitInput ? (libUnitInput.value.trim() || null) : null;
           }
           saveBtn.disabled = true;
           saveBtn.textContent = 'Saving…';
           if (saveLibCb) saveLibCb.disabled = true;
           if (libSizeInput) libSizeInput.disabled = true;
+          if (libUnitInput) libUnitInput.disabled = true;
           var userId = localStorage.getItem('fuelPlanner.userId');
           if (isLibraryForm) {
               // Clamp negatives
@@ -1096,6 +1113,7 @@
                 name: formState.name, category: normCategory,
                 brand: formState.brand || null,
                 servingSize: (formState.servingSize !== '' && formState.servingSize != null) ? parseFloat(formState.servingSize) : null,
+                servingUnit: formState.servingUnit || null,
                 proteinPerServing: formState.protein, carbsPerServing: formState.carbs,
                 fatPerServing: formState.fat, caloriesPerServing: formState.calories,
                 fiberPerServing: formState.fiber, sodiumPerServing: formState.sodium
@@ -1117,6 +1135,7 @@
                 name: formState.name, category: normCategory,
                 brand: formState.brand || null,
                 servingSize: (formState.servingSize !== '' && formState.servingSize != null) ? parseFloat(formState.servingSize) : null,
+                servingUnit: formState.servingUnit || null,
                 proteinPerServing: formState.protein, carbsPerServing: formState.carbs,
                 fatPerServing: formState.fat, caloriesPerServing: formState.calories,
                 fiberPerServing: formState.fiber, sodiumPerServing: formState.sodium
@@ -1141,7 +1160,8 @@
                   proteinPerServing: formState.protein, carbsPerServing: formState.carbs,
                   fatPerServing: formState.fat, caloriesPerServing: formState.calories,
                   fiberPerServing: formState.fiber, sodiumPerServing: formState.sodium,
-                  servingSize: parseFloat(libSizeVal)
+                  servingSize: parseFloat(libSizeVal),
+                  servingUnit: servingUnit
                 });
               }
             }
@@ -1152,6 +1172,7 @@
             saveBtn.textContent = 'Save';
             if (saveLibCb) saveLibCb.disabled = false;
             if (libSizeInput) libSizeInput.disabled = false;
+            if (libUnitInput) libUnitInput.disabled = false;
             alert('Could not save — check your connection.');
           }
         });
