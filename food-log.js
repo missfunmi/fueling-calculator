@@ -64,6 +64,7 @@
     logs: [],
     targets: null,
     library: [],
+    activeBatches: [],
     editingEntry: null,
     libraryOnlyMode: false,
     renderGen: 0
@@ -230,10 +231,13 @@
             '<div class="fl-entry-expand" data-ec-id="' + log.id + '">▲ Collapse</div>';
         }
 
+        var batchBadge = log.batchRemaining != null
+          ? '<span class="fl-batch-badge">' + log.batchRemaining + ' left</span>'
+          : '';
         return '<div class="fl-timeline-entry">' +
           '<div class="fl-time-col"><span class="fl-time-text">' + fmtTime(log.loggedAt) + '</span></div>' +
           '<div class="fl-entry-body" data-entry-id="' + log.id + '">' +
-            '<div class="fl-entry-name">' + _A.escHtml(log.name) + (servingMeta ? '<span class="fl-entry-serving">' + _A.escHtml(servingMeta) + '</span>' : '') + '</div>' +
+            '<div class="fl-entry-name">' + _A.escHtml(log.name) + (servingMeta ? '<span class="fl-entry-serving">' + _A.escHtml(servingMeta) + '</span>' : '') + batchBadge + '</div>' +
             '<div class="fl-entry-meta">' +
               (function() {
                 var cat = (log.category || '').trim().toLowerCase();
@@ -247,6 +251,174 @@
         '</div>';
       }).join('') +
     '</div>';
+  }
+
+  // ── Active batches ───────────────────────────────────────────────────────────
+
+  function activeBatchesHTML(batches) {
+    if (!batches || !batches.length) return '';
+    return '<div class="fl-active-batches">' +
+      '<div class="fl-active-batches-title">Active batches</div>' +
+      batches.map(function (b) {
+        var parts = [];
+        if (b.calories != null) parts.push(Math.round(b.calories) + ' kcal');
+        parts.push(b.batchRemaining + ' serving' + (b.batchRemaining !== 1 ? 's' : '') + ' left');
+        return '<div class="fl-active-batch-row">' +
+          '<div class="fl-active-batch-info">' +
+            '<div class="fl-active-batch-name">' + _A.escHtml(b.name) + '</div>' +
+            '<div class="fl-active-batch-meta">' + parts.join(' · ') + '</div>' +
+          '</div>' +
+          '<div class="fl-active-batch-actions">' +
+            '<button class="fl-relog-btn" data-relog-id="' + b.id + '" style="margin-top:0">↻ Log</button>' +
+            '<button class="fl-batch-discard" data-discard-id="' + b.id + '" data-batch-id="' + _A.escHtml(b.batchId) + '" title="Discard remaining servings">×</button>' +
+          '</div>' +
+        '</div>';
+      }).join('') +
+    '</div>';
+  }
+
+  // ── Serving picker ────────────────────────────────────────────────────────────
+
+  function servingPreviewNums(entry, mult) {
+    function sc(v) { return v != null ? Math.round(v * mult) : null; }
+    var items = [
+      { val: sc(entry.calories), lbl: 'kcal' },
+      { val: sc(entry.protein),  lbl: 'protein', suffix: 'g' },
+      { val: sc(entry.carbs),    lbl: 'carbs',   suffix: 'g' },
+      { val: sc(entry.fat),      lbl: 'fat',     suffix: 'g' }
+    ].filter(function (i) { return i.val != null; });
+    return items.map(function (i) {
+      return '<div class="fl-ps-box">' +
+        '<div class="fl-ps-val">' + i.val + (i.suffix || '') + '</div>' +
+        '<div class="fl-ps-lbl">' + i.lbl + '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  function servingPickerSheetHTML(entry) {
+    var cats = ['Breakfast', 'Lunch', 'Dinner', 'Fuel', 'Snack'];
+    return '<div class="fl-sheet-overlay" id="fl-serving-overlay">' +
+      '<div class="fl-sheet">' +
+        '<div class="fl-sheet-handle"></div>' +
+        '<div class="fl-sheet-header">' +
+          '<div class="fl-sheet-title">Log a serving</div>' +
+          '<span style="font-size:13px;color:var(--text-secondary)">' +
+            _A.escHtml(entry.name) + ' · ' + entry.batchRemaining + ' left' +
+          '</span>' +
+        '</div>' +
+        '<div style="padding:16px;display:flex;flex-direction:column;gap:14px">' +
+          '<div>' +
+            '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);margin-bottom:8px">How much?</div>' +
+            '<div class="fl-mult-chips">' +
+              '<button class="fl-mult-chip" data-mult="0.5">½×</button>' +
+              '<button class="fl-mult-chip active" data-mult="1">1×</button>' +
+              '<button class="fl-mult-chip" data-mult="1.5">1½×</button>' +
+              '<button class="fl-mult-chip" data-mult="2">2×</button>' +
+              '<input class="fl-mult-custom" id="fl-mult-custom" type="number" min="0.1" max="9.9" step="0.1" placeholder="–">' +
+            '</div>' +
+          '</div>' +
+          '<div class="fl-serving-preview" id="fl-serving-preview">' + servingPreviewNums(entry, 1) + '</div>' +
+          '<div>' +
+            '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);margin-bottom:8px">Category</div>' +
+            '<div class="fl-category-chips">' +
+              cats.map(function (c) {
+                var active = (entry.category || '').toLowerCase() === c.toLowerCase();
+                return '<button class="fl-chip fl-sheet-cat' + (active ? ' active' : '') + '" data-category="' + c + '">' + c + '</button>';
+              }).join('') +
+            '</div>' +
+          '</div>' +
+          '<button class="fl-sheet-confirm-btn" id="fl-serving-confirm">Log serving</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function openServingPicker(originEntry) {
+    var existing = document.getElementById('fl-serving-overlay');
+    if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+
+    var sheetEl = document.createElement('div');
+    sheetEl.innerHTML = servingPickerSheetHTML(originEntry);
+    var overlay = sheetEl.firstChild;
+    document.body.appendChild(overlay);
+
+    var currentMult = 1;
+    var selectedCategory = originEntry.category || 'Lunch';
+
+    _A.$$('.fl-mult-chip', overlay).forEach(function (chip) {
+      _A.on(chip, 'click', function () {
+        currentMult = parseFloat(chip.dataset.mult);
+        document.getElementById('fl-mult-custom').value = '';
+        _A.$$('.fl-mult-chip', overlay).forEach(function (c) { c.classList.remove('active'); });
+        chip.classList.add('active');
+        var preview = document.getElementById('fl-serving-preview');
+        if (preview) preview.innerHTML = servingPreviewNums(originEntry, currentMult);
+      });
+    });
+
+    var customEl = document.getElementById('fl-mult-custom');
+    if (customEl) {
+      _A.on(customEl, 'input', function () {
+        var val = parseFloat(customEl.value);
+        if (!isNaN(val) && val > 0) {
+          currentMult = val;
+          _A.$$('.fl-mult-chip', overlay).forEach(function (c) { c.classList.remove('active'); });
+          var preview = document.getElementById('fl-serving-preview');
+          if (preview) preview.innerHTML = servingPreviewNums(originEntry, currentMult);
+        }
+      });
+    }
+
+    _A.$$('.fl-sheet-cat', overlay).forEach(function (chip) {
+      _A.on(chip, 'click', function () {
+        selectedCategory = chip.dataset.category;
+        _A.$$('.fl-sheet-cat', overlay).forEach(function (c) { c.classList.remove('active'); });
+        chip.classList.add('active');
+      });
+    });
+
+    var confirmBtn = document.getElementById('fl-serving-confirm');
+    if (confirmBtn) {
+      _A.on(confirmBtn, 'click', async function () {
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = 'Saving…';
+        var userId = localStorage.getItem('fuelPlanner.userId');
+        function sc(v) { return v != null ? Math.round(v * currentMult * 10) / 10 : null; }
+        try {
+          await FoodLogData.saveLog(userId, {
+            name:           originEntry.name,
+            category:       selectedCategory.toLowerCase(),
+            loggedAt:       new Date().toISOString(),
+            freeformInput:  null,
+            protein:        sc(originEntry.protein)  || 0,
+            carbs:          sc(originEntry.carbs)    || 0,
+            fat:            sc(originEntry.fat)      || 0,
+            calories:       sc(originEntry.calories) || 0,
+            fiber:          sc(originEntry.fiber),
+            sodium:         sc(originEntry.sodium),
+            libraryItemId:  null,
+            servingMultiplier: currentMult,
+            aiEstimated:    false,
+            aiNotes:        null,
+            batchId:        originEntry.batchId,
+            batchTotal:     null,
+            batchRemaining: null,
+            batchDiscarded: false
+          });
+          await FoodLogData.updateBatchRemaining(userId, originEntry.id, originEntry.batchRemaining - 1);
+          overlay.parentNode.removeChild(overlay);
+          renderFoodLog();
+        } catch (err) {
+          confirmBtn.disabled = false;
+          confirmBtn.textContent = 'Log serving';
+          alert('Could not save — check your connection.');
+        }
+      });
+    }
+
+    _A.on(overlay, 'click', function (e) {
+      if (e.target === overlay) overlay.parentNode.removeChild(overlay);
+    });
   }
 
   // ── Main render ──────────────────────────────────────────────────────────────
@@ -267,12 +439,14 @@
       var results = await Promise.all([
         FoodLogData.getLogs(userId, state.date),
         FoodLogData.getTargets(userId),
-        FoodLogData.getLibrary(userId)
+        FoodLogData.getLibrary(userId),
+        FoodLogData.getActiveBatches(userId)
       ]);
       if (gen !== state.renderGen) return; // stale render, a newer one is in flight
-      state.logs    = results[0];
-      state.targets = results[1];
-      state.library = results[2];
+      state.logs          = results[0];
+      state.targets       = results[1];
+      state.library       = results[2];
+      state.activeBatches = results[3];
     } catch (e) {
       if (gen !== state.renderGen) return;
       $body.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-secondary)">Couldn\'t load — check your connection.</div>';
@@ -282,6 +456,7 @@
     $body.innerHTML =
       dateNavHTML(state.date) +
       progressHTML(state.logs, state.targets) +
+      activeBatchesHTML(state.activeBatches) +
       timelineHTML(state.logs) +
       '<button class="fl-fab" id="fl-fab">+</button>';
 
@@ -329,6 +504,30 @@
     _A.on(_A.$('fl-fab'), 'click', function () {
       state.editingEntry = null;
       _A.navigate('food-log-entry');
+    });
+
+    // Active batch relog + discard buttons
+    _A.$$('[data-relog-id]', $body).forEach(function (btn) {
+      _A.on(btn, 'click', function (e) {
+        e.stopPropagation();
+        var id = btn.dataset.relogId;
+        var entry = (state.logs.concat(state.activeBatches)).filter(function (l) { return l.id === id; })[0] || null;
+        if (entry) openServingPicker(entry);
+      });
+    });
+
+    _A.$$('[data-discard-id]', $body).forEach(function (btn) {
+      _A.on(btn, 'click', async function (e) {
+        e.stopPropagation();
+        if (!confirm('Discard remaining servings of this batch?')) return;
+        var userId = localStorage.getItem('fuelPlanner.userId');
+        try {
+          await FoodLogData.discardBatch(userId, btn.dataset.batchId);
+          renderFoodLog();
+        } catch (err) {
+          alert('Could not discard — check your connection.');
+        }
+      });
     });
 
     // Timeline entry taps
@@ -463,7 +662,8 @@
       servingMultiplier: isEdit ? entry.servingMultiplier : 1.0,
       logServingSize: isEdit ? (entry.logServingSize ?? null) : null,
       logServingUnit: isEdit ? (entry.logServingUnit || '') : '',
-      buildFreeform: ''
+      buildFreeform: '',
+      batchServings: 1
     };
     var buildComponents = []; // [{item, amountG}]
     var buildMode = false;    // true = Build tab active
@@ -542,21 +742,43 @@
         '</div>';
       }
 
-      // Non-library (log entry) form — unchanged layout
+      // Non-library (log entry) form
+      var n = formState.batchServings || 1;
+      function perServingPreviewHTML() {
+        if (n <= 1) return '';
+        function ps(v) { return v != null ? Math.round(v / n) : null; }
+        var parts = [];
+        if (formState.calories != null) parts.push('<span><span class="fl-ps-macro">' + ps(formState.calories) + '</span> <span class="fl-ps-macro-lbl">kcal</span></span>');
+        if (formState.protein  != null) parts.push('<span><span class="fl-ps-macro">' + ps(formState.protein)  + 'g</span> <span class="fl-ps-macro-lbl">protein</span></span>');
+        if (formState.carbs    != null) parts.push('<span><span class="fl-ps-macro">' + ps(formState.carbs)    + 'g</span> <span class="fl-ps-macro-lbl">carbs</span></span>');
+        if (formState.fat      != null) parts.push('<span><span class="fl-ps-macro">' + ps(formState.fat)      + 'g</span> <span class="fl-ps-macro-lbl">fat</span></span>');
+        return '<div class="fl-per-serving-preview" id="fl-per-serving-preview">' +
+          '<span class="fl-per-serving-eyebrow">Per serving</span>' +
+          '<div class="fl-per-serving-nums">' + parts.join('') + '</div>' +
+        '</div>';
+      }
       return '<div class="fl-estimated">' +
-        '<div class="fl-estimated-title">Estimated Macros</div>' +
+        '<div class="fl-estimated-title">' + (n > 1 ? 'Whole batch macros' : 'Estimated Macros') + '</div>' +
         '<div class="fl-macro-edit-row">' +
           '<span class="fl-macro-edit-label">Name</span>' +
           '<div class="fl-macro-edit-value-wrap" style="flex:1;margin-left:16px">' +
             '<input class="fl-macro-edit-value" type="text" data-macro="name" value="' + _A.escHtml(formState.name) + '" style="width:100%;text-align:left">' +
           '</div>' +
         '</div>' +
+        (!isEdit
+          ? '<div class="fl-servings-row">' +
+              '<span class="fl-servings-label">Servings this makes</span>' +
+              '<input class="fl-servings-input" id="fl-batch-servings" type="number" min="1" max="99" value="' + n + '">' +
+              '<span class="fl-servings-unit">portions</span>' +
+            '</div>'
+          : '') +
         macroEditRowHTML('Calories', 'calories', 'kcal') +
         macroEditRowHTML('Protein',  'protein',  'g') +
         macroEditRowHTML('Carbs',    'carbs',    'g') +
         macroEditRowHTML('Fat',      'fat',      'g') +
         macroEditRowHTML('Fiber',    'fiber',    'g') +
         macroEditRowHTML('Sodium',   'sodium',   'mg') +
+        perServingPreviewHTML() +
         (isEdit ? (function() {
           var _linkedLib = entry && entry.libraryItemId
             ? (state.library || []).filter(function(i) { return i.id === entry.libraryItemId; })[0]
@@ -718,7 +940,7 @@
               '<div style="margin-top:12px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);margin-bottom:6px">Time</div>' +
               '<input id="fl-time-input" type="time" value="' + fmtInputTime(formState.loggedAt) + '" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-size:14px">'
             : '') +
-          (parsed && !isEdit && !isLibraryForm
+          (parsed && !isEdit && !isLibraryForm && formState.batchServings <= 1
             ? '<label class="fl-save-library-row"><input type="checkbox" id="fl-save-library"> Save to library</label>' +
               '<div id="fl-save-library-size-row" style="display:none;margin-top:6px;padding-left:2px">' +
                 '<label style="font-size:13px;color:var(--text-2);display:flex;align-items:center;gap:8px">Serving size' +
@@ -729,7 +951,9 @@
               UNIT_DATALIST
             : '') +
           (parsed || isEdit || isLibraryForm
-            ? '<div style="display:flex;gap:8px;margin-top:24px"><button id="fl-save-btn" class="btn-primary" style="flex:1">Save</button></div>'
+            ? '<div style="display:flex;gap:8px;margin-top:24px"><button id="fl-save-btn" class="btn-primary" style="flex:1">' +
+              (formState.batchServings > 1 ? 'Log 1 of ' + formState.batchServings + ' servings' : 'Save') +
+              '</button></div>'
             : '');
       }
 
@@ -1004,6 +1228,20 @@
         });
       }
 
+      // Batch servings input
+      var batchServingsEl = _A.$('fl-batch-servings');
+      if (batchServingsEl) {
+        _A.on(batchServingsEl, 'input', function () {
+          var n = parseInt(batchServingsEl.value, 10);
+          if (!isNaN(n) && n >= 1) {
+            formState.batchServings = n;
+            render();
+            var newEl = _A.$('fl-batch-servings');
+            if (newEl) newEl.focus();
+          }
+        });
+      }
+
       // Macro edit inputs
       _A.$$('[data-macro]', $body).forEach(function (input) {
         _A.on(input, 'input', function () {
@@ -1016,6 +1254,21 @@
           formState[key] = strKeys.indexOf(key) !== -1
             ? input.value
             : (input.value === '' ? (nullOnClear ? null : 0) : parseFloat(input.value));
+          // Refresh per-serving preview live when editing macro values with batching active
+          if (formState.batchServings > 1 && ['calories', 'protein', 'carbs', 'fat'].indexOf(key) !== -1) {
+            var preview = document.getElementById('fl-per-serving-preview');
+            if (preview) {
+              var _n = formState.batchServings;
+              var _ps = function (v) { return v != null ? Math.round(v / _n) : null; };
+              var _parts = [];
+              if (formState.calories != null) _parts.push('<span><span class="fl-ps-macro">' + _ps(formState.calories) + '</span> <span class="fl-ps-macro-lbl">kcal</span></span>');
+              if (formState.protein  != null) _parts.push('<span><span class="fl-ps-macro">' + _ps(formState.protein)  + 'g</span> <span class="fl-ps-macro-lbl">protein</span></span>');
+              if (formState.carbs    != null) _parts.push('<span><span class="fl-ps-macro">' + _ps(formState.carbs)    + 'g</span> <span class="fl-ps-macro-lbl">carbs</span></span>');
+              if (formState.fat      != null) _parts.push('<span><span class="fl-ps-macro">' + _ps(formState.fat)      + 'g</span> <span class="fl-ps-macro-lbl">fat</span></span>');
+              var _numsEl = preview.querySelector('.fl-per-serving-nums');
+              if (_numsEl) _numsEl.innerHTML = _parts.join('');
+            }
+          }
         });
       });
 
@@ -1172,17 +1425,31 @@
               _A.navigate('library', { libraryTab: 'food' });
               return;
             } else {
+              var _N = formState.batchServings || 1;
+              var _batchId = _N > 1
+                ? (typeof crypto !== 'undefined' && crypto.randomUUID
+                    ? crypto.randomUUID()
+                    : Date.now().toString(36) + Math.random().toString(36).slice(2))
+                : null;
+              var _divN = function (v) { return v != null ? Math.round(v / _N * 10) / 10 : v; };
               await FoodLogData.saveLog(userId, {
                 name: formState.name, category: normCategory,
                 loggedAt: formState.loggedAt, freeformInput: (_A.$('fl-freeform') && _A.$('fl-freeform').value) || null,
-                protein: formState.protein, carbs: formState.carbs,
-                fat: formState.fat, calories: formState.calories,
-                fiber: formState.fiber, sodium: formState.sodium,
+                protein:  _N > 1 ? _divN(formState.protein)  : formState.protein,
+                carbs:    _N > 1 ? _divN(formState.carbs)    : formState.carbs,
+                fat:      _N > 1 ? _divN(formState.fat)      : formState.fat,
+                calories: _N > 1 ? _divN(formState.calories) : formState.calories,
+                fiber:    _N > 1 ? _divN(formState.fiber)    : formState.fiber,
+                sodium:   _N > 1 ? _divN(formState.sodium)   : formState.sodium,
                 libraryItemId: formState.libraryItemId,
                 servingMultiplier: formState.servingMultiplier,
-                aiEstimated: formState.aiEstimated, aiNotes: formState.aiNotes
+                aiEstimated: formState.aiEstimated, aiNotes: formState.aiNotes,
+                batchId:        _batchId,
+                batchTotal:     _N > 1 ? _N : null,
+                batchRemaining: _N > 1 ? _N - 1 : null,
+                batchDiscarded: false
               });
-              if (saveLibCb && saveLibCb.checked) {
+              if (saveLibCb && saveLibCb.checked && _N <= 1) {
                 await FoodLogData.saveLibraryItem(userId, {
                   name: formState.name, category: normCategory,
                   proteinPerServing: formState.protein, carbsPerServing: formState.carbs,
