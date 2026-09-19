@@ -2175,7 +2175,7 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   white-space: nowrap;
 }
 
-/* Re-log button on timeline entries and active batches */
+/* Re-log button on active batches */
 .fl-relog-btn {
   display: inline-flex;
   align-items: center;

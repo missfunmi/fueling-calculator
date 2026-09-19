@@ -234,10 +234,6 @@
         var batchBadge = log.batchRemaining != null
           ? '<span class="fl-batch-badge">' + log.batchRemaining + ' left</span>'
           : '';
-        var relogBtn = (log.batchRemaining != null && log.batchRemaining > 0)
-          ? '<button class="fl-relog-btn" data-relog-id="' + log.id + '">↻ Log serving today</button>'
-          : '';
-
         return '<div class="fl-timeline-entry">' +
           '<div class="fl-time-col"><span class="fl-time-text">' + fmtTime(log.loggedAt) + '</span></div>' +
           '<div class="fl-entry-body" data-entry-id="' + log.id + '">' +
@@ -251,7 +247,6 @@
               macroHTML +
             '</div>' +
             pillsHTML +
-            relogBtn +
           '</div>' +
         '</div>';
       }).join('') +
