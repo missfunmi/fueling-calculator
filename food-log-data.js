@@ -37,6 +37,10 @@
       components: r.components || null,
       logServingSize: r.log_serving_size ?? null,
       logServingUnit: r.log_serving_unit ?? null,
+      batchId:        r.batch_id        || null,
+      batchTotal:     r.batch_total     != null ? r.batch_total     : null,
+      batchRemaining: r.batch_remaining != null ? r.batch_remaining : null,
+      batchDiscarded: r.batch_discarded || false,
       createdAt: r.created_at
     };
   }
@@ -73,7 +77,11 @@
       ai_notes:          entry.aiNotes || null,
       components:        entry.components || null,
       log_serving_size:  entry.logServingSize != null ? entry.logServingSize : null,
-      log_serving_unit:  entry.logServingUnit != null ? entry.logServingUnit : null
+      log_serving_unit:  entry.logServingUnit != null ? entry.logServingUnit : null,
+      batch_id:          entry.batchId        || null,
+      batch_total:       entry.batchTotal     != null ? entry.batchTotal     : null,
+      batch_remaining:   entry.batchRemaining != null ? entry.batchRemaining : null,
+      batch_discarded:   entry.batchDiscarded || false
     });
     if (!rows || !rows[0]) throw new Error('saveLog: no row returned');
     return rowToLog(rows[0]);
@@ -106,6 +114,32 @@
   async function deleteLog(userId, id) {
     await req('DELETE',
       'food_logs?id=eq.' + encodeURIComponent(id) + '&user_id=eq.' + encodeURIComponent(userId)
+    );
+  }
+
+  async function getActiveBatches(userId) {
+    var rows = await req('GET',
+      'food_logs?user_id=eq.' + encodeURIComponent(userId) +
+      '&batch_remaining=gt.0' +
+      '&batch_discarded=is.false' +
+      '&order=logged_at.desc'
+    );
+    return (rows || []).map(rowToLog);
+  }
+
+  async function updateBatchRemaining(userId, id, remaining) {
+    var rows = await req('PATCH',
+      'food_logs?id=eq.' + encodeURIComponent(id) + '&user_id=eq.' + encodeURIComponent(userId),
+      { batch_remaining: remaining }, 'return=representation'
+    );
+    if (!rows || !rows[0]) throw new Error('updateBatchRemaining: no row returned');
+    return rowToLog(rows[0]);
+  }
+
+  async function discardBatch(userId, batchId) {
+    await req('PATCH',
+      'food_logs?batch_id=eq.' + encodeURIComponent(batchId) + '&user_id=eq.' + encodeURIComponent(userId),
+      { batch_discarded: true }, ''
     );
   }
 
@@ -255,7 +289,10 @@
     updateLibraryItem: updateLibraryItem, deleteLibraryItem: deleteLibraryItem,
     getTargets: getTargets, saveTargets: saveTargets,
     parseMeal: parseMeal,
-    scaleComponentMacros: scaleComponentMacros
+    scaleComponentMacros: scaleComponentMacros,
+    getActiveBatches: getActiveBatches,
+    updateBatchRemaining: updateBatchRemaining,
+    discardBatch: discardBatch
   };
 })();
 
