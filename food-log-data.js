@@ -61,7 +61,7 @@
       'food_logs?user_id=eq.' + encodeURIComponent(userId) +
       '&local_date=gte.' + encodeURIComponent(startDate) +
       '&local_date=lte.' + encodeURIComponent(endDate) +
-      '&order=logged_at.asc'
+      '&order=logged_at.desc'
     );
     return (rows || []).map(rowToLog);
   }
@@ -90,7 +90,7 @@
       batch_total:       entry.batchTotal     != null ? entry.batchTotal     : null,
       batch_remaining:   entry.batchRemaining != null ? entry.batchRemaining : null,
       batch_discarded:   entry.batchDiscarded || false,
-      local_date:        new Date().toLocaleDateString('en-CA')
+      local_date:        new Date(entry.loggedAt || Date.now()).toLocaleDateString('en-CA')
     });
     if (!rows || !rows[0]) throw new Error('saveLog: no row returned');
     return rowToLog(rows[0]);
@@ -100,7 +100,7 @@
     var body = {};
     if (fields.name      !== undefined) body.name      = fields.name;
     if (fields.category  !== undefined) body.category  = fields.category;
-    if (fields.loggedAt  !== undefined) body.logged_at = fields.loggedAt;
+    if (fields.loggedAt  !== undefined) { body.logged_at = fields.loggedAt; body.local_date = new Date(fields.loggedAt).toLocaleDateString('en-CA'); }
     if (fields.protein   !== undefined) body.protein   = fields.protein;
     if (fields.carbs     !== undefined) body.carbs     = fields.carbs;
     if (fields.fat       !== undefined) body.fat       = fields.fat;

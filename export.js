@@ -287,8 +287,10 @@
 
     trimmedDates.forEach(function (dateStr) {
       var d = parseDateLocal(dateStr);
-      lines.push('## ' + DAY_LONG[d.getDay()] + ', ' + d.getDate() + ' ' + MONTH_SHORT[d.getMonth()] + ' ' + d.getFullYear());
-      lines.push('');
+      if (isMultiDay) {
+        lines.push('## ' + DAY_LONG[d.getDay()] + ', ' + d.getDate() + ' ' + MONTH_SHORT[d.getMonth()] + ' ' + d.getFullYear());
+        lines.push('');
+      }
 
       var dayEntries = logsByDate[dateStr];
       if (!dayEntries || dayEntries.length === 0) {
@@ -315,7 +317,7 @@
 
       orderedCats.forEach(function (cat) {
         var catLogs = groups[cat];
-        lines.push('### ' + cat);
+        lines.push('### ' + cat.charAt(0).toUpperCase() + cat.slice(1));
         lines.push('');
 
         var header = '| Item | Cal | Protein | Carbs | Fat |';
@@ -340,8 +342,12 @@
         lines.push('');
       });
 
-      lines.push('**Day total:** ' + Math.round(dayCal) + ' kcal · ' + Math.round(dayProtein) + 'g protein · ' + Math.round(dayCarbs) + 'g carbs · ' + Math.round(dayFat) + 'g fat');
+      lines.push((isMultiDay ? '**Day total:**' : '**Total:**') + ' ' + Math.round(dayCal) + ' kcal · ' + Math.round(dayProtein) + 'g protein · ' + Math.round(dayCarbs) + 'g carbs · ' + Math.round(dayFat) + 'g fat');
       lines.push('');
+      if (isMultiDay) {
+        lines.push('---');
+        lines.push('');
+      }
 
       if (isMultiDay) {
         grandCal     += dayCal;
@@ -352,8 +358,6 @@
     });
 
     if (isMultiDay && trimmedDates.length > 0) {
-      lines.push('---');
-      lines.push('');
       lines.push('**Total:** ' + Math.round(grandCal) + ' kcal · ' + Math.round(grandProtein) + 'g protein · ' + Math.round(grandCarbs) + 'g carbs · ' + Math.round(grandFat) + 'g fat');
       lines.push('');
     }

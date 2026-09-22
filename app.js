@@ -2684,7 +2684,8 @@
     $: $, $$: $$, on: on, fmt: fmt, escHtml: escHtml,
     formatHM: formatHM,
     segmentFormHTML: segmentFormHTML,
-    TYPE_LABELS: TYPE_LABELS, EVENT_TYPE_LABELS: EVENT_TYPE_LABELS
+    TYPE_LABELS: TYPE_LABELS, EVENT_TYPE_LABELS: EVENT_TYPE_LABELS,
+    showToast: showToast
   };
 
 })();

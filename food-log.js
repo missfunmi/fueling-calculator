@@ -110,9 +110,9 @@
       });
     } else {
       navigator.clipboard.writeText(md).then(function () {
-        showToast(toastMsg);
+        _A.showToast(toastMsg);
       }).catch(function () {
-        showToast("Couldn't copy — try again.");
+        _A.showToast("Couldn't copy — try again.");
       });
     }
   }
@@ -589,13 +589,14 @@
       if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
       var sheetEl = document.createElement('div');
       sheetEl.innerHTML =
-        '<div id="fl-share-sheet" class="bottom-sheet-overlay">' +
-          '<div class="bottom-sheet">' +
-            '<div class="bottom-sheet-header">' +
-              '<span class="bottom-sheet-title">Share date range</span>' +
+        '<div id="fl-share-sheet" class="fl-sheet-overlay">' +
+          '<div class="fl-sheet">' +
+            '<div class="fl-sheet-handle"></div>' +
+            '<div class="fl-sheet-header">' +
+              '<div class="fl-sheet-title">Share date range</div>' +
               '<button id="fl-share-close" class="btn-icon"><i class="ti ti-x"></i></button>' +
             '</div>' +
-            '<div class="bottom-sheet-body" style="padding:16px;display:flex;flex-direction:column;gap:12px">' +
+            '<div style="padding:16px;display:flex;flex-direction:column;gap:12px">' +
               '<label class="fl-share-label">From' +
                 '<input type="date" id="fl-share-start" class="fl-share-date-input" max="' + today + '" value="' + state.date + '">' +
               '</label>' +
@@ -641,7 +642,11 @@
           });
           var md = Export.generateFoodLogMarkdown(logsByDate, start, end);
           closeSheet();
-          shareOrCopy(md, 'Food log copied!');
+          navigator.clipboard.writeText(md).then(function () {
+            _A.showToast('Food log copied!');
+          }).catch(function () {
+            _A.showToast("Couldn't copy — try again.");
+          });
         } catch (err) {
           confirmBtn.disabled = false;
           confirmBtn.textContent = 'Share';
