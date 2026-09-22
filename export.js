@@ -320,15 +320,18 @@
         lines.push('### ' + cat.charAt(0).toUpperCase() + cat.slice(1));
         lines.push('');
 
-        var header = '| Item | Cal | Protein | Carbs | Fat |';
-        var divider = '|------|-----|---------|-------|-----|';
+        var header = '| Time | Item | Cal | Protein | Carbs | Fat |';
+        var divider = '|------|------|-----|---------|-------|-----|';
         if (showSodium) { header += ' Sodium |'; divider += '--------|'; }
         if (showFiber)  { header += ' Fiber |';  divider += '-------|'; }
         lines.push(header);
         lines.push(divider);
 
         catLogs.forEach(function (log) {
-          var row = '| ' + (log.name || '') + ' | ' + Math.round(log.calories || 0) + ' | ' + Math.round(log.protein || 0) + 'g | ' + Math.round(log.carbs || 0) + 'g | ' + Math.round(log.fat || 0) + 'g |';
+          var t = new Date(log.loggedAt);
+          var h = t.getHours(), m = String(t.getMinutes()).padStart(2, '0');
+          var timeStr = (h % 12 || 12) + ':' + m + ' ' + (h >= 12 ? 'PM' : 'AM');
+          var row = '| ' + timeStr + ' | ' + (log.name || '') + ' | ' + Math.round(log.calories || 0) + ' | ' + Math.round(log.protein || 0) + 'g | ' + Math.round(log.carbs || 0) + 'g | ' + Math.round(log.fat || 0) + 'g |';
           if (showSodium) row += ' ' + (log.sodium != null ? Math.round(log.sodium) + 'mg' : '—') + ' |';
           if (showFiber)  row += ' ' + (log.fiber  != null ? Math.round(log.fiber)  + 'g'  : '—') + ' |';
           lines.push(row);
