@@ -41,19 +41,27 @@
       batchTotal:     r.batch_total     != null ? r.batch_total     : null,
       batchRemaining: r.batch_remaining != null ? r.batch_remaining : null,
       batchDiscarded: r.batch_discarded || false,
+      localDate: r.local_date || null,
       createdAt: r.created_at
     };
   }
 
   async function getLogs(userId, date) {
-    // date: 'YYYY-MM-DD' in LOCAL time — convert local day boundaries to UTC for the query
-    var from = new Date(date + 'T00:00:00').toISOString();
-    var to   = new Date(date + 'T23:59:59.999').toISOString();
+    // date: 'YYYY-MM-DD' — filter by local_date column
     var rows = await req('GET',
       'food_logs?user_id=eq.' + encodeURIComponent(userId) +
-      '&logged_at=gte.' + encodeURIComponent(from) +
-      '&logged_at=lte.' + encodeURIComponent(to) +
+      '&local_date=eq.' + encodeURIComponent(date) +
       '&order=logged_at.desc'
+    );
+    return (rows || []).map(rowToLog);
+  }
+
+  async function getLogsRange(userId, startDate, endDate) {
+    var rows = await req('GET',
+      'food_logs?user_id=eq.' + encodeURIComponent(userId) +
+      '&local_date=gte.' + encodeURIComponent(startDate) +
+      '&local_date=lte.' + encodeURIComponent(endDate) +
+      '&order=logged_at.asc'
     );
     return (rows || []).map(rowToLog);
   }
@@ -81,7 +89,8 @@
       batch_id:          entry.batchId        || null,
       batch_total:       entry.batchTotal     != null ? entry.batchTotal     : null,
       batch_remaining:   entry.batchRemaining != null ? entry.batchRemaining : null,
-      batch_discarded:   entry.batchDiscarded || false
+      batch_discarded:   entry.batchDiscarded || false,
+      local_date:        new Date().toLocaleDateString('en-CA')
     });
     if (!rows || !rows[0]) throw new Error('saveLog: no row returned');
     return rowToLog(rows[0]);
@@ -292,7 +301,8 @@
     scaleComponentMacros: scaleComponentMacros,
     getActiveBatches: getActiveBatches,
     updateBatchRemaining: updateBatchRemaining,
-    discardBatch: discardBatch
+    discardBatch: discardBatch,
+    getLogsRange: getLogsRange
   };
 })();
 
