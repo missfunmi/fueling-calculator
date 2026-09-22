@@ -301,6 +301,10 @@
 
       var dayCal = 0, dayProtein = 0, dayCarbs = 0, dayFat = 0;
 
+      var sortedEntries = dayEntries.slice().sort(function (a, b) {
+        return new Date(a.loggedAt) - new Date(b.loggedAt);
+      });
+
       var header = '| Time | Category | Item | Cal | Protein | Carbs | Fat |';
       var divider = '|------|----------|------|-----|---------|-------|-----|';
       if (showSodium) { header += ' Sodium |'; divider += '--------|'; }
@@ -308,7 +312,7 @@
       lines.push(header);
       lines.push(divider);
 
-      dayEntries.forEach(function (log) {
+      sortedEntries.forEach(function (log) {
         var t = new Date(log.loggedAt);
         var h = t.getHours(), m = String(t.getMinutes()).padStart(2, '0');
         var timeStr = (h % 12 || 12) + ':' + m + ' ' + (h >= 12 ? 'PM' : 'AM');
