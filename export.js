@@ -211,11 +211,162 @@
     return lines.join('\n');
   }
 
+  // ── Food Log Markdown ────────────────────────────────────────────────────────
+
+  var MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var DAY_LONG = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  var FOOD_CAT_ORDER = ['breakfast','pre-workout','lunch','snack','dinner','post-workout','fuel'];
+
+  function parseDateLocal(str) {
+    var parts = str.split('-');
+    return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+  }
+
+  function padLeft(str, ch, len) {
+    str = String(str);
+    while (str.length < len) str = ch + str;
+    return str;
+  }
+
+  function formatDateKey2(d) {
+    var y = d.getFullYear();
+    var m = padLeft(d.getMonth() + 1, '0', 2);
+    var day = padLeft(d.getDate(), '0', 2);
+    return y + '-' + m + '-' + day;
+  }
+
+  function generateFoodLogMarkdown(logsByDate, startDate, endDate) {
+    // Build allDates array from startDate to endDate inclusive
+    var allDates = [];
+    var cur = parseDateLocal(startDate);
+    var endD = parseDateLocal(endDate);
+    while (cur <= endD) {
+      allDates.push(formatDateKey2(cur));
+      cur = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate() + 1);
+    }
+
+    // Trim outer empty dates
+    var firstIdx = -1, lastIdx = -1;
+    for (var i = 0; i < allDates.length; i++) {
+      var entries = logsByDate[allDates[i]];
+      if (entries && entries.length > 0) {
+        if (firstIdx === -1) firstIdx = i;
+        lastIdx = i;
+      }
+    }
+    var trimmedDates = firstIdx >= 0 ? allDates.slice(firstIdx, lastIdx + 1) : [];
+
+    // Determine if sodium/fiber columns needed
+    var showSodium = false, showFiber = false;
+    Object.keys(logsByDate).forEach(function (dateKey) {
+      (logsByDate[dateKey] || []).forEach(function (log) {
+        if (log.sodium != null) showSodium = true;
+        if (log.fiber != null) showFiber = true;
+      });
+    });
+
+    // Title
+    var isMultiDay = startDate !== endDate;
+    var title;
+    if (!isMultiDay) {
+      var sd = parseDateLocal(startDate);
+      title = '# Food Log — ' + DAY_LONG[sd.getDay()] + ', ' + sd.getDate() + ' ' + MONTH_SHORT[sd.getMonth()] + ' ' + sd.getFullYear();
+    } else {
+      var sd = parseDateLocal(startDate);
+      var ed = parseDateLocal(endDate);
+      if (sd.getMonth() === ed.getMonth() && sd.getFullYear() === ed.getFullYear()) {
+        title = '# Food Log — ' + sd.getDate() + '–' + ed.getDate() + ' ' + MONTH_SHORT[ed.getMonth()] + ' ' + ed.getFullYear();
+      } else {
+        title = '# Food Log — ' + sd.getDate() + ' ' + MONTH_SHORT[sd.getMonth()] + '–' + ed.getDate() + ' ' + MONTH_SHORT[ed.getMonth()] + ' ' + ed.getFullYear();
+      }
+    }
+
+    var lines = [title, ''];
+
+    var grandCal = 0, grandProtein = 0, grandCarbs = 0, grandFat = 0;
+
+    trimmedDates.forEach(function (dateStr) {
+      var d = parseDateLocal(dateStr);
+      lines.push('## ' + DAY_LONG[d.getDay()] + ', ' + d.getDate() + ' ' + MONTH_SHORT[d.getMonth()] + ' ' + d.getFullYear());
+      lines.push('');
+
+      var dayEntries = logsByDate[dateStr];
+      if (!dayEntries || dayEntries.length === 0) {
+        lines.push('*(no entries)*');
+        lines.push('');
+        return;
+      }
+
+      // Group by category
+      var groups = {};
+      dayEntries.forEach(function (log) {
+        var cat = log.category || 'other';
+        if (!groups[cat]) groups[cat] = [];
+        groups[cat].push(log);
+      });
+
+      // Order categories
+      var orderedCats = FOOD_CAT_ORDER.filter(function (c) { return groups[c]; });
+      Object.keys(groups).forEach(function (c) {
+        if (FOOD_CAT_ORDER.indexOf(c) === -1) orderedCats.push(c);
+      });
+
+      var dayCal = 0, dayProtein = 0, dayCarbs = 0, dayFat = 0;
+
+      orderedCats.forEach(function (cat) {
+        var catLogs = groups[cat];
+        lines.push('### ' + cat);
+        lines.push('');
+
+        var header = '| Item | Cal | Protein | Carbs | Fat |';
+        var divider = '|------|-----|---------|-------|-----|';
+        if (showSodium) { header += ' Sodium |'; divider += '--------|'; }
+        if (showFiber)  { header += ' Fiber |';  divider += '-------|'; }
+        lines.push(header);
+        lines.push(divider);
+
+        catLogs.forEach(function (log) {
+          var row = '| ' + (log.name || '') + ' | ' + Math.round(log.calories || 0) + ' | ' + Math.round(log.protein || 0) + 'g | ' + Math.round(log.carbs || 0) + 'g | ' + Math.round(log.fat || 0) + 'g |';
+          if (showSodium) row += ' ' + (log.sodium != null ? Math.round(log.sodium) + 'mg' : '—') + ' |';
+          if (showFiber)  row += ' ' + (log.fiber  != null ? Math.round(log.fiber)  + 'g'  : '—') + ' |';
+          lines.push(row);
+
+          dayCal     += (log.calories || 0);
+          dayProtein += (log.protein  || 0);
+          dayCarbs   += (log.carbs    || 0);
+          dayFat     += (log.fat      || 0);
+        });
+
+        lines.push('');
+      });
+
+      lines.push('**Day total:** ' + Math.round(dayCal) + ' kcal · ' + Math.round(dayProtein) + 'g protein · ' + Math.round(dayCarbs) + 'g carbs · ' + Math.round(dayFat) + 'g fat');
+      lines.push('');
+
+      if (isMultiDay) {
+        grandCal     += dayCal;
+        grandProtein += dayProtein;
+        grandCarbs   += dayCarbs;
+        grandFat     += dayFat;
+      }
+    });
+
+    if (isMultiDay && trimmedDates.length > 0) {
+      lines.push('---');
+      lines.push('');
+      lines.push('**Total:** ' + Math.round(grandCal) + ' kcal · ' + Math.round(grandProtein) + 'g protein · ' + Math.round(grandCarbs) + 'g carbs · ' + Math.round(grandFat) + 'g fat');
+      lines.push('');
+    }
+
+    return lines.join('\n');
+  }
+
   // ── Public API ──────────────────────────────────────────────────────────────
 
   window.Export = {
     generateEventMarkdown: generateEventMarkdown,
-    generateExecutionPlanText: generateExecutionPlanText
+    generateExecutionPlanText: generateExecutionPlanText,
+    generateFoodLogMarkdown: generateFoodLogMarkdown
   };
 
 })();
