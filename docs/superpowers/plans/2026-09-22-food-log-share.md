@@ -8,87 +8,90 @@ Spec: `docs/superpowers/specs/2026-09-22-food-log-share-design.md`
 
 ## Task 1 — DB migration
 
-**File:** `migrations/20260922_add_local_date_to_food_logs.sql`
+**File:** `migrations/0011_add_local_date_to_food_logs.sql`
 
 ```sql
-ALTER TABLE food_logs ADD COLUMN local_date TEXT;
+ALTER TABLE food_logs ADD COLUMN IF NOT EXISTS local_date TEXT;
 
 UPDATE food_logs
 SET local_date = TO_CHAR(logged_at AT TIME ZONE 'America/New_York', 'YYYY-MM-DD')
 WHERE local_date IS NULL;
 
-CREATE INDEX food_logs_user_local_date_idx ON food_logs (user_id, local_date);
+CREATE INDEX IF NOT EXISTS food_logs_user_local_date_idx ON food_logs (user_id, local_date);
 ```
 
-Run against Supabase. Verify spot-check: a few rows should have `local_date` = ET calendar date of `logged_at`.
+Run against Supabase before deploying JS. Spot-check: `local_date` should match the ET calendar date of `logged_at`.
 
 ---
 
 ## Task 2 — `food-log-data.js`
 
-### 2a. `saveLog` — add `local_date` to insert payload
+### 2a. `rowToLog` — add `localDate`
 
 ```js
-local_date: new Date().toLocaleDateString('en-CA'),
+localDate: row.local_date || null,
 ```
 
-### 2b. `getLogs` — switch to `local_date` filter
+### 2b. `saveLog` — derive `local_date` from entry timestamp
 
-Replace the UTC-boundary `gte`/`lte` filter on `logged_at` with:
+```js
+local_date: new Date(entry.loggedAt || Date.now()).toLocaleDateString('en-CA'),
+```
+
+Ensures backdated entries land on the correct day, not today.
+
+### 2c. `updateLog` — recompute `local_date` when `loggedAt` changes
+
+```js
+if (fields.loggedAt) {
+  fields.local_date = new Date(fields.loggedAt).toLocaleDateString('en-CA');
+}
+```
+
+### 2d. `getLogs` — switch to `local_date` filter
+
 ```js
 .eq('local_date', date)
 ```
 
-### 2c. Add `getLogsRange`
+### 2e. Add `getLogsRange`
 
 ```js
 async function getLogsRange(userId, startDate, endDate) {
-  const { data, error } = await supabase
-    .from('food_logs')
-    .select('*')
-    .eq('user_id', userId)
-    .gte('local_date', startDate)
-    .lte('local_date', endDate)
-    .order('logged_at', { ascending: true });
-  if (error) throw error;
-  return (data || []).map(rowToLog);
+  // filter: local_date >= startDate AND local_date <= endDate, order logged_at desc
 }
 ```
 
-Expose: add `getLogsRange` to `window.FoodLogData`.
+Expose on `window.FoodLogData`.
 
 ---
 
 ## Task 3 — `export.js`: `Export.generateFoodLogMarkdown`
-
-Add to the `Export` object alongside `generateEventMarkdown`.
 
 **Signature:** `generateFoodLogMarkdown(logsByDate, startDate, endDate)`
 - `logsByDate`: `{ 'YYYY-MM-DD': Log[] }` — keys only for dates that have entries.
 
 **Steps:**
 1. Build `allDates` array from startDate to endDate (inclusive).
-2. Find `firstLogged` and `lastLogged` — trim outer empty dates.
-3. Slice `allDates` to `[firstLogged … lastLogged]`.
-4. Determine if sodium/fiber columns needed: `any(log.sodium != null)` / `any(log.fiber != null)` across all entries.
-5. For each date in the trimmed list:
-   - If entries: group by category (breakfast, lunch, dinner, fuel, snack, pre-workout, post-workout). Render `### Category` + markdown table + day total line.
-   - If no entries (interior gap): render `*(no entries)*` block.
-6. Single-date title: `# Food Log — Monday, 22 Sep 2026`.
-   Multi-date title: `# Food Log — 20–22 Sep 2026` (or `20 Sep–3 Oct 2026` if month spans).
+2. Find first and last dates with entries → trim outer empty dates.
+3. Determine if sodium/fiber columns needed across all entries.
+4. For each date in trimmed list:
+   - If entries: sort chronologically (asc), render one flat table (`Time | Category | Item | Cal | Protein | Carbs | Fat [| Sodium] [| Fiber]`) + day total.
+   - If no entries (interior gap): `*(no entries)*`.
+5. Single-date title: `# Food Log — Monday, 22 Sep 2026`.
+   Range title: `# Food Log — 20–22 Sep 2026` (same month) or `# Food Log — 20 Sep–3 Oct 2026` (cross-month).
+6. Multi-day: `## Weekday, D Mon YYYY` heading per day, `---` after each day total, grand total at end.
 7. Grand total only for multi-day.
 
-**Category order:** breakfast → pre-workout → lunch → snack → dinner → post-workout → fuel → (anything else).
+**Time format:** 12-hour local time (`h:mm AM/PM`) derived from `log.loggedAt`.
 
-**Table columns:** Item | Cal | Protein | Carbs | Fat [| Sodium] [| Fiber]
+**Category label:** first letter capitalised (`Pre-workout`, `Breakfast`, etc.).
 
 ---
 
 ## Task 4 — `food-log.js`: share buttons + bottom sheet
 
-### 4a. Add buttons to `timelineHTML`
-
-Append after the timeline entries (or `.fl-empty-timeline` block), before the FAB:
+### 4a. Buttons (appended to rendered body, before FAB)
 
 ```html
 <div style="padding:8px 16px 4px">
@@ -101,85 +104,31 @@ Append after the timeline entries (or `.fl-empty-timeline` block), before the FA
 </div>
 ```
 
-The weekday label is derived from `state.date` — "today" if `state.date === todayStr()`, otherwise the weekday name.
+Weekday label: "today" if `state.date === todayStr()`, otherwise full weekday name.
 
-### 4b. Wire single-day handler
+### 4b. `shareOrCopy(md, toastMsg)` helper
 
-```js
-on($('fl-btn-share-day'), 'click', function () {
-  var logsByDate = {};
-  logsByDate[state.date] = state.logs;
-  var md = Export.generateFoodLogMarkdown(logsByDate, state.date, state.date);
-  shareOrCopy(md, 'Food log copied!');
-});
-```
+`navigator.share({ text: md })` → on fail, `navigator.clipboard.writeText` + `_A.showToast`. Desktop: clipboard + toast directly.
 
-### 4c. Inject + wire bottom sheet
+### 4c. Single-day handler
 
-`shareOrCopy(md, toast)` helper (local to `food-log.js`):
-```js
-function shareOrCopy(md, toastMsg) {
-  if (navigator.share) {
-    navigator.share({ text: md }).catch(function () {
-      navigator.clipboard.writeText(md).catch(function () {});
-    });
-  } else {
-    navigator.clipboard.writeText(md).then(function () {
-      showToast(toastMsg);
-    }).catch(function () {
-      showToast("Couldn't copy — try again.");
-    });
-  }
-}
-```
+Uses `state.logs` (no network call). Groups as `{ [state.date]: state.logs }`. Calls `Export.generateFoodLogMarkdown` then `shareOrCopy`.
 
-Range button click: inject `#fl-share-sheet` into `document.body`:
+### 4d. Range bottom sheet
 
-```html
-<div id="fl-share-sheet" class="bottom-sheet-overlay">
-  <div class="bottom-sheet">
-    <div class="bottom-sheet-header">
-      <span class="bottom-sheet-title">Share date range</span>
-      <button id="fl-share-close" class="btn-icon"><i class="ti ti-x"></i></button>
-    </div>
-    <div class="bottom-sheet-body" style="padding:16px;display:flex;flex-direction:column;gap:12px">
-      <label class="fl-share-label">From
-        <input type="date" id="fl-share-start" class="fl-share-date-input" max="[todayStr()]">
-      </label>
-      <label class="fl-share-label">To
-        <input type="date" id="fl-share-end" class="fl-share-date-input" max="[todayStr()]">
-      </label>
-      <p id="fl-share-error" style="color:var(--danger);font-size:13px;display:none">Start must be on or before end date.</p>
-      <button id="fl-share-confirm" class="btn-primary">Share</button>
-    </div>
-  </div>
-</div>
-```
+Injected into `document.body` using existing `fl-sheet-*` CSS classes. Both inputs default to `state.date`, capped at `todayStr()`. Validates start ≤ end. On confirm: `FoodLogData.getLogsRange` → group by `log.localDate` → `Export.generateFoodLogMarkdown` → clipboard + `_A.showToast` (skips `navigator.share` to avoid iOS activation expiry after async fetch).
 
-Both inputs default to `state.date`. Wire close (remove element). Wire confirm:
-1. Validate start ≤ end → show error if not.
-2. Call `FoodLogData.getLogsRange(userId, start, end)`.
-3. Group result by `log.loggedAt.slice(0,10)` → wait, group by `local_date` — need to expose that on the Log object from `rowToLog`. Add `localDate: row.local_date` to `rowToLog`.
-4. Call `Export.generateFoodLogMarkdown(logsByDate, start, end)`.
-5. `shareOrCopy(md, 'Food log copied!')`.
-6. Remove sheet.
+### 4e. `app.js` — export `showToast`
 
-### 4d. `rowToLog` — add `localDate`
-
-In `food-log-data.js`, add to the `rowToLog` mapper:
-```js
-localDate: row.local_date || null,
-```
-
-And in the range grouping in step 4c, key by `log.localDate`.
+Add `showToast: showToast` to the `window._App` export so `food-log.js` can call `_A.showToast(...)`.
 
 ---
 
 ## Verification
 
-1. Run migration against Supabase.
+1. Run `0011_add_local_date_to_food_logs.sql` against Supabase.
 2. `lsof -ti:8080 | xargs kill -9 2>/dev/null; npx serve . -p 8080`
-3. Single-day share: tap "Share [weekday]'s log" → markdown has that day only, no sheet.
-4. Range share: tap "Share date range…" → sheet opens → select range spanning a gap → markdown shows interior blank, outer empties trimmed.
-5. Spot-check `local_date` in DB matches ET date of `logged_at`.
+3. Single-day share: tap button → markdown covers only that date, entries in chronological order, no sheet.
+4. Range share: tap "Share date range…" → sheet opens → select range with a gap → interior empty day shown, outer empties trimmed.
+5. Backdate test: navigate to yesterday, log an entry → confirm it appears on yesterday, not today.
 6. `node tests/data.test.js && node tests/export.test.js` — pass (excluding known off-by-one).
