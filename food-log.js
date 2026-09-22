@@ -103,6 +103,20 @@
     return logs.reduce(function (acc, l) { return acc + (l[key] || 0); }, 0);
   }
 
+  function shareOrCopy(md, toastMsg) {
+    if (navigator.share) {
+      navigator.share({ text: md }).catch(function () {
+        navigator.clipboard.writeText(md).catch(function () {});
+      });
+    } else {
+      navigator.clipboard.writeText(md).then(function () {
+        showToast(toastMsg);
+      }).catch(function () {
+        showToast("Couldn't copy — try again.");
+      });
+    }
+  }
+
   // ── Progress section ─────────────────────────────────────────────────────────
 
   function progressHTML(logs, targets) {
@@ -453,11 +467,20 @@
       return;
     }
 
+    var _dayLabel = state.date === todayStr() ? 'today' : new Date(state.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' });
     $body.innerHTML =
       dateNavHTML(state.date) +
       progressHTML(state.logs, state.targets) +
       activeBatchesHTML(state.activeBatches) +
       timelineHTML(state.logs) +
+      '<div style="padding:8px 16px 4px">' +
+        '<button id="fl-btn-share-day" class="btn-secondary">' +
+          '<i class="ti ti-share" style="margin-right:6px;font-size:16px"></i>Share ' + _A.escHtml(_dayLabel) + '’s log' +
+        '</button>' +
+        '<button id="fl-btn-share-range" class="btn-text" style="margin-top:4px;width:100%;text-align:center">' +
+          'Share date range…' +
+        '</button>' +
+      '</div>' +
       '<button class="fl-fab" id="fl-fab">+</button>';
 
     // Date nav handlers
@@ -548,6 +571,82 @@
         var isVisible = ecEl.style.display !== 'none';
         ecEl.style.display = isVisible ? 'none' : '';
         btn.textContent = isVisible ? '▼ Show components' : '▲ Collapse';
+      });
+    });
+
+    // Single-day share
+    _A.on(_A.$('fl-btn-share-day'), 'click', function () {
+      var logsByDate = {};
+      logsByDate[state.date] = state.logs;
+      var md = Export.generateFoodLogMarkdown(logsByDate, state.date, state.date);
+      shareOrCopy(md, 'Food log copied!');
+    });
+
+    // Date-range share → bottom sheet
+    _A.on(_A.$('fl-btn-share-range'), 'click', function () {
+      var today = todayStr();
+      var existing = document.getElementById('fl-share-sheet');
+      if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+      var sheetEl = document.createElement('div');
+      sheetEl.innerHTML =
+        '<div id="fl-share-sheet" class="bottom-sheet-overlay">' +
+          '<div class="bottom-sheet">' +
+            '<div class="bottom-sheet-header">' +
+              '<span class="bottom-sheet-title">Share date range</span>' +
+              '<button id="fl-share-close" class="btn-icon"><i class="ti ti-x"></i></button>' +
+            '</div>' +
+            '<div class="bottom-sheet-body" style="padding:16px;display:flex;flex-direction:column;gap:12px">' +
+              '<label class="fl-share-label">From' +
+                '<input type="date" id="fl-share-start" class="fl-share-date-input" max="' + today + '" value="' + state.date + '">' +
+              '</label>' +
+              '<label class="fl-share-label">To' +
+                '<input type="date" id="fl-share-end" class="fl-share-date-input" max="' + today + '" value="' + state.date + '">' +
+              '</label>' +
+              '<p id="fl-share-error" style="color:var(--danger);font-size:13px;display:none">Start must be on or before end date.</p>' +
+              '<button id="fl-share-confirm" class="btn-primary">Share</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      var overlay = sheetEl.firstChild;
+      document.body.appendChild(overlay);
+
+      function closeSheet() {
+        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+      }
+
+      _A.on(document.getElementById('fl-share-close'), 'click', closeSheet);
+      _A.on(overlay, 'click', function (e) {
+        if (e.target === overlay) closeSheet();
+      });
+
+      _A.on(document.getElementById('fl-share-confirm'), 'click', async function () {
+        var start = document.getElementById('fl-share-start').value;
+        var end   = document.getElementById('fl-share-end').value;
+        var errEl = document.getElementById('fl-share-error');
+        if (start > end) {
+          errEl.style.display = '';
+          return;
+        }
+        errEl.style.display = 'none';
+        var confirmBtn = document.getElementById('fl-share-confirm');
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = 'Loading…';
+        try {
+          var logs = await FoodLogData.getLogsRange(userId, start, end);
+          var logsByDate = {};
+          logs.forEach(function (log) {
+            var key = log.localDate || log.loggedAt.slice(0, 10);
+            if (!logsByDate[key]) logsByDate[key] = [];
+            logsByDate[key].push(log);
+          });
+          var md = Export.generateFoodLogMarkdown(logsByDate, start, end);
+          closeSheet();
+          shareOrCopy(md, 'Food log copied!');
+        } catch (err) {
+          confirmBtn.disabled = false;
+          confirmBtn.textContent = 'Share';
+          alert('Could not load logs — check your connection.');
+        }
       });
     });
   }
