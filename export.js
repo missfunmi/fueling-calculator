@@ -299,51 +299,33 @@
         return;
       }
 
-      // Group by category
-      var groups = {};
-      dayEntries.forEach(function (log) {
-        var cat = log.category || 'other';
-        if (!groups[cat]) groups[cat] = [];
-        groups[cat].push(log);
-      });
-
-      // Order categories
-      var orderedCats = FOOD_CAT_ORDER.filter(function (c) { return groups[c]; });
-      Object.keys(groups).forEach(function (c) {
-        if (FOOD_CAT_ORDER.indexOf(c) === -1) orderedCats.push(c);
-      });
-
       var dayCal = 0, dayProtein = 0, dayCarbs = 0, dayFat = 0;
 
-      orderedCats.forEach(function (cat) {
-        var catLogs = groups[cat];
-        lines.push('### ' + cat.charAt(0).toUpperCase() + cat.slice(1));
-        lines.push('');
+      var header = '| Time | Category | Item | Cal | Protein | Carbs | Fat |';
+      var divider = '|------|----------|------|-----|---------|-------|-----|';
+      if (showSodium) { header += ' Sodium |'; divider += '--------|'; }
+      if (showFiber)  { header += ' Fiber |';  divider += '-------|'; }
+      lines.push(header);
+      lines.push(divider);
 
-        var header = '| Time | Item | Cal | Protein | Carbs | Fat |';
-        var divider = '|------|------|-----|---------|-------|-----|';
-        if (showSodium) { header += ' Sodium |'; divider += '--------|'; }
-        if (showFiber)  { header += ' Fiber |';  divider += '-------|'; }
-        lines.push(header);
-        lines.push(divider);
+      dayEntries.forEach(function (log) {
+        var t = new Date(log.loggedAt);
+        var h = t.getHours(), m = String(t.getMinutes()).padStart(2, '0');
+        var timeStr = (h % 12 || 12) + ':' + m + ' ' + (h >= 12 ? 'PM' : 'AM');
+        var cat = log.category || 'other';
+        var catLabel = cat.charAt(0).toUpperCase() + cat.slice(1);
+        var row = '| ' + timeStr + ' | ' + catLabel + ' | ' + (log.name || '') + ' | ' + Math.round(log.calories || 0) + ' | ' + Math.round(log.protein || 0) + 'g | ' + Math.round(log.carbs || 0) + 'g | ' + Math.round(log.fat || 0) + 'g |';
+        if (showSodium) row += ' ' + (log.sodium != null ? Math.round(log.sodium) + 'mg' : '—') + ' |';
+        if (showFiber)  row += ' ' + (log.fiber  != null ? Math.round(log.fiber)  + 'g'  : '—') + ' |';
+        lines.push(row);
 
-        catLogs.forEach(function (log) {
-          var t = new Date(log.loggedAt);
-          var h = t.getHours(), m = String(t.getMinutes()).padStart(2, '0');
-          var timeStr = (h % 12 || 12) + ':' + m + ' ' + (h >= 12 ? 'PM' : 'AM');
-          var row = '| ' + timeStr + ' | ' + (log.name || '') + ' | ' + Math.round(log.calories || 0) + ' | ' + Math.round(log.protein || 0) + 'g | ' + Math.round(log.carbs || 0) + 'g | ' + Math.round(log.fat || 0) + 'g |';
-          if (showSodium) row += ' ' + (log.sodium != null ? Math.round(log.sodium) + 'mg' : '—') + ' |';
-          if (showFiber)  row += ' ' + (log.fiber  != null ? Math.round(log.fiber)  + 'g'  : '—') + ' |';
-          lines.push(row);
-
-          dayCal     += (log.calories || 0);
-          dayProtein += (log.protein  || 0);
-          dayCarbs   += (log.carbs    || 0);
-          dayFat     += (log.fat      || 0);
-        });
-
-        lines.push('');
+        dayCal     += (log.calories || 0);
+        dayProtein += (log.protein  || 0);
+        dayCarbs   += (log.carbs    || 0);
+        dayFat     += (log.fat      || 0);
       });
+
+      lines.push('');
 
       lines.push((isMultiDay ? '**Day total:**' : '**Total:**') + ' ' + Math.round(dayCal) + ' kcal · ' + Math.round(dayProtein) + 'g protein · ' + Math.round(dayCarbs) + 'g carbs · ' + Math.round(dayFat) + 'g fat');
       lines.push('');
