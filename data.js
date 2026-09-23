@@ -171,6 +171,7 @@
             durationHours: seg.duration_hours,
             executionPlan: seg.execution_plan || null,
             execInterval:  seg.exec_interval  || null,
+            mode:          seg.mode ?? 'hourly',
             targets: {
               carbsPerHour:    seg.carbs_per_hour    || 0,
               sodiumPerHour:   seg.sodium_per_hour   || 0,
@@ -216,6 +217,7 @@
           durationHours: seg.durationHours,
           sortOrder:     si,
           execInterval:  seg.execInterval || null,
+          mode:          seg.mode ?? 'hourly',
           targets: {
             carbsPerHour:    (seg.targets && seg.targets.carbsPerHour)    || 0,
             sodiumPerHour:   (seg.targets && seg.targets.sodiumPerHour)   || 0,
@@ -516,12 +518,13 @@
 
   // ── Factories ─────────────────────────────────────────────────────────────────
 
-  function newSegment(name, durationHours, date) {
+  function newSegment(name, durationHours, date, options) {
     return {
       id:            generateId(),
       name:          name || 'Segment',
       date:          date || '',
       durationHours: durationHours || 1,
+      mode:          (options && options.mode) || 'hourly',
       targets:       { carbsPerHour: 80, sodiumPerHour: 500, caffeinePerHour: 0 },
       items:         []
     };
