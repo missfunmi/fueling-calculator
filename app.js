@@ -694,7 +694,7 @@
   function renderSegmentForms() {
     var $list = $("segments-form-list");
     var isMultiDay = $("ef-category") && $("ef-category").value === "multi";
-    var isCarbLoad = $("ef-type") && $("ef-type").value === "carb_load";
+    var isDailyMode = draftSegments.length > 0 && draftSegments.every(function (s) { return s.mode === 'daily'; });
     var startDate = isMultiDay ? $("ef-date").value || "" : "";
     var endDate = isMultiDay ? $("ef-end-date").value || "" : "";
     $list.innerHTML = draftSegments
@@ -710,7 +710,7 @@
       })
       .join("");
     var addBtn = $("btn-add-segment");
-    if (addBtn) addBtn.style.display = isCarbLoad ? "none" : "";
+    if (addBtn) addBtn.style.display = isDailyMode ? "none" : "";
 
     // Wire remove buttons
     $$(".btn-remove-segment").forEach(function (btn) {
@@ -918,10 +918,10 @@
       evt.category === "multi" && evt.endDate ? evt.endDate : evt.date;
     var canAddActuals = isEventPastOrToday(archiveDate);
     var showActuals = canAddActuals && Object.keys(evt.actuals).length > 0;
-    var isCarbLoad = evt.type === "carb_load";
+    var isDailyEvent = evt.segments.length > 0 && evt.segments.every(function (s) { return s.mode === 'daily'; });
 
     var foodLogActuals = undefined;
-    if (isCarbLoad) {
+    if (isDailyEvent) {
       try {
         var uid = Data.getUserId();
         if (uid) {
@@ -950,9 +950,9 @@
     var actRates = showActuals ? Data.calcActualEventRates(evt) : null;
     var goalRates = showActuals ? Data.calcEventGoalRates(evt) : null;
 
-    var nDays = isCarbLoad ? evt.segments.length : 0;
-    var avgDailyCarbs  = isCarbLoad && nDays ? Math.round(totals.carbs  / nDays) : 0;
-    var avgDailySodium = isCarbLoad && nDays ? Math.round(totals.sodium / nDays) : 0;
+    var nDays = isDailyEvent ? evt.segments.length : 0;
+    var avgDailyCarbs  = isDailyEvent && nDays ? Math.round(totals.carbs  / nDays) : 0;
+    var avgDailySodium = isDailyEvent && nDays ? Math.round(totals.sodium / nDays) : 0;
 
     $("detail-summary").innerHTML =
       '<div class="event-meta-row">' +
@@ -971,7 +971,7 @@
       metricCardHTML(
         "carbs",
         Math.round(totals.carbs) + "g",
-        isCarbLoad ? fmt(avgDailyCarbs, "g/day avg") : fmt(rates.carbs, "g/hr avg"),
+        isDailyEvent ? fmt(avgDailyCarbs, "g/day avg") : fmt(rates.carbs, "g/hr avg"),
         actTotals ? Math.round(actTotals.carbs) + "g" : undefined,
         actRates ? fmt(actRates.carbs, "g/hr avg") : undefined,
         goalRates ? fmt(goalRates.carbs, "g/hr goal") : undefined,
@@ -979,12 +979,12 @@
       metricCardHTML(
         "sodium",
         Math.round(totals.sodium) + "mg",
-        isCarbLoad ? fmt(avgDailySodium, "mg/day avg") : fmt(rates.sodium, "mg/hr avg"),
+        isDailyEvent ? fmt(avgDailySodium, "mg/day avg") : fmt(rates.sodium, "mg/hr avg"),
         actTotals ? Math.round(actTotals.sodium) + "mg" : undefined,
         actRates ? fmt(actRates.sodium, "mg/hr avg") : undefined,
         goalRates ? fmt(goalRates.sodium, "mg/hr goal") : undefined,
       ) +
-      (isCarbLoad
+      (isDailyEvent
         ? ""
         : metricCardHTML(
             "caffeine",
@@ -1002,7 +1002,7 @@
       evt.segments
         .map(function (seg) {
           var html = segmentSectionHTML(seg, multiSeg, foodLogActuals);
-          if (showActuals && !isCarbLoad) {
+          if (showActuals && !isDailyEvent) {
             var actualSeg = evt.actuals[seg.id] || {
               durationHours: null,
               items: [],
