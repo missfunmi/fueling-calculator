@@ -833,6 +833,8 @@
       var actuals = (foodLogActuals && seg.date) ? (foodLogActuals[seg.date] || null) : null;
       var foodLogBlock = '';
       if (foodLogActuals !== undefined) {
+        var todayIso = new Date().toISOString().slice(0, 10);
+        var isFutureDay = seg.date && seg.date > todayIso;
         var actCarbs  = actuals ? Math.round(actuals.carbs)  : 0;
         var actSodium = actuals ? Math.round(actuals.sodium) : 0;
         var pctActCarbs  = dailyCarbTarget  ? Math.min(actCarbs  / dailyCarbTarget  * 100, 150) : 0;
@@ -843,14 +845,14 @@
           '<div class="food-log-actuals">' +
             '<div class="food-log-actuals-header">' +
               '<span>Food log · ' + escHtml(seg.date || '') + '</span>' +
-              '<a href="#" class="food-log-actuals-link" data-navigate-food-log="' + escHtml(seg.date || '') + '">View ›</a>' +
+              (!isFutureDay ? '<a href="#" class="food-log-actuals-link" data-navigate-food-log="' + escHtml(seg.date || '') + '">View ›</a>' : '') +
             '</div>' +
-            (actuals
+            (actuals && !isFutureDay
               ? '<div class="progress-group">' +
                   progressRowHTML('Carbs', actCarbs + 'g / ' + dailyCarbTarget + 'g', pctActCarbs, stActCarbs) +
-                  (dailySodiumTarget ? progressRowHTML('Sodium', actSodium + 'mg / ' + dailySodiumTarget + 'mg', pctActSodium, stActSodium) : '') +
+                  progressRowHTML('Sodium', actSodium + 'mg / ' + dailySodiumTarget + 'mg', pctActSodium, stActSodium) +
                 '</div>'
-              : '<div style="padding:4px 0 2px;font-size:13px;color:var(--text-tertiary)">No entries</div>') +
+              : '<div style="padding:4px 0 2px;font-size:13px;color:var(--text-tertiary)">' + (isFutureDay ? 'Future day' : 'No entries') + '</div>') +
           '</div>';
       }
 
@@ -863,18 +865,18 @@
               '</div>' +
               '<div class="segment-targets-row">' +
                 '<span class="target-pill" data-inline="seg-carbs-target">' + dailyCarbTarget + 'g carbs/day</span>' +
-                (dailySodiumTarget ? '<span class="target-pill" data-inline="seg-sodium-target">' + dailySodiumTarget + 'mg Na/day</span>' : '') +
+                '<span class="target-pill" data-inline="seg-sodium-target">' + dailySodiumTarget + 'mg Na/day</span>' +
               '</div>' +
             '</div>'
           : '<div class="segment-header">' +
               '<div class="segment-targets-row">' +
                 '<span class="target-pill" data-inline="seg-carbs-target">' + dailyCarbTarget + 'g carbs/day</span>' +
-                (dailySodiumTarget ? '<span class="target-pill" data-inline="seg-sodium-target">' + dailySodiumTarget + 'mg Na/day</span>' : '') +
+                '<span class="target-pill" data-inline="seg-sodium-target">' + dailySodiumTarget + 'mg Na/day</span>' +
               '</div>' +
             '</div>') +
         '<div class="progress-group">' +
           progressRowHTML('Carbs', totals.carbs + 'g / ' + dailyCarbTarget + 'g', pctPlannedCarbs, stPlannedCarbs) +
-          (dailySodiumTarget ? progressRowHTML('Sodium', totals.sodium + 'mg / ' + dailySodiumTarget + 'mg', pctPlannedSodium, stPlannedSodium) : '') +
+          progressRowHTML('Sodium', totals.sodium + 'mg / ' + dailySodiumTarget + 'mg', pctPlannedSodium, stPlannedSodium) +
         '</div>' +
         '<div class="segment-totals">' +
           '<span>' + totals.carbs + 'g carbs</span>' +
