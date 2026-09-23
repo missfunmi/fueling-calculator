@@ -2087,6 +2087,19 @@
       },
     );
 
+    // Food log actuals "View ›" links
+    $$("[data-navigate-food-log]", segEl).forEach(function (link) {
+      on(link, "click", function (e) {
+        e.preventDefault();
+        navigate("food-log", {
+          date: link.dataset.navigateFoodLog,
+          returnTo: "detail",
+          returnEventId: evt.id,
+          returnEventName: evt.name,
+        });
+      });
+    });
+
     // Execution plan handlers
     var genBtn = segEl.querySelector("[data-exec-generate]");
     if (genBtn) {
