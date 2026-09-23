@@ -950,11 +950,9 @@
     var actRates = showActuals ? Data.calcActualEventRates(evt) : null;
     var goalRates = showActuals ? Data.calcEventGoalRates(evt) : null;
 
-    var totalCarbTarget = isCarbLoad
-      ? evt.segments.reduce(function (sum, s) {
-          return sum + (s.targets.carbsPerHour || 0);
-        }, 0)
-      : 0;
+    var nDays = isCarbLoad ? evt.segments.length : 0;
+    var avgDailyCarbs  = isCarbLoad && nDays ? Math.round(totals.carbs  / nDays) : 0;
+    var avgDailySodium = isCarbLoad && nDays ? Math.round(totals.sodium / nDays) : 0;
 
     $("detail-summary").innerHTML =
       '<div class="event-meta-row">' +
@@ -973,11 +971,7 @@
       metricCardHTML(
         "carbs",
         Math.round(totals.carbs) + "g",
-        isCarbLoad
-          ? evt.segments.length +
-              " day" +
-              (evt.segments.length !== 1 ? "s" : "")
-          : fmt(rates.carbs, "g/hr avg"),
+        isCarbLoad ? fmt(avgDailyCarbs, "g/day avg") : fmt(rates.carbs, "g/hr avg"),
         actTotals ? Math.round(actTotals.carbs) + "g" : undefined,
         actRates ? fmt(actRates.carbs, "g/hr avg") : undefined,
         goalRates ? fmt(goalRates.carbs, "g/hr goal") : undefined,
@@ -985,13 +979,13 @@
       metricCardHTML(
         "sodium",
         Math.round(totals.sodium) + "mg",
-        isCarbLoad ? "planned Na" : fmt(rates.sodium, "mg/hr avg"),
+        isCarbLoad ? fmt(avgDailySodium, "mg/day avg") : fmt(rates.sodium, "mg/hr avg"),
         actTotals ? Math.round(actTotals.sodium) + "mg" : undefined,
         actRates ? fmt(actRates.sodium, "mg/hr avg") : undefined,
         goalRates ? fmt(goalRates.sodium, "mg/hr goal") : undefined,
       ) +
       (isCarbLoad
-        ? metricCardHTML("caffeine", totalCarbTarget + "g", "target carbs")
+        ? ""
         : metricCardHTML(
             "caffeine",
             Math.round(totals.caffeine) + "mg",
