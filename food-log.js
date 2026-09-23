@@ -468,7 +468,11 @@
     }
 
     var _dayLabel = state.date === todayStr() ? 'today' : new Date(state.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' });
+    var _backBar = (state.returnTo === 'detail' && state.returnEventName)
+      ? '<button id="fl-btn-back-event" class="fl-back-bar"><i class="ti ti-arrow-left"></i> ' + _A.escHtml(state.returnEventName) + '</button>'
+      : '';
     $body.innerHTML =
+      _backBar +
       dateNavHTML(state.date) +
       progressHTML(state.logs, state.targets) +
       activeBatchesHTML(state.activeBatches) +
@@ -482,6 +486,18 @@
         '</button>' +
       '</div>' +
       '<button class="fl-fab" id="fl-fab">+</button>';
+
+    // Back to event button
+    var _backBtn = _A.$('fl-btn-back-event');
+    if (_backBtn) {
+      _A.on(_backBtn, 'click', function () {
+        var returnId = state.returnEventId;
+        state.returnTo = null;
+        state.returnEventId = null;
+        state.returnEventName = null;
+        _A.navigate('detail', { currentEventId: returnId });
+      });
+    }
 
     // Date nav handlers
     _A.on(_A.$('fl-btn-prev'), 'click', function () {

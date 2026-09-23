@@ -1497,6 +1497,20 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 }
 
 /* Date navigation */
+.fl-back-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--accent);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
 .fl-date-nav {
   display: flex;
   align-items: center;
