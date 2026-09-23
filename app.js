@@ -968,7 +968,7 @@
           "</span>"
         : "") +
       "</div>" +
-      '<div class="summary-cards">' +
+      '<div class="summary-cards' + (isDailyEvent ? ' summary-cards--two' : '') + '">' +
       metricCardHTML(
         "carbs",
         Math.round(totals.carbs) + "g",
@@ -2016,6 +2016,7 @@
       $("detail-summary") &&
       $("detail-summary").querySelector(".summary-cards");
     if (cardsEl) {
+      cardsEl.classList.toggle('summary-cards--two', isDailyEvent);
       cardsEl.innerHTML =
         metricCardHTML(
           "carbs",
