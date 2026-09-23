@@ -718,6 +718,20 @@
     var archiveDate = (evt.category === 'multi' && evt.endDate) ? evt.endDate : evt.date;
     var canAddActuals = isEventPastOrToday(archiveDate);
     var showActuals   = canAddActuals && Object.keys(evt.actuals).length > 0;
+    var isCarbLoad    = evt.type === 'carb_load';
+
+    var foodLogActuals = undefined;
+    if (isCarbLoad) {
+      try {
+        var uid = Data.getUserId();
+        if (uid) {
+          var segDates = evt.segments.map(function (s) { return s.date; }).filter(Boolean);
+          foodLogActuals = await window.FoodLogData.getFoodLogTotalsForDates(uid, segDates);
+        }
+      } catch (e) {
+        foodLogActuals = {};
+      }
+    }
 
     $('detail-event-name').textContent = evt.name;
 
@@ -728,6 +742,10 @@
     var actTotals  = showActuals ? Data.calcActualEventTotals(evt) : null;
     var actRates   = showActuals ? Data.calcActualEventRates(evt)  : null;
     var goalRates  = showActuals ? Data.calcEventGoalRates(evt)    : null;
+
+    var totalCarbTarget = isCarbLoad
+      ? evt.segments.reduce(function (sum, s) { return sum + (s.targets.carbsPerHour || 0); }, 0)
+      : 0;
 
     $('detail-summary').innerHTML =
       '<div class="event-meta-row">' +
@@ -741,26 +759,28 @@
           : '') +
       '</div>' +
       '<div class="summary-cards">' +
-        metricCardHTML('carbs',    Math.round(totals.carbs) + 'g',  fmt(rates.carbs, 'g/hr avg'),
+        metricCardHTML('carbs',    Math.round(totals.carbs) + 'g',  isCarbLoad ? (evt.segments.length + ' day' + (evt.segments.length !== 1 ? 's' : '')) : fmt(rates.carbs, 'g/hr avg'),
           actTotals ? Math.round(actTotals.carbs) + 'g'   : undefined,
           actRates  ? fmt(actRates.carbs, 'g/hr avg')     : undefined,
           goalRates ? fmt(goalRates.carbs, 'g/hr goal')   : undefined) +
-        metricCardHTML('sodium',   Math.round(totals.sodium) + 'mg', fmt(rates.sodium, 'mg/hr avg'),
+        metricCardHTML('sodium',   Math.round(totals.sodium) + 'mg', isCarbLoad ? 'planned Na' : fmt(rates.sodium, 'mg/hr avg'),
           actTotals ? Math.round(actTotals.sodium) + 'mg' : undefined,
           actRates  ? fmt(actRates.sodium, 'mg/hr avg')   : undefined,
           goalRates ? fmt(goalRates.sodium, 'mg/hr goal') : undefined) +
-        metricCardHTML('caffeine', Math.round(totals.caffeine) + 'mg', fmt(rates.caffeine, 'mg/hr avg'),
-          actTotals ? Math.round(actTotals.caffeine) + 'mg' : undefined,
-          actRates  ? fmt(actRates.caffeine, 'mg/hr avg')   : undefined,
-          goalRates ? fmt(goalRates.caffeine, 'mg/hr goal') : undefined) +
+        (isCarbLoad
+          ? metricCardHTML('caffeine', totalCarbTarget + 'g', 'target carbs')
+          : metricCardHTML('caffeine', Math.round(totals.caffeine) + 'mg', fmt(rates.caffeine, 'mg/hr avg'),
+              actTotals ? Math.round(actTotals.caffeine) + 'mg' : undefined,
+              actRates  ? fmt(actRates.caffeine, 'mg/hr avg')   : undefined,
+              goalRates ? fmt(goalRates.caffeine, 'mg/hr goal') : undefined)) +
       '</div>';
 
     var multiSeg = evt.segments.length > 1;
     var $body = $('detail-body');
     $body.innerHTML =
       evt.segments.map(function (seg) {
-        var html = segmentSectionHTML(seg, multiSeg);
-        if (showActuals) {
+        var html = segmentSectionHTML(seg, multiSeg, foodLogActuals);
+        if (showActuals && !isCarbLoad) {
           var actualSeg = evt.actuals[seg.id] || { durationHours: null, items: [] };
           html += actualSegmentSectionHTML(seg, actualSeg, evt.category === 'multi');
         }
@@ -792,10 +812,80 @@
     '</div>';
   }
 
-  function segmentSectionHTML(seg, showLabel) {
+  function segmentSectionHTML(seg, showLabel, foodLogActuals) {
     var totals = Data.calcSegmentTotals(seg);
     var rates = Data.calcSegmentRates(seg);
     var tgt = seg.targets;
+    var isDaily = seg.mode === 'daily';
+
+    if (isDaily) {
+      var dailyCarbTarget  = tgt.carbsPerHour;
+      var dailySodiumTarget = tgt.sodiumPerHour;
+      var pctPlannedCarbs  = dailyCarbTarget  ? Math.min(totals.carbs  / dailyCarbTarget  * 100, 150) : 0;
+      var pctPlannedSodium = dailySodiumTarget ? Math.min(totals.sodium / dailySodiumTarget * 100, 150) : 0;
+      var stPlannedCarbs   = Data.rateStatus(totals.carbs,  dailyCarbTarget);
+      var stPlannedSodium  = Data.rateStatus(totals.sodium, dailySodiumTarget);
+
+      var actuals = (foodLogActuals && seg.date) ? (foodLogActuals[seg.date] || null) : null;
+      var foodLogBlock = '';
+      if (foodLogActuals !== undefined) {
+        var actCarbs  = actuals ? Math.round(actuals.carbs)  : 0;
+        var actSodium = actuals ? Math.round(actuals.sodium) : 0;
+        var pctActCarbs  = dailyCarbTarget  ? Math.min(actCarbs  / dailyCarbTarget  * 100, 150) : 0;
+        var pctActSodium = dailySodiumTarget ? Math.min(actSodium / dailySodiumTarget * 100, 150) : 0;
+        var stActCarbs   = Data.rateStatus(actCarbs,  dailyCarbTarget);
+        var stActSodium  = Data.rateStatus(actSodium, dailySodiumTarget);
+        foodLogBlock =
+          '<div class="food-log-actuals">' +
+            '<div class="food-log-actuals-header">' +
+              '<span>Food log · ' + escHtml(seg.date || '') + '</span>' +
+              '<a href="#" class="food-log-actuals-link" data-navigate-food-log="' + escHtml(seg.date || '') + '">View ›</a>' +
+            '</div>' +
+            (actuals
+              ? '<div class="progress-group">' +
+                  progressRowHTML('Carbs', actCarbs + 'g / ' + dailyCarbTarget + 'g', pctActCarbs, stActCarbs) +
+                  (dailySodiumTarget ? progressRowHTML('Sodium', actSodium + 'mg / ' + dailySodiumTarget + 'mg', pctActSodium, stActSodium) : '') +
+                '</div>'
+              : '<div style="padding:4px 0 2px;font-size:13px;color:var(--text-tertiary)">No entries</div>') +
+          '</div>';
+      }
+
+      return '<div class="segment-section" data-segment-id="' + seg.id + '">' +
+        (showLabel
+          ? '<div class="segment-header">' +
+              '<div class="segment-title-row">' +
+                '<span class="segment-name editable" data-inline="seg-name">' + escHtml(seg.name) + '</span>' +
+                (seg.date ? '<span style="color:var(--text-tertiary);font-size:13px">&nbsp;· ' + escHtml(seg.date) + '</span>' : '') +
+              '</div>' +
+              '<div class="segment-targets-row">' +
+                '<span class="target-pill" data-inline="seg-carbs-target">' + dailyCarbTarget + 'g carbs/day</span>' +
+                (dailySodiumTarget ? '<span class="target-pill" data-inline="seg-sodium-target">' + dailySodiumTarget + 'mg Na/day</span>' : '') +
+              '</div>' +
+            '</div>'
+          : '<div class="segment-header">' +
+              '<div class="segment-targets-row">' +
+                '<span class="target-pill" data-inline="seg-carbs-target">' + dailyCarbTarget + 'g carbs/day</span>' +
+                (dailySodiumTarget ? '<span class="target-pill" data-inline="seg-sodium-target">' + dailySodiumTarget + 'mg Na/day</span>' : '') +
+              '</div>' +
+            '</div>') +
+        '<div class="progress-group">' +
+          progressRowHTML('Carbs', totals.carbs + 'g / ' + dailyCarbTarget + 'g', pctPlannedCarbs, stPlannedCarbs) +
+          (dailySodiumTarget ? progressRowHTML('Sodium', totals.sodium + 'mg / ' + dailySodiumTarget + 'mg', pctPlannedSodium, stPlannedSodium) : '') +
+        '</div>' +
+        '<div class="segment-totals">' +
+          '<span>' + totals.carbs + 'g carbs</span>' +
+          '<span>' + totals.sodium + 'mg Na</span>' +
+        '</div>' +
+        '<div class="item-list">' +
+          (seg.items.length
+            ? seg.items.map(function (item) { return itemRowHTML(item); }).join('') +
+              '<div class="qty-frac-hint">Tap a quantity to set a fractional amount</div>'
+            : '<div style="padding:12px 16px;font-size:13px;color:var(--text-tertiary)">No items yet.</div>') +
+        '</div>' +
+        '<button class="btn-add-item" data-add-segment-id="' + seg.id + '">+ Add item</button>' +
+        foodLogBlock +
+      '</div>';
+    }
 
     var pctCarbs   = tgt.carbsPerHour   ? Math.min(rates.carbs   / tgt.carbsPerHour   * 100, 150) : 0;
     var pctSodium  = tgt.sodiumPerHour  ? Math.min(rates.sodium  / tgt.sodiumPerHour  * 100, 150) : 0;
@@ -1152,6 +1242,14 @@
     $$('[data-add-segment-id]', $('detail-body')).forEach(function (btn) {
       on(btn, 'click', function () {
         openAddItemSheet(evt.id, btn.dataset.addSegmentId);
+      });
+    });
+
+    // Food log actuals "View ›" links
+    $$('[data-navigate-food-log]', $('detail-body')).forEach(function (link) {
+      on(link, 'click', function (e) {
+        e.preventDefault();
+        navigate('food-log', { date: link.dataset.navigateFoodLog });
       });
     });
 
