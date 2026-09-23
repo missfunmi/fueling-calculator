@@ -939,6 +939,7 @@
         foodLogActuals = {};
       }
     }
+    state.foodLogActuals = foodLogActuals;
 
     $("detail-event-name").textContent = evt.name;
 
@@ -2112,7 +2113,7 @@
           return s.id === segId;
         });
         if (seg2) {
-          segEl.outerHTML = segmentSectionHTML(seg2, multiSeg);
+          segEl.outerHTML = segmentSectionHTML(seg2, multiSeg, state.foodLogActuals);
           reattachSegmentHandlers(segId);
         }
       });
@@ -2211,7 +2212,7 @@
       var multiSeg = evt.segments.length > 1;
       var segEl = document.querySelector('[data-segment-id="' + segId + '"]');
       if (segEl) {
-        segEl.outerHTML = segmentSectionHTML(seg, multiSeg);
+        segEl.outerHTML = segmentSectionHTML(seg, multiSeg, state.foodLogActuals);
         reattachSegmentHandlers(segId);
       }
       // Auto-expand the panel after generation
@@ -2484,7 +2485,7 @@
     var multiSeg = evt.segments.length > 1;
     var segEl = document.querySelector('[data-segment-id="' + segId + '"]');
     if (segEl) {
-      segEl.outerHTML = segmentSectionHTML(liveSeg, multiSeg);
+      segEl.outerHTML = segmentSectionHTML(liveSeg, multiSeg, state.foodLogActuals);
       reattachSegmentHandlers(segId);
     }
     // Re-open body since re-render collapsed it
@@ -2719,7 +2720,7 @@
     var multiSeg = evt.segments.length > 1;
     var segEl = document.querySelector('[data-segment-id="' + segId + '"]');
     if (segEl) {
-      segEl.outerHTML = segmentSectionHTML(seg, multiSeg);
+      segEl.outerHTML = segmentSectionHTML(seg, multiSeg, state.foodLogActuals);
       reattachSegmentHandlers(segId);
     }
     refreshSummaryCards();
