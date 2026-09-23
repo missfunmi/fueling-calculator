@@ -1997,8 +1997,12 @@
   function refreshSummaryCards() {
     var evt = state.currentEvent;
     if (!evt) return;
+    var isDailyEvent = evt.segments.length > 0 && evt.segments.every(function (s) { return s.mode === 'daily'; });
     var totals = Data.calcEventTotals(evt);
     var rates = Data.calcEventRates(evt);
+    var nDays = isDailyEvent ? evt.segments.length : 0;
+    var avgDailyCarbs  = isDailyEvent && nDays ? Math.round(totals.carbs  / nDays) : 0;
+    var avgDailySodium = isDailyEvent && nDays ? Math.round(totals.sodium / nDays) : 0;
     var archiveDate =
       evt.category === "multi" && evt.endDate ? evt.endDate : evt.date;
     var showAct =
@@ -2015,7 +2019,7 @@
         metricCardHTML(
           "carbs",
           Math.round(totals.carbs) + "g",
-          fmt(rates.carbs, "g/hr avg"),
+          isDailyEvent ? fmt(avgDailyCarbs, "g/day avg") : fmt(rates.carbs, "g/hr avg"),
           actTotals ? Math.round(actTotals.carbs) + "g" : undefined,
           actRates ? fmt(actRates.carbs, "g/hr avg") : undefined,
           goalRates ? fmt(goalRates.carbs, "g/hr goal") : undefined,
@@ -2023,19 +2027,19 @@
         metricCardHTML(
           "sodium",
           Math.round(totals.sodium) + "mg",
-          fmt(rates.sodium, "mg/hr avg"),
+          isDailyEvent ? fmt(avgDailySodium, "mg/day avg") : fmt(rates.sodium, "mg/hr avg"),
           actTotals ? Math.round(actTotals.sodium) + "mg" : undefined,
           actRates ? fmt(actRates.sodium, "mg/hr avg") : undefined,
           goalRates ? fmt(goalRates.sodium, "mg/hr goal") : undefined,
         ) +
-        metricCardHTML(
+        (isDailyEvent ? "" : metricCardHTML(
           "caffeine",
           Math.round(totals.caffeine) + "mg",
           fmt(rates.caffeine, "mg/hr avg"),
           actTotals ? Math.round(actTotals.caffeine) + "mg" : undefined,
           actRates ? fmt(actRates.caffeine, "mg/hr avg") : undefined,
           goalRates ? fmt(goalRates.caffeine, "mg/hr goal") : undefined,
-        );
+        ));
     }
     // Also update totals footer if present
     var footerEl =
