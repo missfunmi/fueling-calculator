@@ -622,16 +622,20 @@
     var segments = Array.from(segCards).map(function (card) {
       var id = card.dataset.segDraftId;
       var existing = draftSegments.find(function (s) { return s.id === id; });
+      var isDaily = existing && existing.mode === 'daily';
       var segDateEl = card.querySelector('.seg-date');
+      var durEl  = card.querySelector('.seg-duration');
+      var caffEl = card.querySelector('.seg-caffeine-target');
       return {
         id:            id,
         name:          card.querySelector('.seg-name').value.trim() || name,
         date:          segDateEl ? segDateEl.value : '',
-        durationHours: parseDuration(card.querySelector('.seg-duration').value) || 1,
+        mode:          isDaily ? 'daily' : 'hourly',
+        durationHours: isDaily ? 0 : (durEl ? parseDuration(durEl.value) || 1 : 1),
         targets: {
-          carbsPerHour:    parseFloat(card.querySelector('.seg-carbs-target').value)    || 0,
-          sodiumPerHour:   parseFloat(card.querySelector('.seg-sodium-target').value)   || 0,
-          caffeinePerHour: parseFloat(card.querySelector('.seg-caffeine-target').value) || 0
+          carbsPerHour:    parseFloat(card.querySelector('.seg-carbs-target').value)  || 0,
+          sodiumPerHour:   parseFloat(card.querySelector('.seg-sodium-target').value) || 0,
+          caffeinePerHour: isDaily ? 0 : (caffEl ? parseFloat(caffEl.value) || 0 : 0)
         },
         items: existing ? (existing.items || []) : []
       };
