@@ -468,8 +468,8 @@
     }
 
     var _dayLabel = state.date === todayStr() ? 'today' : new Date(state.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' });
-    var _backBar = (state.returnTo === 'detail' && state.returnEventName)
-      ? '<button id="fl-btn-back-event" class="fl-back-bar"><i class="ti ti-arrow-left"></i> ' + _A.escHtml(state.returnEventName) + '</button>'
+    var _backBar = (_A.state.returnTo === 'detail' && _A.state.returnEventName)
+      ? '<button id="fl-btn-back-event" class="fl-back-bar"><i class="ti ti-arrow-left"></i> ' + _A.escHtml(_A.state.returnEventName) + '</button>'
       : '';
     $body.innerHTML =
       _backBar +
@@ -491,10 +491,10 @@
     var _backBtn = _A.$('fl-btn-back-event');
     if (_backBtn) {
       _A.on(_backBtn, 'click', function () {
-        var returnId = state.returnEventId;
-        state.returnTo = null;
-        state.returnEventId = null;
-        state.returnEventName = null;
+        var returnId = _A.state.returnEventId;
+        _A.state.returnTo = null;
+        _A.state.returnEventId = null;
+        _A.state.returnEventName = null;
         _A.navigate('detail', { currentEventId: returnId });
       });
     }
