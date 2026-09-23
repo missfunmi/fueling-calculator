@@ -115,7 +115,8 @@
 
   var EVENT_TYPE_LABELS = {
     ride: 'Ride', run: 'Run', triathlon: 'Triathlon',
-    swim: 'Swim', vacation: 'Vacation', training_camp: 'Training Camp', other: 'Other'
+    swim: 'Swim', vacation: 'Vacation', training_camp: 'Training Camp', other: 'Other',
+    carb_load: 'Carb Load'
   };
 
   // ── Router ─────────────────────────────────────────────────────────────────
@@ -179,10 +180,11 @@
 
   // ── Segment form HTML helper (used by renderCreate) ────────────────────────
   function segmentFormHTML(seg, idx, total, isMultiDay, startDate, endDate) {
-    var canDelete = total > 1;
+    var isDaily = seg.mode === 'daily';
+    var canDelete = total > 1 && !isDaily;
     return '<div class="form-card" data-seg-draft-id="' + seg.id + '">' +
       '<div class="form-section-header" style="margin-bottom:10px">' +
-        '<span style="font-size:13px;font-weight:600;color:var(--text-secondary)">SEGMENT ' + (idx + 1) + '</span>' +
+        '<span style="font-size:13px;font-weight:600;color:var(--text-secondary)">' + (isDaily ? 'DAY ' + (idx + 1) : 'SEGMENT ' + (idx + 1)) + '</span>' +
         (canDelete
           ? '<button type="button" class="btn-text btn-danger btn-remove-segment" style="font-size:13px">Remove</button>'
           : '') +
@@ -191,35 +193,52 @@
         '<label>Name</label>' +
         '<input class="form-input seg-name" type="text" value="' + escHtml(seg.name) + '" placeholder="e.g. Bike">' +
       '</div>' +
-      '<div class="form-row">' +
-        (isMultiDay
-          ? '<div class="form-group">' +
+      (isDaily
+        ? '<div class="form-row">' +
+            '<div class="form-group">' +
               '<label>Date</label>' +
-              '<input class="form-input seg-date" type="date" value="' + escHtml(seg.date || '') + '"' +
-                (startDate ? ' min="' + escHtml(startDate) + '"' : '') +
-                (endDate   ? ' max="' + escHtml(endDate)   + '"' : '') +
-              '>' +
-            '</div>'
-          : '') +
-        '<div class="form-group">' +
-          '<label>Duration</label>' +
-          '<input class="form-input seg-duration" type="text" inputmode="text" value="' + formatDuration(seg.durationHours) + '" placeholder="e.g. 1:45 or 1h45m">' +
-        '</div>' +
-      '</div>' +
-      '<div class="form-row">' +
-        '<div class="form-group">' +
-          '<label>Carbs/hr (g)</label>' +
-          '<input class="form-input seg-carbs-target" type="number" min="0" value="' + seg.targets.carbsPerHour + '">' +
-        '</div>' +
-        '<div class="form-group">' +
-          '<label>Na/hr (mg)</label>' +
-          '<input class="form-input seg-sodium-target" type="number" min="0" value="' + seg.targets.sodiumPerHour + '">' +
-        '</div>' +
-        '<div class="form-group">' +
-          '<label>Caff/hr (mg)</label>' +
-          '<input class="form-input seg-caffeine-target" type="number" min="0" value="' + seg.targets.caffeinePerHour + '">' +
-        '</div>' +
-      '</div>' +
+              '<input class="form-input seg-date" type="date" value="' + escHtml(seg.date || '') + '" readonly>' +
+            '</div>' +
+          '</div>' +
+          '<div class="form-row">' +
+            '<div class="form-group">' +
+              '<label>Carbs/day (g)</label>' +
+              '<input class="form-input seg-carbs-target" type="number" min="0" value="' + seg.targets.carbsPerHour + '">' +
+            '</div>' +
+            '<div class="form-group">' +
+              '<label>Sodium/day (mg)</label>' +
+              '<input class="form-input seg-sodium-target" type="number" min="0" value="' + seg.targets.sodiumPerHour + '">' +
+            '</div>' +
+          '</div>'
+        : '<div class="form-row">' +
+            (isMultiDay
+              ? '<div class="form-group">' +
+                  '<label>Date</label>' +
+                  '<input class="form-input seg-date" type="date" value="' + escHtml(seg.date || '') + '"' +
+                    (startDate ? ' min="' + escHtml(startDate) + '"' : '') +
+                    (endDate   ? ' max="' + escHtml(endDate)   + '"' : '') +
+                  '>' +
+                '</div>'
+              : '') +
+            '<div class="form-group">' +
+              '<label>Duration</label>' +
+              '<input class="form-input seg-duration" type="text" inputmode="text" value="' + formatDuration(seg.durationHours) + '" placeholder="e.g. 1:45 or 1h45m">' +
+            '</div>' +
+          '</div>' +
+          '<div class="form-row">' +
+            '<div class="form-group">' +
+              '<label>Carbs/hr (g)</label>' +
+              '<input class="form-input seg-carbs-target" type="number" min="0" value="' + seg.targets.carbsPerHour + '">' +
+            '</div>' +
+            '<div class="form-group">' +
+              '<label>Na/hr (mg)</label>' +
+              '<input class="form-input seg-sodium-target" type="number" min="0" value="' + seg.targets.sodiumPerHour + '">' +
+            '</div>' +
+            '<div class="form-group">' +
+              '<label>Caff/hr (mg)</label>' +
+              '<input class="form-input seg-caffeine-target" type="number" min="0" value="' + seg.targets.caffeinePerHour + '">' +
+            '</div>' +
+          '</div>') +
     '</div>';
   }
 
@@ -408,6 +427,32 @@
     return d.toISOString().slice(0, 10);
   }
 
+  function _generateCarbLoadSegments(startDate, endDate) {
+    var segments = [];
+    var cur = new Date(startDate + 'T00:00:00');
+    var end = endDate ? new Date(endDate + 'T00:00:00') : cur;
+    var i = 1;
+    while (cur <= end) {
+      var dateStr = cur.toISOString().slice(0, 10);
+      var seg = Data.newSegment('Day ' + i, 0, dateStr, { mode: 'daily' });
+      seg.targets.carbsPerHour = 500;
+      seg.targets.sodiumPerHour = 0;
+      seg.targets.caffeinePerHour = 0;
+      segments.push(seg);
+      cur.setDate(cur.getDate() + 1);
+      i++;
+    }
+    return segments;
+  }
+
+  function _syncCarbLoadSegments() {
+    if ($('ef-type').value !== 'carb_load') return;
+    var startDate = $('ef-date').value;
+    if (!startDate) return;
+    var endDate = ($('ef-category').value === 'multi') ? ($('ef-end-date').value || startDate) : startDate;
+    draftSegments = _generateCarbLoadSegments(startDate, endDate);
+  }
+
   function _applyMultiDayToggle(isMulti) {
     var endDateInput = $('ef-end-date');
     if (!endDateInput) return;
@@ -451,6 +496,12 @@
     $('ef-category').onchange = function () {
       syncDraftSegmentsFromDOM();
       _applyMultiDayToggle(this.value === 'multi');
+      _syncCarbLoadSegments();
+      renderSegmentForms();
+    };
+
+    $('ef-type').onchange = function () {
+      _syncCarbLoadSegments();
       renderSegmentForms();
     };
 
@@ -462,6 +513,12 @@
           endDateInput.value = '';
         }
       }
+      _syncCarbLoadSegments();
+      renderSegmentForms();
+    };
+
+    $('ef-end-date').onchange = function () {
+      _syncCarbLoadSegments();
       renderSegmentForms();
     };
 
@@ -479,27 +536,32 @@
       var seg = draftSegments.find(function (s) { return s.id === id; });
       if (!seg) return;
       seg.name = card.querySelector('.seg-name').value.trim();
-      var dur = parseDuration(card.querySelector('.seg-duration').value);
-      if (dur > 0) seg.durationHours = dur;
       var carbs = parseFloat(card.querySelector('.seg-carbs-target').value);
       if (!isNaN(carbs)) seg.targets.carbsPerHour = carbs;
       var sodium = parseFloat(card.querySelector('.seg-sodium-target').value);
       if (!isNaN(sodium)) seg.targets.sodiumPerHour = sodium;
-      var caff = parseFloat(card.querySelector('.seg-caffeine-target').value);
-      if (!isNaN(caff)) seg.targets.caffeinePerHour = caff;
+      if (seg.mode !== 'daily') {
+        var durEl = card.querySelector('.seg-duration');
+        if (durEl) { var dur = parseDuration(durEl.value); if (dur > 0) seg.durationHours = dur; }
+        var caffEl = card.querySelector('.seg-caffeine-target');
+        if (caffEl) { var caff = parseFloat(caffEl.value); if (!isNaN(caff)) seg.targets.caffeinePerHour = caff; }
+      }
       var segDateEl = card.querySelector('.seg-date');
-      if (segDateEl) seg.date = segDateEl.value;
+      if (segDateEl && seg.mode !== 'daily') seg.date = segDateEl.value;
     });
   }
 
   function renderSegmentForms() {
     var $list = $('segments-form-list');
     var isMultiDay = $('ef-category') && $('ef-category').value === 'multi';
+    var isCarbLoad = $('ef-type') && $('ef-type').value === 'carb_load';
     var startDate = isMultiDay ? ($('ef-date').value || '') : '';
     var endDate   = isMultiDay ? ($('ef-end-date').value || '') : '';
     $list.innerHTML = draftSegments.map(function (seg, i) {
       return segmentFormHTML(seg, i, draftSegments.length, isMultiDay, startDate, endDate);
     }).join('');
+    var addBtn = $('btn-add-segment');
+    if (addBtn) addBtn.style.display = isCarbLoad ? 'none' : '';
 
     // Wire remove buttons
     $$('.btn-remove-segment').forEach(function (btn) {
