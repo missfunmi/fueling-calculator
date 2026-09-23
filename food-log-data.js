@@ -275,6 +275,24 @@
     return data;
   }
 
+  async function getFoodLogTotalsForDates(userId, dates) {
+    if (!dates || !dates.length) return {};
+    var rows = await req('GET',
+      'food_logs?user_id=eq.' + encodeURIComponent(userId) +
+      '&local_date=in.(' + dates.map(encodeURIComponent).join(',') + ')' +
+      '&select=local_date,carbs,sodium'
+    );
+    var totals = {};
+    (rows || []).forEach(function (r) {
+      var d = r.local_date;
+      if (!d) return;
+      if (!totals[d]) totals[d] = { carbs: 0, sodium: 0 };
+      totals[d].carbs  += r.carbs  || 0;
+      totals[d].sodium += r.sodium || 0;
+    });
+    return totals;
+  }
+
   // ── Helpers ──────────────────────────────────────────────────────────────────
 
   function scaleComponentMacros(item, amountG) {
@@ -302,7 +320,8 @@
     getActiveBatches: getActiveBatches,
     updateBatchRemaining: updateBatchRemaining,
     discardBatch: discardBatch,
-    getLogsRange: getLogsRange
+    getLogsRange: getLogsRange,
+    getFoodLogTotalsForDates: getFoodLogTotalsForDates
   };
 })();
 
