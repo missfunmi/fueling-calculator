@@ -1202,15 +1202,53 @@
                 return currentSelected.indexOf(bc.item.id) !== -1;
               });
               postCalculate = null;
-              overlay.parentNode.removeChild(overlay);
+              removeWithCleanup();
               render();
             });
           }
 
           // Close on overlay backdrop tap
           _A.on(overlay, 'click', function (e) {
-            if (e.target === overlay) overlay.parentNode.removeChild(overlay);
+            if (e.target === overlay) removeWithCleanup();
           });
+
+          // Lift sheet above iOS virtual keyboard.
+          // Key insight: visualViewport resize fires AFTER the keyboard finishes
+          // closing, so using it for the dismiss direction causes a flash (page
+          // visible through backdrop before sheet snaps back). Instead we reset
+          // the sheet synchronously on search blur — before keyboard animation
+          // starts — and only use visualViewport to react to keyboard appearing.
+          var sheet = overlay.querySelector('.fl-sheet');
+          function onVPResize() {
+            var vp = window.visualViewport;
+            var keyboardH = Math.max(0, window.innerHeight - vp.height - vp.offsetTop);
+            if (sheet) {
+              sheet.style.marginBottom = keyboardH + 'px';
+              sheet.style.maxHeight = Math.round(vp.height * 0.75) + 'px';
+            }
+          }
+          function resetSheetPosition() {
+            if (sheet) {
+              sheet.style.marginBottom = '';
+              sheet.style.maxHeight = '';
+            }
+          }
+          var searchEl = _A.$('fl-picker-search');
+          if (searchEl && window.visualViewport) {
+            _A.on(searchEl, 'focus', function () {
+              window.visualViewport.addEventListener('resize', onVPResize);
+            });
+            _A.on(searchEl, 'blur', function () {
+              window.visualViewport.removeEventListener('resize', onVPResize);
+              resetSheetPosition();
+            });
+          }
+          function removeWithCleanup() {
+            if (window.visualViewport) {
+              window.visualViewport.removeEventListener('resize', onVPResize);
+            }
+            if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+          }
         });
       }
 
