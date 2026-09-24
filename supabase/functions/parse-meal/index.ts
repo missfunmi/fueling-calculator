@@ -55,6 +55,9 @@ Rules:
 - If the input references a library item by name, use that item's data (adjusting for any serving fraction mentioned). Set library_item_id to the matching item's id and serving_multiplier to the fraction used (e.g. 0.75 for "¾").
 - If the user explicitly states macro values in grams (e.g. "25g protein", "40g carbs", "7g fat"), use those EXACT values — do not modify, round differently, or substitute them. If calories are not stated, calculate them as (protein_g × 4 + carbs_g × 4 + fat_g × 9). Set ai_estimated to false and confidence to "high".
 - If the input contains explicit nutrition label values (e.g. "250 cal, 30g protein"), use those values directly and set confidence to "high" and ai_estimated to false.
+- When a weight is given for a whole food ingredient (e.g. "20g almonds", "50g oats"), scale macros from standard USDA per-100g values — do not guess. Examples: almonds ≈ 50g fat, 21g protein, 22g carbs per 100g; rolled oats ≈ 7g fat, 13g protein, 67g carbs per 100g.
+- For multi-ingredient freeform text, sum each ingredient separately.
+- Before returning, verify internal consistency: protein_g × 4 + carbs_g × 4 + fat_g × 9 should approximately equal calories (within 10%). Correct any macro that fails this check.
 - Otherwise estimate based on typical nutritional data and set ai_estimated to true.
 - Round all numbers to the nearest whole number.
 - fiber and sodium may be null if not known.
