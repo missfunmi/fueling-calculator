@@ -1212,11 +1212,12 @@
             if (e.target === overlay) removeWithCleanup();
           });
 
-          // Lift sheet above iOS virtual keyboard using visualViewport API.
-          // We move the sheet itself (not the overlay) so the backdrop always
-          // covers the full screen — preventing the flash of underlying content
-          // when the keyboard dismisses. We also cap maxHeight to the visual
-          // viewport so the sheet cannot grow taller than the available space.
+          // Lift sheet above iOS virtual keyboard.
+          // Key insight: visualViewport resize fires AFTER the keyboard finishes
+          // closing, so using it for the dismiss direction causes a flash (page
+          // visible through backdrop before sheet snaps back). Instead we reset
+          // the sheet synchronously on search blur — before keyboard animation
+          // starts — and only use visualViewport to react to keyboard appearing.
           var sheet = overlay.querySelector('.fl-sheet');
           function onVPResize() {
             var vp = window.visualViewport;
@@ -1226,16 +1227,27 @@
               sheet.style.maxHeight = Math.round(vp.height * 0.75) + 'px';
             }
           }
+          function resetSheetPosition() {
+            if (sheet) {
+              sheet.style.marginBottom = '';
+              sheet.style.maxHeight = '';
+            }
+          }
+          var searchEl = _A.$('fl-picker-search');
+          if (searchEl && window.visualViewport) {
+            _A.on(searchEl, 'focus', function () {
+              window.visualViewport.addEventListener('resize', onVPResize);
+            });
+            _A.on(searchEl, 'blur', function () {
+              window.visualViewport.removeEventListener('resize', onVPResize);
+              resetSheetPosition();
+            });
+          }
           function removeWithCleanup() {
             if (window.visualViewport) {
               window.visualViewport.removeEventListener('resize', onVPResize);
-              window.visualViewport.removeEventListener('scroll', onVPResize);
             }
             if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
-          }
-          if (window.visualViewport) {
-            window.visualViewport.addEventListener('resize', onVPResize);
-            window.visualViewport.addEventListener('scroll', onVPResize);
           }
         });
       }
