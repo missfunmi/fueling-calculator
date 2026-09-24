@@ -1202,15 +1202,33 @@
                 return currentSelected.indexOf(bc.item.id) !== -1;
               });
               postCalculate = null;
-              overlay.parentNode.removeChild(overlay);
+              removeWithCleanup();
               render();
             });
           }
 
           // Close on overlay backdrop tap
           _A.on(overlay, 'click', function (e) {
-            if (e.target === overlay) overlay.parentNode.removeChild(overlay);
+            if (e.target === overlay) removeWithCleanup();
           });
+
+          // Lift sheet above iOS virtual keyboard using visualViewport API
+          function onVPResize() {
+            var vp = window.visualViewport;
+            var keyboardH = window.innerHeight - (vp.height + vp.offsetTop);
+            overlay.style.bottom = Math.max(0, keyboardH) + 'px';
+          }
+          function removeWithCleanup() {
+            if (window.visualViewport) {
+              window.visualViewport.removeEventListener('resize', onVPResize);
+              window.visualViewport.removeEventListener('scroll', onVPResize);
+            }
+            if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+          }
+          if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', onVPResize);
+            window.visualViewport.addEventListener('scroll', onVPResize);
+          }
         });
       }
 
