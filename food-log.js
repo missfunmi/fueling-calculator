@@ -1212,11 +1212,19 @@
             if (e.target === overlay) removeWithCleanup();
           });
 
-          // Lift sheet above iOS virtual keyboard using visualViewport API
+          // Lift sheet above iOS virtual keyboard using visualViewport API.
+          // We move the sheet itself (not the overlay) so the backdrop always
+          // covers the full screen — preventing the flash of underlying content
+          // when the keyboard dismisses. We also cap maxHeight to the visual
+          // viewport so the sheet cannot grow taller than the available space.
+          var sheet = overlay.querySelector('.fl-sheet');
           function onVPResize() {
             var vp = window.visualViewport;
-            var keyboardH = window.innerHeight - (vp.height + vp.offsetTop);
-            overlay.style.bottom = Math.max(0, keyboardH) + 'px';
+            var keyboardH = Math.max(0, window.innerHeight - vp.height - vp.offsetTop);
+            if (sheet) {
+              sheet.style.marginBottom = keyboardH + 'px';
+              sheet.style.maxHeight = Math.round(vp.height * 0.75) + 'px';
+            }
           }
           function removeWithCleanup() {
             if (window.visualViewport) {
