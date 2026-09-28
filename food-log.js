@@ -53,7 +53,10 @@
   // Returns full meta line for library list and picker rows.
   function itemMetaLine(item) {
     var parts = itemMacroMeta(item);
-    var ctx   = itemServingContext(item);
+    if (item.caffeinePerServing && item.caffeinePerServing > 0) {
+      parts.push(Math.round(item.caffeinePerServing) + 'mg caffeine');
+    }
+    var ctx = itemServingContext(item);
     if (ctx) parts.push(ctx);
     return parts.join(' · ');
   }

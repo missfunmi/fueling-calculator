@@ -105,8 +105,8 @@ async function run() {
   });
 
   await test('getProducts normalises snake_case to camelCase', async function () {
-    var row = { id: 'abc', brand: 'Maurten', name: 'C-160', type: 'drink_powder',
-                carbs_per_unit: 160, sodium_per_unit: 290, caffeine_per_unit: 0 };
+    var row = { id: 'abc', brand: 'Maurten', name: 'C-160', fuel_type: 'drink_powder',
+                is_fuel: true, carbs_per_serving: 160, sodium_per_serving: 290, caffeine_per_serving: 0 };
     mockFetch([{ status: 200, body: JSON.stringify([row]) }]);
     var products = await D.getProducts();
     assert.strictEqual(products.length, 1);

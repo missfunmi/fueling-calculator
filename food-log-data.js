@@ -157,17 +157,20 @@
   function rowToItem(r) {
     return {
       id: r.id, userId: r.user_id, name: r.name,
-      brand:             r.brand || null,
-      category:          r.category || '',
-      proteinPerServing: r.protein_per_serving,
-      carbsPerServing:   r.carbs_per_serving,
-      fatPerServing:     r.fat_per_serving,
+      brand:              r.brand || null,
+      category:           r.category || '',
+      isFuel:             r.is_fuel || false,
+      fuelType:           r.fuel_type || null,
+      proteinPerServing:  r.protein_per_serving,
+      carbsPerServing:    r.carbs_per_serving,
+      fatPerServing:      r.fat_per_serving,
       caloriesPerServing: r.calories_per_serving,
-      fiberPerServing:   r.fiber_per_serving,
-      sodiumPerServing:  r.sodium_per_serving,
-      servingSize:       r.serving_size != null ? r.serving_size : null,
-      servingUnit:       r.serving_unit || null,
-      createdAt:         r.created_at
+      fiberPerServing:    r.fiber_per_serving,
+      sodiumPerServing:   r.sodium_per_serving,
+      caffeinePerServing: r.caffeine_per_serving != null ? r.caffeine_per_serving : null,
+      servingSize:        r.serving_size != null ? r.serving_size : null,
+      servingUnit:        r.serving_unit || null,
+      createdAt:          r.created_at
     };
   }
 
@@ -178,20 +181,30 @@
     return (rows || []).map(rowToItem);
   }
 
+  async function getFuelItems(userId) {
+    var rows = await req('GET',
+      'food_library?user_id=eq.' + encodeURIComponent(userId) + '&is_fuel=eq.true&order=name.asc'
+    );
+    return (rows || []).map(rowToItem);
+  }
+
   async function saveLibraryItem(userId, item) {
     var rows = await req('POST', 'food_library', {
-      user_id:             userId,
-      name:                item.name,
-      category:            item.category || null,
-      protein_per_serving: item.proteinPerServing  != null ? item.proteinPerServing  : null,
-      carbs_per_serving:   item.carbsPerServing    != null ? item.carbsPerServing    : null,
-      fat_per_serving:     item.fatPerServing      != null ? item.fatPerServing      : null,
+      user_id:              userId,
+      name:                 item.name,
+      category:             item.category || null,
+      is_fuel:              item.isFuel   || false,
+      fuel_type:            item.fuelType || null,
+      protein_per_serving:  item.proteinPerServing  != null ? item.proteinPerServing  : null,
+      carbs_per_serving:    item.carbsPerServing    != null ? item.carbsPerServing    : null,
+      fat_per_serving:      item.fatPerServing      != null ? item.fatPerServing      : null,
       calories_per_serving: item.caloriesPerServing != null ? item.caloriesPerServing : null,
-      fiber_per_serving:   item.fiberPerServing    != null ? item.fiberPerServing    : null,
-      sodium_per_serving:  item.sodiumPerServing   != null ? item.sodiumPerServing   : null,
-      serving_unit:        item.servingUnit || null,
-      brand:               item.brand        || null,
-      serving_size:        item.servingSize  != null ? item.servingSize : null
+      fiber_per_serving:    item.fiberPerServing    != null ? item.fiberPerServing    : null,
+      sodium_per_serving:   item.sodiumPerServing   != null ? item.sodiumPerServing   : null,
+      caffeine_per_serving: item.caffeinePerServing != null ? item.caffeinePerServing : null,
+      serving_unit:         item.servingUnit || null,
+      brand:                item.brand       || null,
+      serving_size:         item.servingSize != null ? item.servingSize : null
     });
     if (!rows || !rows[0]) throw new Error('saveLibraryItem: no row returned');
     return rowToItem(rows[0]);
@@ -207,9 +220,12 @@
     if (fields.caloriesPerServing !== undefined) body.calories_per_serving = fields.caloriesPerServing;
     if (fields.fiberPerServing    !== undefined) body.fiber_per_serving   = fields.fiberPerServing;
     if (fields.sodiumPerServing   !== undefined) body.sodium_per_serving  = fields.sodiumPerServing;
-    if (fields.servingUnit        !== undefined) body.serving_unit        = fields.servingUnit;
-    if (fields.brand              !== undefined) body.brand               = fields.brand;
-    if (fields.servingSize        !== undefined) body.serving_size        = fields.servingSize;
+    if (fields.servingUnit        !== undefined) body.serving_unit         = fields.servingUnit;
+    if (fields.brand              !== undefined) body.brand                = fields.brand;
+    if (fields.servingSize        !== undefined) body.serving_size         = fields.servingSize;
+    if (fields.isFuel             !== undefined) body.is_fuel              = fields.isFuel;
+    if (fields.fuelType           !== undefined) body.fuel_type            = fields.fuelType;
+    if (fields.caffeinePerServing !== undefined) body.caffeine_per_serving = fields.caffeinePerServing;
     var rows = await req('PATCH',
       'food_library?id=eq.' + encodeURIComponent(id) + '&user_id=eq.' + encodeURIComponent(userId),
       body, 'return=representation'
@@ -312,7 +328,8 @@
 
   window.FoodLogData = {
     getLogs: getLogs, saveLog: saveLog, updateLog: updateLog, deleteLog: deleteLog,
-    getLibrary: getLibrary, saveLibraryItem: saveLibraryItem,
+    getLibrary: getLibrary, getFuelItems: getFuelItems,
+    saveLibraryItem: saveLibraryItem,
     updateLibraryItem: updateLibraryItem, deleteLibraryItem: deleteLibraryItem,
     getTargets: getTargets, saveTargets: saveTargets,
     parseMeal: parseMeal,

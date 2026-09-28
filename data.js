@@ -124,28 +124,16 @@
     return type.toLowerCase().replace(/\s+/g, '_');
   }
 
+  // Maps a food_library row (is_fuel=true) to the product shape the rest of the app expects.
   function dbToProduct(row) {
     return {
       id:              row.id,
       brand:           row.brand || '',
       name:            row.name,
-      type:            normalizeItemType(row.type),
-      carbsPerUnit:    row.carbs_per_unit    || 0,
-      sodiumPerUnit:   row.sodium_per_unit   || 0,
-      caffeinePerUnit: row.caffeine_per_unit || 0
-    };
-  }
-
-  function productToDb(p) {
-    return {
-      id:                p.id,
-      user_id:           getUserId(),
-      brand:             p.brand || null,
-      name:              p.name,
-      type:              p.type,
-      carbs_per_unit:    p.carbsPerUnit    || 0,
-      sodium_per_unit:   p.sodiumPerUnit   || 0,
-      caffeine_per_unit: p.caffeinePerUnit || 0
+      type:            normalizeItemType(row.fuel_type || row.type || 'other'),
+      carbsPerUnit:    row.carbs_per_serving    || 0,
+      sodiumPerUnit:   row.sodium_per_serving   || 0,
+      caffeinePerUnit: row.caffeine_per_serving || 0
     };
   }
 
@@ -252,22 +240,37 @@
   async function getProducts() {
     var rows = await supabaseRequest(
       'GET',
-      'products?user_id=eq.' + getUserId() + '&select=*&order=created_at.asc'
+      'food_library?user_id=eq.' + getUserId() + '&is_fuel=eq.true&order=name.asc'
     );
     return (rows || []).map(dbToProduct);
   }
 
   async function saveProduct(product) {
+    var body = {
+      id:                   product.id,
+      user_id:              getUserId(),
+      name:                 product.name,
+      brand:                product.brand || null,
+      is_fuel:              true,
+      fuel_type:            product.type  || null,
+      category:             'fuel',
+      carbs_per_serving:    product.carbsPerUnit    || 0,
+      sodium_per_serving:   product.sodiumPerUnit   || 0,
+      caffeine_per_serving: product.caffeinePerUnit || 0,
+      protein_per_serving:  0,
+      fat_per_serving:      0,
+      calories_per_serving: Math.round((product.carbsPerUnit || 0) * 4)
+    };
     await supabaseRequest(
       'POST',
-      'products?on_conflict=id',
-      productToDb(product),
+      'food_library?on_conflict=id',
+      body,
       'return=representation,resolution=merge-duplicates'
     );
   }
 
   async function deleteProduct(id) {
-    await supabaseRequest('DELETE', 'products?id=eq.' + id, null, 'return=minimal');
+    await supabaseRequest('DELETE', 'food_library?id=eq.' + id, null, 'return=minimal');
     try {
       var ids = JSON.parse(localStorage.getItem(KEYS.recent) || '[]')
         .filter(function (i) { return i !== id; });
@@ -559,6 +562,21 @@
     };
   }
 
+  // Build a segment item from a food_library item (non-fuel food picked for an event).
+  function itemFromFoodLibraryItem(item) {
+    return {
+      id:              generateId(),
+      productId:       item.id,
+      name:            item.name,
+      brand:           item.brand || '',
+      type:            'food',
+      carbsPerUnit:    Number(item.carbsPerServing)    || 0,
+      sodiumPerUnit:   Number(item.sodiumPerServing)   || 0,
+      caffeinePerUnit: Number(item.caffeinePerServing) || 0,
+      quantity:        1
+    };
+  }
+
   function duplicateEvent(evt) {
     var copy = JSON.parse(JSON.stringify(evt));
     copy.id   = generateId();
@@ -801,8 +819,9 @@
   exports.eventToDb          = eventToDb;
   exports.newSegment         = newSegment;
   exports.newEvent           = newEvent;
-  exports.itemFromProduct    = itemFromProduct;
-  exports.itemFromOneOff     = itemFromOneOff;
+  exports.itemFromProduct           = itemFromProduct;
+  exports.itemFromFoodLibraryItem   = itemFromFoodLibraryItem;
+  exports.itemFromOneOff            = itemFromOneOff;
   exports.getDefaultExecInterval    = getDefaultExecInterval;
   exports.setDefaultExecInterval    = setDefaultExecInterval;
   exports.saveExecInterval          = saveExecInterval;

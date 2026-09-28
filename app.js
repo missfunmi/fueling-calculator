@@ -2845,22 +2845,24 @@
     _sheetIsActual = !!isActual;
     $("sheet-overlay").classList.remove("hidden");
     $("product-search").value = "";
-    renderSheetLibraryTab().catch(function (e) {
+    renderSheetFuelTab().catch(function (e) {
       showToast("Couldn't load library — check your connection.");
     });
-    // Reset to library tab
+    // Reset to fuel tab
     $$(".sheet-tab-btn").forEach(function (b) {
       b.classList.remove("active");
     });
     $$(".sheet-tab-content").forEach(function (c) {
       c.classList.remove("active");
     });
-    $("sheet-tab-library").classList.add("active");
+    $("sheet-tab-fuel").classList.add("active");
     document
-      .querySelector('[data-sheet-tab="library"]')
+      .querySelector('[data-sheet-tab="fuel"]')
       .classList.add("active");
-    // Reset one-off form
+    // Reset manual form
     $("oneoff-form").reset();
+    $("adhoc-freeform").value = "";
+    $("adhoc-result").style.display = "none";
     $("product-search").focus();
   }
 
@@ -2871,7 +2873,7 @@
     _sheetIsActual = false;
   }
 
-  async function renderSheetLibraryTab(query) {
+  async function renderSheetFuelTab(query) {
     var products;
     try {
       products = await Data.getProducts();
@@ -3047,6 +3049,75 @@
     });
   }
 
+  // ── Food tab in event item picker ────────────────────────────────────────────
+
+  async function renderSheetFoodTab(query) {
+    var $results = $("food-lib-results");
+    if (!$results) return;
+    var allItems;
+    try {
+      allItems = await window.FoodLogData.getLibrary(localStorage.getItem('fuelPlanner.userId'));
+    } catch (e) {
+      showToast("Couldn't load food library — check your connection.");
+      return;
+    }
+    var items = allItems.filter(function (i) { return !i.isFuel; });
+    if (query) {
+      var q = query.toLowerCase();
+      items = items.filter(function (i) {
+        return (i.name || '').toLowerCase().includes(q) ||
+               (i.brand || '').toLowerCase().includes(q) ||
+               (i.category || '').toLowerCase().includes(q);
+      });
+    }
+    items.sort(function (a, b) {
+      return (a.name || '').toLowerCase() < (b.name || '').toLowerCase() ? -1 : 1;
+    });
+    if (!items.length) {
+      $results.innerHTML = '<div style="padding:16px;font-size:14px;color:var(--text-tertiary)">' +
+        (query ? 'No results.' : 'No food items in your library yet.') + '</div>';
+      return;
+    }
+    $results.innerHTML = items.map(foodRowSheetHTML).join('');
+    attachSheetFoodHandlers($results, items);
+  }
+
+  function foodRowSheetHTML(item) {
+    var meta = [];
+    if (item.caloriesPerServing != null) meta.push(Math.round(item.caloriesPerServing) + ' kcal');
+    if (item.carbsPerServing    != null) meta.push(Math.round(item.carbsPerServing)    + 'g carbs');
+    if (item.proteinPerServing  != null) meta.push(Math.round(item.proteinPerServing)  + 'g protein');
+    var ctx = item.servingSize ? (item.servingSize + (item.servingUnit ? ' ' + item.servingUnit : 'g')) : (item.servingUnit || '');
+    return '<div class="product-row" data-food-lib-id="' + item.id + '">' +
+      '<div class="product-row-info">' +
+        '<div class="product-row-name">' + escHtml((item.brand ? item.brand + ' ' : '') + item.name) + '</div>' +
+        '<div class="product-row-meta">' + escHtml(meta.join(' · ') + (ctx ? ' · per ' + ctx : '')) + '</div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function attachSheetFoodHandlers($container, items) {
+    $$('.product-row[data-food-lib-id]', $container).forEach(function (row) {
+      on(row, 'click', async function () {
+        var itemId = row.dataset.foodLibId;
+        var item = items.find(function (i) { return i.id === itemId; });
+        if (!item || !_sheetEventId || !_sheetSegmentId) return;
+        try {
+          var segItem = Data.itemFromFoodLibraryItem(item);
+          if (_sheetIsActual) {
+            await addItemToActualSegment(_sheetEventId, _sheetSegmentId, segItem);
+          } else {
+            await addItemToSegment(_sheetEventId, _sheetSegmentId, segItem);
+          }
+          closeSheet();
+          await renderDetail();
+        } catch (e) {
+          showToast("Couldn't add item — check your connection.");
+        }
+      });
+    });
+  }
+
   async function addItemToSegment(eventId, segmentId, item) {
     var evt = await Data.getEvent(eventId);
     if (!evt) return;
@@ -3105,19 +3176,28 @@
       });
       btn.classList.add("active");
       $("sheet-tab-" + tab).classList.add("active");
-      if (tab === "library") {
-        renderSheetLibraryTab($("product-search").value.trim()).catch(
-          function (e) {
-            showToast("Couldn't load library — check your connection.");
-          },
-        );
+      if (tab === "fuel") {
+        renderSheetFuelTab($("product-search").value.trim()).catch(function (e) {
+          showToast("Couldn't load library — check your connection.");
+        });
+      } else if (tab === "food") {
+        renderSheetFoodTab($("food-lib-search").value.trim()).catch(function (e) {
+          showToast("Couldn't load food library — check your connection.");
+        });
       }
     });
   });
 
-  // Live search
+  // Live search — fuel tab
   on($("product-search"), "input", function () {
-    renderSheetLibraryTab($("product-search").value.trim()).catch(function (e) {
+    renderSheetFuelTab($("product-search").value.trim()).catch(function (e) {
+      showToast("Couldn't search — check your connection.");
+    });
+  });
+
+  // Live search — food tab
+  on($("food-lib-search"), "input", function () {
+    renderSheetFoodTab($("food-lib-search").value.trim()).catch(function (e) {
       showToast("Couldn't search — check your connection.");
     });
   });
@@ -3161,6 +3241,77 @@
       await renderDetail();
     } catch (e) {
       showToast("Couldn't save — check your connection.");
+    }
+  });
+
+  // Ad-hoc tab: LLM lookup
+  on($("adhoc-parse-btn"), "click", async function () {
+    var input = $("adhoc-freeform").value.trim();
+    if (!input) { $("adhoc-freeform").focus(); return; }
+    var btn = $("adhoc-parse-btn");
+    btn.disabled = true;
+    btn.textContent = "Looking up…";
+    var $result = $("adhoc-result");
+    $result.style.display = "none";
+    try {
+      var userId = localStorage.getItem('fuelPlanner.userId');
+      var library = [];
+      try { library = await window.FoodLogData.getLibrary(userId); } catch (e) {}
+      var parsed = await window.FoodLogData.parseMeal(input, library);
+      var carbs   = Math.round(parsed.carbs   || 0);
+      var sodium  = Math.round(parsed.sodium  || 0);
+      var caffeine = Math.round(parsed.caffeine || 0);
+      var name    = parsed.name || input;
+      $result.innerHTML =
+        '<div class="adhoc-parsed-result">' +
+          '<div class="adhoc-parsed-name">' + escHtml(name) + '</div>' +
+          '<div class="adhoc-parsed-meta">' +
+            escHtml([
+              carbs   + 'g carbs',
+              sodium  + 'mg Na',
+              caffeine > 0 ? caffeine + 'mg caffeine' : null
+            ].filter(Boolean).join(' · ')) +
+          '</div>' +
+          '<div style="display:flex;gap:8px;margin-top:8px">' +
+            '<button id="adhoc-add-btn" class="btn-primary" style="flex:1" type="button">Add to plan</button>' +
+            '<button id="adhoc-save-btn" class="btn-secondary" style="flex:1" type="button">Add + save to library</button>' +
+          '</div>' +
+        '</div>';
+      $result.style.display = "";
+
+      var addAndOptSave = async function (save) {
+        var item = Data.itemFromOneOff({ name: name, brand: '', type: 'food',
+          carbsPerUnit: carbs, sodiumPerUnit: sodium, caffeinePerUnit: caffeine });
+        if (save) {
+          var libItem = { id: Data.generateId(), name: name, brand: null, isFuel: false, category: '',
+            carbsPerServing: carbs, sodiumPerServing: sodium, caffeinePerServing: caffeine || null,
+            caloriesPerServing: Math.round((parsed.calories || 0)), proteinPerServing: Math.round((parsed.protein || 0)),
+            fatPerServing: Math.round((parsed.fat || 0)) };
+          try {
+            await window.FoodLogData.saveLibraryItem(userId, libItem);
+            item.productId = libItem.id;
+          } catch (e) {}
+        }
+        try {
+          if (_sheetIsActual) {
+            await addItemToActualSegment(_sheetEventId, _sheetSegmentId, item);
+          } else {
+            await addItemToSegment(_sheetEventId, _sheetSegmentId, item);
+          }
+          closeSheet();
+          await renderDetail();
+        } catch (e) {
+          showToast("Couldn't add item — check your connection.");
+        }
+      };
+
+      on($("adhoc-add-btn"),  "click", function () { addAndOptSave(false); });
+      on($("adhoc-save-btn"), "click", function () { addAndOptSave(true);  });
+    } catch (e) {
+      showToast("Couldn't look up item — check your connection.");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Look up";
     }
   });
 
