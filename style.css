@@ -686,6 +686,19 @@ a { color: inherit; text-decoration: none; }
   margin-left: 4px;
   vertical-align: middle;
 }
+.lib-fuel-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--accent);
+  color: #fff;
+  margin-left: auto;
+  vertical-align: middle;
+  float: right;
+}
 
 /* Ad-hoc tab parsed result */
 .adhoc-parsed-result {

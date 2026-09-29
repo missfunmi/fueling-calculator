@@ -3070,15 +3070,30 @@
                (i.category || '').toLowerCase().includes(q);
       });
     }
-    items.sort(function (a, b) {
-      return (a.name || '').toLowerCase() < (b.name || '').toLowerCase() ? -1 : 1;
-    });
     if (!items.length) {
       $results.innerHTML = '<div style="padding:16px;font-size:14px;color:var(--text-tertiary)">' +
         (query ? 'No results.' : 'No food items in your library yet.') + '</div>';
       return;
     }
-    $results.innerHTML = items.map(foodRowSheetHTML).join('');
+
+    var foodGroups = {};
+    items.forEach(function (i) {
+      var raw = i.category || '';
+      var key = raw ? raw.trim().replace(/\b\w/g, function (c) { return c.toUpperCase(); }) : 'Other';
+      if (!foodGroups[key]) foodGroups[key] = [];
+      foodGroups[key].push(i);
+    });
+    var foodKeys = Object.keys(foodGroups).filter(function (k) { return k !== 'Other'; }).sort();
+    if (foodGroups['Other']) foodKeys.push('Other');
+    foodKeys.forEach(function (k) {
+      foodGroups[k].sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
+    });
+
+    $results.innerHTML = foodKeys.map(function (key) {
+      return '<div class="product-group-title" style="padding:8px 16px 4px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-tertiary)">' +
+        escHtml(key) + '</div>' +
+        foodGroups[key].map(foodRowSheetHTML).join('');
+    }).join('');
     attachSheetFoodHandlers($results, items);
   }
 
@@ -3244,7 +3259,7 @@
     }
   });
 
-  // Ad-hoc tab: LLM lookup
+  // Ad-hoc tab: LLM lookup — populate the manual form with parsed values
   on($("adhoc-parse-btn"), "click", async function () {
     var input = $("adhoc-freeform").value.trim();
     if (!input) { $("adhoc-freeform").focus(); return; }
@@ -3258,55 +3273,34 @@
       var library = [];
       try { library = await window.FoodLogData.getLibrary(userId); } catch (e) {}
       var parsed = await window.FoodLogData.parseMeal(input, library);
-      var carbs   = Math.round(parsed.carbs   || 0);
-      var sodium  = Math.round(parsed.sodium  || 0);
+      var carbs    = Math.round(parsed.carbs    || 0);
+      var sodium   = Math.round(parsed.sodium   || 0);
       var caffeine = Math.round(parsed.caffeine || 0);
-      var name    = parsed.name || input;
+      var name     = parsed.name || input;
+
+      // Populate the manual form with parsed values and open it
+      $("oo-name").value    = name;
+      $("oo-brand").value   = '';
+      $("oo-type").value    = '';
+      $("oo-carbs").value   = carbs;
+      $("oo-sodium").value  = sodium;
+      $("oo-caffeine").value = caffeine > 0 ? caffeine : 0;
+      var details = $("adhoc-manual-details");
+      if (details) details.open = true;
+
+      // Show a brief confirmation above the form
       $result.innerHTML =
         '<div class="adhoc-parsed-result">' +
           '<div class="adhoc-parsed-name">' + escHtml(name) + '</div>' +
           '<div class="adhoc-parsed-meta">' +
             escHtml([
-              carbs   + 'g carbs',
-              sodium  + 'mg Na',
+              carbs    + 'g carbs',
+              sodium   > 0 ? sodium   + 'mg Na' : null,
               caffeine > 0 ? caffeine + 'mg caffeine' : null
             ].filter(Boolean).join(' · ')) +
           '</div>' +
-          '<div style="display:flex;gap:8px;margin-top:8px">' +
-            '<button id="adhoc-add-btn" class="btn-primary" style="flex:1" type="button">Add to plan</button>' +
-            '<button id="adhoc-save-btn" class="btn-secondary" style="flex:1" type="button">Add + save to library</button>' +
-          '</div>' +
         '</div>';
       $result.style.display = "";
-
-      var addAndOptSave = async function (save) {
-        var item = Data.itemFromOneOff({ name: name, brand: '', type: 'food',
-          carbsPerUnit: carbs, sodiumPerUnit: sodium, caffeinePerUnit: caffeine });
-        if (save) {
-          var libItem = { id: Data.generateId(), name: name, brand: null, isFuel: false, category: '',
-            carbsPerServing: carbs, sodiumPerServing: sodium, caffeinePerServing: caffeine || null,
-            caloriesPerServing: Math.round((parsed.calories || 0)), proteinPerServing: Math.round((parsed.protein || 0)),
-            fatPerServing: Math.round((parsed.fat || 0)) };
-          try {
-            await window.FoodLogData.saveLibraryItem(userId, libItem);
-            item.productId = libItem.id;
-          } catch (e) {}
-        }
-        try {
-          if (_sheetIsActual) {
-            await addItemToActualSegment(_sheetEventId, _sheetSegmentId, item);
-          } else {
-            await addItemToSegment(_sheetEventId, _sheetSegmentId, item);
-          }
-          closeSheet();
-          await renderDetail();
-        } catch (e) {
-          showToast("Couldn't add item — check your connection.");
-        }
-      };
-
-      on($("adhoc-add-btn"),  "click", function () { addAndOptSave(false); });
-      on($("adhoc-save-btn"), "click", function () { addAndOptSave(true);  });
     } catch (e) {
       showToast("Couldn't look up item — check your connection.");
     } finally {
@@ -3389,7 +3383,8 @@
         '<div class="product-row-info">' +
         '<div class="product-row-name">' +
         '<strong>' + escHtml(item.name) + '</strong>' +
-        (item.brand ? ' <span class="lib-brand-pill">' + escHtml(item.brand) + '</span>' : '') +
+        (item.brand ? '<span class="lib-brand-pill">' + escHtml(item.brand) + '</span>' : '') +
+        (item.isFuel ? '<span class="lib-fuel-badge">Fuel</span>' : '') +
         "</div>" +
         '<div class="product-row-meta">' +
         '<span class="product-type-chip">' + chipLabel + "</span>" +
