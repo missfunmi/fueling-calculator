@@ -933,7 +933,7 @@
       evt.category === "multi" && evt.endDate ? evt.endDate : evt.date;
     var canAddActuals = isEventPastOrToday(archiveDate);
     var showActuals = canAddActuals && Object.keys(evt.actuals).length > 0;
-    var hasSegmentDates = evt.segments.some(function (s) { return !!s.date; });
+    var hasSegmentDates = evt.segments.some(function (s) { return !!s.date; }) || !!evt.date;
     var isDailyEvent = evt.segments.length > 0 && evt.segments.every(function (s) { return s.mode === 'daily'; });
 
     var foodLogActuals = undefined;
@@ -942,10 +942,9 @@
         var uid = Data.getUserId();
         if (uid) {
           var segDates = evt.segments
-            .map(function (s) {
-              return s.date;
-            })
-            .filter(Boolean);
+            .map(function (s) { return s.date || evt.date; })
+            .filter(Boolean)
+            .filter(function (d, i, arr) { return arr.indexOf(d) === i; });
           foodLogActuals = await window.FoodLogData.getFoodLogTotalsForDates(
             uid,
             segDates,
@@ -1018,7 +1017,7 @@
     $body.innerHTML =
       evt.segments
         .map(function (seg) {
-          var html = segmentSectionHTML(seg, multiSeg, foodLogActuals);
+          var html = segmentSectionHTML(seg, multiSeg, foodLogActuals, evt.date);
           if (showActuals && !isDailyEvent) {
             var actualSeg = evt.actuals[seg.id] || {
               durationHours: null,
@@ -1075,7 +1074,7 @@
     );
   }
 
-  function segmentSectionHTML(seg, showLabel, foodLogActuals) {
+  function segmentSectionHTML(seg, showLabel, foodLogActuals, eventDate) {
     var totals = Data.calcSegmentTotals(seg);
     var rates = Data.calcSegmentRates(seg);
     var tgt = seg.targets;
@@ -1318,16 +1317,17 @@
       seg.id +
       '">+ Add item</button>' +
       (function () {
-        if (foodLogActuals === undefined || !seg.date) return '';
+        var segDate = seg.date || eventDate;
+        if (foodLogActuals === undefined || !segDate) return '';
         var todayIso = new Date().toISOString().slice(0, 10);
-        var isFutureDay = seg.date > todayIso;
-        var actuals = foodLogActuals[seg.date] || null;
+        var isFutureDay = segDate > todayIso;
+        var actuals = foodLogActuals[segDate] || null;
         var actCarbs = actuals ? Math.round(actuals.carbs) : 0;
         var actSodium = actuals ? Math.round(actuals.sodium) : 0;
         return '<div class="food-log-actuals">' +
           '<div class="food-log-actuals-header">' +
-          '<span>Food log · ' + escHtml(seg.date) + '</span>' +
-          (!isFutureDay ? '<a href="#" class="food-log-actuals-link" data-navigate-food-log="' + escHtml(seg.date) + '">View ›</a>' : '') +
+          '<span>Food log · ' + escHtml(segDate) + '</span>' +
+          (!isFutureDay ? '<a href="#" class="food-log-actuals-link" data-navigate-food-log="' + escHtml(segDate) + '">View ›</a>' : '') +
           '</div>' +
           (actuals && !isFutureDay
             ? '<div style="font-size:13px;color:var(--text-secondary);padding:2px 0">' +
@@ -2164,7 +2164,7 @@
           return s.id === segId;
         });
         if (seg2) {
-          segEl.outerHTML = segmentSectionHTML(seg2, multiSeg, state.foodLogActuals);
+          segEl.outerHTML = segmentSectionHTML(seg2, multiSeg, state.foodLogActuals, evt.date);
           reattachSegmentHandlers(segId);
         }
       });
@@ -2263,7 +2263,7 @@
       var multiSeg = evt.segments.length > 1;
       var segEl = document.querySelector('[data-segment-id="' + segId + '"]');
       if (segEl) {
-        segEl.outerHTML = segmentSectionHTML(seg, multiSeg, state.foodLogActuals);
+        segEl.outerHTML = segmentSectionHTML(seg, multiSeg, state.foodLogActuals, evt.date);
         reattachSegmentHandlers(segId);
       }
       // Auto-expand the panel after generation
@@ -2536,7 +2536,7 @@
     var multiSeg = evt.segments.length > 1;
     var segEl = document.querySelector('[data-segment-id="' + segId + '"]');
     if (segEl) {
-      segEl.outerHTML = segmentSectionHTML(liveSeg, multiSeg, state.foodLogActuals);
+      segEl.outerHTML = segmentSectionHTML(liveSeg, multiSeg, state.foodLogActuals, evt.date);
       reattachSegmentHandlers(segId);
     }
     // Re-open body since re-render collapsed it
@@ -2771,7 +2771,7 @@
     var multiSeg = evt.segments.length > 1;
     var segEl = document.querySelector('[data-segment-id="' + segId + '"]');
     if (segEl) {
-      segEl.outerHTML = segmentSectionHTML(seg, multiSeg, state.foodLogActuals);
+      segEl.outerHTML = segmentSectionHTML(seg, multiSeg, state.foodLogActuals, evt.date);
       reattachSegmentHandlers(segId);
     }
     refreshSummaryCards();
