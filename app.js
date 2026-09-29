@@ -2898,6 +2898,7 @@
       .classList.add("active");
     // Reset manual form
     $("oneoff-form").reset();
+    $("oo-is-fuel").checked = true;
     $("adhoc-freeform").value = "";
     $("adhoc-result").style.display = "none";
     $("product-search").focus();
@@ -3344,9 +3345,6 @@
       $("oo-protein").value  = protein  > 0 ? protein  : '';
       $("oo-fat").value      = fat      > 0 ? fat      : '';
       $("oo-fiber").value    = fiber    > 0 ? fiber    : '';
-      // parseMeal is food-oriented, default to not fuel
-      var isFuelEl = $("oo-is-fuel");
-      if (isFuelEl) isFuelEl.checked = false;
       var details = $("adhoc-manual-details");
       if (details) details.open = true;
 
