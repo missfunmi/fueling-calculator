@@ -353,22 +353,46 @@
                 </div>
               </div>
               <div class="form-group">
-                <label for="oo-type">Type</label>
-                <input id="oo-type" class="form-input" type="text" list="fuel-type-suggestions" placeholder="e.g. Gel, Bar, Drink…" autocomplete="off">
+                <label for="oo-type">Category</label>
+                <input id="oo-type" class="form-input" type="text" list="fuel-type-suggestions" placeholder="e.g. Gel, Bar, Breakfast…" autocomplete="off">
               </div>
               <div class="form-row">
                 <div class="form-group">
-                  <label for="oo-carbs">Carbs/unit (g)</label>
+                  <label for="oo-carbs">Carbs (g)</label>
                   <input id="oo-carbs" class="form-input" type="number" min="0" value="0">
                 </div>
                 <div class="form-group">
-                  <label for="oo-sodium">Sodium/unit (mg)</label>
+                  <label for="oo-sodium">Sodium (mg)</label>
                   <input id="oo-sodium" class="form-input" type="number" min="0" value="0">
                 </div>
                 <div class="form-group">
-                  <label for="oo-caffeine">Caff/unit (mg)</label>
+                  <label for="oo-caffeine">Caffeine (mg)</label>
                   <input id="oo-caffeine" class="form-input" type="number" min="0" value="0">
                 </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="oo-calories">Calories (kcal)</label>
+                  <input id="oo-calories" class="form-input" type="number" min="0" placeholder="0">
+                </div>
+                <div class="form-group">
+                  <label for="oo-protein">Protein (g)</label>
+                  <input id="oo-protein" class="form-input" type="number" min="0" placeholder="0">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="oo-fat">Fat (g)</label>
+                  <input id="oo-fat" class="form-input" type="number" min="0" placeholder="0">
+                </div>
+                <div class="form-group">
+                  <label for="oo-fiber">Fiber (g)</label>
+                  <input id="oo-fiber" class="form-input" type="number" min="0" placeholder="0">
+                </div>
+              </div>
+              <div class="toggle-row">
+                <span class="toggle-label">Fuel item</span>
+                <input id="oo-is-fuel" class="toggle-input" type="checkbox" checked>
               </div>
               <div class="toggle-row">
                 <span class="toggle-label">Save to library</span>

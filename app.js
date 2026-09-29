@@ -3277,14 +3277,26 @@
 
     try {
       if ($("oo-save-library").checked) {
-        var product = Object.assign({ id: Data.generateId() }, fields, {
-          carbsPerUnit: Number(fields.carbsPerUnit) || 0,
-          sodiumPerUnit: Number(fields.sodiumPerUnit) || 0,
-          caffeinePerUnit: Number(fields.caffeinePerUnit) || 0,
-        });
-        await Data.saveProduct(product);
-        item.productId = product.id;
-        Data.recordProductUsed(product.id);
+        var userId = localStorage.getItem('fuelPlanner.userId');
+        var isFuel = $("oo-is-fuel") ? $("oo-is-fuel").checked : true;
+        var typeVal = $("oo-type").value.trim() || null;
+        var libItem = {
+          name:               name,
+          brand:              fields.brand,
+          isFuel:             isFuel,
+          fuelType:           isFuel ? typeVal : null,
+          category:           !isFuel ? typeVal : null,
+          carbsPerServing:    Number($("oo-carbs").value)    || 0,
+          sodiumPerServing:   Number($("oo-sodium").value)   || 0,
+          caffeinePerServing: Number($("oo-caffeine").value) || 0,
+          caloriesPerServing: $("oo-calories").value !== '' ? Number($("oo-calories").value) : null,
+          proteinPerServing:  $("oo-protein").value  !== '' ? Number($("oo-protein").value)  : null,
+          fatPerServing:      $("oo-fat").value      !== '' ? Number($("oo-fat").value)      : null,
+          fiberPerServing:    $("oo-fiber").value    !== '' ? Number($("oo-fiber").value)    : null,
+        };
+        var saved = await window.FoodLogData.saveLibraryItem(userId, libItem);
+        item.productId = saved.id;
+        Data.recordProductUsed(saved.id);
       }
       if (_sheetIsActual) {
         await addItemToActualSegment(_sheetEventId, _sheetSegmentId, item);
@@ -3315,15 +3327,26 @@
       var carbs    = Math.round(parsed.carbs    || 0);
       var sodium   = Math.round(parsed.sodium   || 0);
       var caffeine = Math.round(parsed.caffeine || 0);
+      var calories = Math.round(parsed.calories || 0);
+      var protein  = Math.round(parsed.protein  || 0);
+      var fat      = Math.round(parsed.fat      || 0);
+      var fiber    = Math.round(parsed.fiber    || 0);
       var name     = parsed.name || input;
 
       // Populate the manual form with parsed values and open it
-      $("oo-name").value    = name;
-      $("oo-brand").value   = '';
-      $("oo-type").value    = '';
-      $("oo-carbs").value   = carbs;
-      $("oo-sodium").value  = sodium;
+      $("oo-name").value     = name;
+      $("oo-brand").value    = '';
+      $("oo-type").value     = '';
+      $("oo-carbs").value    = carbs;
+      $("oo-sodium").value   = sodium;
       $("oo-caffeine").value = caffeine > 0 ? caffeine : 0;
+      $("oo-calories").value = calories > 0 ? calories : '';
+      $("oo-protein").value  = protein  > 0 ? protein  : '';
+      $("oo-fat").value      = fat      > 0 ? fat      : '';
+      $("oo-fiber").value    = fiber    > 0 ? fiber    : '';
+      // parseMeal is food-oriented, default to not fuel
+      var isFuelEl = $("oo-is-fuel");
+      if (isFuelEl) isFuelEl.checked = false;
       var details = $("adhoc-manual-details");
       if (details) details.open = true;
 
@@ -3333,9 +3356,11 @@
           '<div class="adhoc-parsed-name">' + escHtml(name) + '</div>' +
           '<div class="adhoc-parsed-meta">' +
             escHtml([
-              carbs    + 'g carbs',
-              sodium   > 0 ? sodium   + 'mg Na' : null,
-              caffeine > 0 ? caffeine + 'mg caffeine' : null
+              carbs    > 0 ? carbs    + 'g carbs'     : null,
+              calories > 0 ? calories + ' kcal'       : null,
+              protein  > 0 ? protein  + 'g protein'   : null,
+              sodium   > 0 ? sodium   + 'mg Na'       : null,
+              caffeine > 0 ? caffeine + 'mg caffeine'  : null
             ].filter(Boolean).join(' · ')) +
           '</div>' +
         '</div>';
