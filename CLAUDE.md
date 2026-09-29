@@ -81,3 +81,39 @@ No npm install needed. One pre-existing test failure (`distributes 4 gels evenly
 ```bash
 lsof -ti:8080 | xargs kill -9 2>/dev/null; npx serve . -p 8080
 ```
+
+## Testing UI changes
+
+**Always run the app and visually verify before committing.** Start the server, then use Playwright to screenshot the affected UI:
+
+```bash
+# Start server
+lsof -ti:8080 | xargs kill -9 2>/dev/null; npx serve . -p 8080 &
+timeout 15 bash -c 'until curl -sf http://localhost:8080 >/dev/null; do sleep 1; done'
+
+# Drive with Playwright (chromium pre-installed)
+node << 'EOF'
+const { chromium } = require('playwright');
+(async () => {
+  const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  const errors = [];
+  page.on('console', msg => { if (msg.type() === 'error') errors.push(msg.text()); });
+  // Seed auth to bypass login screen
+  await page.goto('http://localhost:8080');
+  await page.evaluate(() => { localStorage.setItem('fuelPlanner.userId', 'test-user-id'); });
+  await page.goto('http://localhost:8080');
+  await page.waitForTimeout(1500);
+  // ... navigate to the changed UI state ...
+  await page.screenshot({ path: '/tmp/screenshot.png' });
+  if (errors.length) console.error('Console errors:', errors);
+  await browser.close();
+})();
+EOF
+```
+
+Key gotchas:
+- Sheet overlays use `.hidden` class for `display:none` — remove it via `classList.remove('hidden')` to show in tests
+- `<details>` elements need `.open = true` to expand
+- The sheet element ID is `sheet-overlay` / `sheet-add-item` (not `add-item-overlay`)
+- `playwright` must already be installed in the project (`npm install --save-dev playwright` if not; do not commit `package.json` changes if it's just for testing)
