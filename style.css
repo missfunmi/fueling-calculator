@@ -572,7 +572,7 @@ a { color: inherit; text-decoration: none; }
   max-width: 480px;
   background: var(--surface);
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  max-height: 85dvh;
+  height: 85dvh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
