@@ -39,6 +39,7 @@ For features that touch multiple files or require a DB migration, use the subage
 - One feature per branch, one PR per feature
 - Wait for the previous PR to merge before starting the next
 - **Always push and open a PR** when finishing a branch — never merge locally or keep as-is
+- **No attribution in commits or PRs**: never add `Co-Authored-By`, `Claude-Session`, or any AI-generated footer to commit messages or PR descriptions
 
 ## Data layer
 
