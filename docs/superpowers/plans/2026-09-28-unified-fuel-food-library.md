@@ -89,10 +89,13 @@ Remove old `sheet-tab-oneoff` div. Keep `oneoff-form` id inside the `adhoc-manua
   - `oneoff-form` submit (inside manual details) stays unchanged.
 - `productSortKey` / `TYPE_LABELS` / `normalizeItemType` — no change.
 
-### Task 6 — app.js: renderLibrary + new-item form
-- `renderLibrary()`: tabs now labelled "Fuel" / "Food" as before but both backed by `food_library`. No logic change since fuel pane already calls `Data.getProducts()` (which now hits food_library) and food pane calls `FoodLog.renderFoodLibraryPane`.
-- New fuel item form (`renderProductForm` / `product-form` view): add `caffeine_per_serving` field labelled "Caffeine/unit (mg)". Existing carbs/sodium fields remain. Fuel subtype uses the existing `category` / `<input list="fuel-type-suggestions">` field (no separate `fuel_type` input).
-- `saveProductForm`: write `caffeinePerUnit` from new field to `saveProduct` call.
+### Task 6 — app.js: renderLibrary + unified item form
+- `renderLibrary()`: remove Fuel/Food sub-tabs entirely. Fetch all items via `FoodLogData.getLibrary(userId)`. Render single alphabetical list with search bar. Each row shows a category chip (fuel subtype or food category). Row click → `navigate('product-form')` with `state.editingLibraryItemId`.
+- `renderProductForm()`: load item by `state.editingLibraryItemId` from `FoodLogData.getLibrary()`. Populate `is_fuel` toggle + fuel or food fields based on `item.isFuel`. Default to fuel (checked) for new items.
+- `product-form submit`: build fuel or food payload based on `pf-is-fuel` checked state. New items → `FoodLogData.saveLibraryItem`; edits → `FoodLogData.updateLibraryItem`.
+- `btn-delete-product click`: `FoodLogData.deleteLibraryItem(userId, itemId)` for all item types.
+- `pf-is-fuel change`: show/hide `#pf-fuel-fields` / `#pf-food-fields`.
+- `index.html product-form`: add `is_fuel` toggle (`.toggle-row` / `.toggle-input`); wrap fuel fields in `#pf-fuel-fields`; add food macro fields in `#pf-food-fields` (initially `display:none`).
 
 ### Task 7 — food-log.js: fuel item display in picker
 In `itemMetaLine(item)`: if `item.caffeinePerServing && item.caffeinePerServing > 0`, append `${item.caffeinePerServing}mg caffeine` to the meta parts array.

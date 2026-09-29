@@ -93,9 +93,13 @@ Tabs change from `Library | One-off` to `Fuel | Food | Ad-hoc`.
 
 ### Library tab (app.js renderLibrary)
 
-Library tab keeps Fuel / Food sub-tabs. Both now draw from `food_library` filtered by `is_fuel`. Fuel items display `carbs · sodium · caffeine` metadata. Food items display `kcal · protein · carbs · fat`. The new-item FAB context stays (Fuel tab → fuel form; Food tab → food form).
+Single scrollable list of all `food_library` items — fuel and food together, sorted alphabetically. A search bar filters across name, brand, and category. Each row shows a chip with the fuel subtype (Gel, Bar, etc.) or food category (Breakfast, Snack, etc.) so items are distinguishable at a glance. No sub-tabs.
 
-New/edit forms merge into one: a `Fuel item` toggle at the top switches between fuel-specific fields (category/subtype, carbs/sodium/caffeine per unit) and food-specific fields (full macro form). Both share name, brand, and serving size.
+One "+" FAB opens a unified form with a "Fuel item" toggle at the top (checked by default for new items). The toggle shows/hides the appropriate field set:
+- **Fuel**: subtype (category), carbs/sodium/caffeine per unit
+- **Food**: category, serving size/unit, full macros (calories, protein, carbs, fat, fiber, sodium)
+
+Both paths share name and brand fields. Saves and deletes route through `FoodLogData.saveLibraryItem` / `updateLibraryItem` / `deleteLibraryItem` for all item types.
 
 ### Food log item picker
 
