@@ -3366,34 +3366,45 @@
       return;
     }
 
+    function libItemMeta(item) {
+      var parts = [];
+      if (item.caloriesPerServing) parts.push(Math.round(item.caloriesPerServing) + " kcal");
+      if (item.carbsPerServing) parts.push(item.carbsPerServing + "g carbs");
+      if (item.proteinPerServing) parts.push(item.proteinPerServing + "g protein");
+      if (item.fiberPerServing) parts.push(item.fiberPerServing + "g fiber");
+      if (item.sodiumPerServing) parts.push(item.sodiumPerServing + "mg Na");
+      if (item.fatPerServing) parts.push(item.fatPerServing + "g fat");
+      if (item.caffeinePerServing) parts.push(Math.round(item.caffeinePerServing) + "mg caff");
+      return parts.join(" · ");
+    }
+
     function libItemRowHTML(item) {
-      var meta = [];
-      if (item.isFuel) {
-        if (item.carbsPerServing) meta.push(item.carbsPerServing + "g carbs");
-        if (item.sodiumPerServing) meta.push(item.sodiumPerServing + "mg Na");
-        if (item.caffeinePerServing) meta.push(item.caffeinePerServing + "mg caff");
-      } else {
-        if (item.caloriesPerServing) meta.push(item.caloriesPerServing + " kcal");
-        if (item.proteinPerServing) meta.push(item.proteinPerServing + "g protein");
-        if (item.carbsPerServing) meta.push(item.carbsPerServing + "g carbs");
-      }
+      var meta = libItemMeta(item);
+      var rawCategory = item.isFuel ? (item.fuelType || "") : (item.category || "");
       var chipLabel = item.isFuel
-        ? escHtml(TYPE_LABELS[(item.fuelType || "").toLowerCase()] || item.fuelType || "Fuel")
-        : escHtml(item.category || "Food");
+        ? escHtml(TYPE_LABELS[rawCategory.toLowerCase()] || rawCategory || "Fuel")
+        : escHtml(rawCategory || "Food");
       return (
         '<div class="product-row" data-lib-item-id="' + item.id + '">' +
         '<div class="product-row-info">' +
         '<div class="product-row-name">' +
-        escHtml((item.brand ? item.brand + " " : "") + item.name) +
+        '<strong>' + escHtml(item.name) + '</strong>' +
+        (item.brand ? ' <span class="lib-brand-pill">' + escHtml(item.brand) + '</span>' : '') +
         "</div>" +
         '<div class="product-row-meta">' +
-        '<span class="fuel-type-chip">' + chipLabel + "</span>" +
-        (meta.length ? " " + meta.join(" · ") : "") +
+        '<span class="product-type-chip">' + chipLabel + "</span>" +
+        (meta ? '<span style="margin-left:6px">' + meta + "</span>" : "") +
         "</div>" +
         "</div>" +
         '<span style="color:var(--text-tertiary);font-size:20px">&#8250;</span>' +
         "</div>"
       );
+    }
+
+    function libGroupKey(item) {
+      var raw = item.isFuel ? (item.fuelType || "") : (item.category || "");
+      if (!raw) return "Other";
+      return raw.trim().replace(/\b\w/g, function (c) { return c.toUpperCase(); });
     }
 
     function renderList(query) {
@@ -3418,7 +3429,21 @@
         return;
       }
 
-      $list.innerHTML = filtered.map(libItemRowHTML).join("");
+      var groups = {};
+      filtered.forEach(function (item) {
+        var key = libGroupKey(item);
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(item);
+      });
+      var sortedKeys = Object.keys(groups).filter(function (k) { return k !== "Other"; }).sort();
+      if (groups["Other"]) sortedKeys.push("Other");
+
+      $list.innerHTML = sortedKeys.map(function (key) {
+        return '<div class="product-group">' +
+          '<div class="product-group-title">' + escHtml(key) + '</div>' +
+          groups[key].map(libItemRowHTML).join("") +
+          '</div>';
+      }).join("");
 
       $$(".product-row", $list).forEach(function (row) {
         on(row, "click", function () {
@@ -3615,41 +3640,31 @@
     }
 
     var isFuel = item ? item.isFuel : true;
-    $("pf-title").textContent = isEdit ? (isFuel ? "Edit Fuel Item" : "Edit Food Item") : "New Item";
+    $("pf-title").textContent = isEdit ? "Edit Item" : "New Item";
     $("btn-delete-product").style.display = isEdit ? "" : "none";
     $("pf-is-fuel").checked = isFuel;
-    $("pf-fuel-fields").style.display = isFuel ? "" : "none";
-    $("pf-food-fields").style.display = isFuel ? "none" : "";
+
+    var notice = $("pf-changes-notice");
+    if (notice) notice.style.display = isEdit ? "" : "none";
 
     $("pf-brand").value = item ? (item.brand || "") : "";
     $("pf-name").value = item ? item.name : "";
-
-    // Fuel fields
-    $("pf-type").value = item && isFuel
-      ? (TYPE_LABELS[(item.fuelType || "").toLowerCase()] || item.fuelType || "Gel")
-      : "Gel";
-    $("pf-carbs").value = item && isFuel ? (item.carbsPerServing || 0) : 0;
-    $("pf-sodium").value = item && isFuel ? (item.sodiumPerServing || 0) : 0;
-    $("pf-caffeine").value = item && isFuel ? (item.caffeinePerServing || 0) : 0;
-
-    // Food fields
-    $("pf-category").value = item && !isFuel ? (item.category || "") : "";
-    $("pf-serving-size").value = item && !isFuel && item.servingSize != null ? item.servingSize : "";
-    $("pf-serving-unit").value = item && !isFuel ? (item.servingUnit || "") : "";
-    $("pf-calories").value = item && !isFuel ? (item.caloriesPerServing || "") : "";
-    $("pf-protein").value = item && !isFuel ? (item.proteinPerServing || "") : "";
-    $("pf-food-carbs").value = item && !isFuel ? (item.carbsPerServing || "") : "";
-    $("pf-fat").value = item && !isFuel ? (item.fatPerServing || "") : "";
-    $("pf-fiber").value = item && !isFuel ? (item.fiberPerServing || "") : "";
-    $("pf-food-sodium").value = item && !isFuel ? (item.sodiumPerServing || "") : "";
+    $("pf-category").value = item ? (item.isFuel ? (item.fuelType || "") : (item.category || "")) : "";
+    $("pf-serving-size").value = item && item.servingSize != null ? item.servingSize : "";
+    $("pf-serving-unit").value = item ? (item.servingUnit || "") : "";
+    $("pf-calories").value = item && item.caloriesPerServing != null ? item.caloriesPerServing : "";
+    $("pf-protein").value = item && item.proteinPerServing != null ? item.proteinPerServing : "";
+    $("pf-food-carbs").value = item && item.carbsPerServing != null ? item.carbsPerServing : "";
+    $("pf-fat").value = item && item.fatPerServing != null ? item.fatPerServing : "";
+    $("pf-fiber").value = item && item.fiberPerServing != null ? item.fiberPerServing : "";
+    $("pf-food-sodium").value = item && item.sodiumPerServing != null ? item.sodiumPerServing : "";
+    $("pf-caffeine").value = item && item.caffeinePerServing != null ? item.caffeinePerServing : "";
   }
 
   renders["product-form"] = renderProductForm;
 
   on($("pf-is-fuel"), "change", function () {
-    var isFuel = $("pf-is-fuel").checked;
-    $("pf-fuel-fields").style.display = isFuel ? "" : "none";
-    $("pf-food-fields").style.display = isFuel ? "none" : "";
+    // unified form — no field toggling needed
   });
 
   on($("btn-pf-back"), "click", function () {
@@ -3671,44 +3686,27 @@
     if (saveBtn) saveBtn.disabled = true;
 
     try {
-      if (isFuel) {
-        var fuelPayload = {
-          name: name,
-          brand: $("pf-brand").value.trim() || null,
-          isFuel: true,
-          fuelType: $("pf-type").value.trim() || "other",
-          carbsPerServing: parseFloat($("pf-carbs").value) || 0,
-          sodiumPerServing: parseFloat($("pf-sodium").value) || 0,
-          caffeinePerServing: parseFloat($("pf-caffeine").value) || null,
-          proteinPerServing: 0,
-          fatPerServing: 0,
-          caloriesPerServing: Math.round((parseFloat($("pf-carbs").value) || 0) * 4),
-        };
-        if (itemId) {
-          await window.FoodLogData.updateLibraryItem(userId, itemId, fuelPayload);
-        } else {
-          await window.FoodLogData.saveLibraryItem(userId, fuelPayload);
-        }
+      var categoryVal = $("pf-category").value.trim() || null;
+      var payload = {
+        name: name,
+        brand: $("pf-brand").value.trim() || null,
+        isFuel: isFuel,
+        category: categoryVal,
+        fuelType: categoryVal,
+        servingSize: $("pf-serving-size").value !== "" ? parseFloat($("pf-serving-size").value) : null,
+        servingUnit: $("pf-serving-unit").value.trim() || null,
+        caloriesPerServing: $("pf-calories").value !== "" ? parseFloat($("pf-calories").value) : null,
+        proteinPerServing: $("pf-protein").value !== "" ? parseFloat($("pf-protein").value) : null,
+        carbsPerServing: $("pf-food-carbs").value !== "" ? parseFloat($("pf-food-carbs").value) : null,
+        fatPerServing: $("pf-fat").value !== "" ? parseFloat($("pf-fat").value) : null,
+        fiberPerServing: $("pf-fiber").value !== "" ? parseFloat($("pf-fiber").value) : null,
+        sodiumPerServing: $("pf-food-sodium").value !== "" ? parseFloat($("pf-food-sodium").value) : null,
+        caffeinePerServing: $("pf-caffeine").value !== "" ? (parseFloat($("pf-caffeine").value) || null) : null,
+      };
+      if (itemId) {
+        await window.FoodLogData.updateLibraryItem(userId, itemId, payload);
       } else {
-        var foodPayload = {
-          name: name,
-          brand: $("pf-brand").value.trim() || null,
-          isFuel: false,
-          category: $("pf-category").value.trim() || null,
-          servingSize: $("pf-serving-size").value !== "" ? parseFloat($("pf-serving-size").value) : null,
-          servingUnit: $("pf-serving-unit").value.trim() || null,
-          caloriesPerServing: $("pf-calories").value !== "" ? parseFloat($("pf-calories").value) : null,
-          proteinPerServing: $("pf-protein").value !== "" ? parseFloat($("pf-protein").value) : null,
-          carbsPerServing: $("pf-food-carbs").value !== "" ? parseFloat($("pf-food-carbs").value) : null,
-          fatPerServing: $("pf-fat").value !== "" ? parseFloat($("pf-fat").value) : null,
-          fiberPerServing: $("pf-fiber").value !== "" ? parseFloat($("pf-fiber").value) : null,
-          sodiumPerServing: $("pf-food-sodium").value !== "" ? parseFloat($("pf-food-sodium").value) : null,
-        };
-        if (itemId) {
-          await window.FoodLogData.updateLibraryItem(userId, itemId, foodPayload);
-        } else {
-          await window.FoodLogData.saveLibraryItem(userId, foodPayload);
-        }
+        await window.FoodLogData.saveLibraryItem(userId, payload);
       }
       navigate("library");
     } catch (err) {

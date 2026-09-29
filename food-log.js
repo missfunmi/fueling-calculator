@@ -978,16 +978,31 @@
     }
 
     function pickerSheetHTML(library, selectedIds) {
-      var rows = library.map(function (item) {
-        var checked = selectedIds.indexOf(item.id) !== -1;
-        return '<div class="fl-picker-row" data-picker-id="' + item.id + '">' +
-          '<div class="fl-picker-check' + (checked ? ' checked' : '') + '"></div>' +
-          '<div class="fl-picker-info">' +
-            '<div class="fl-picker-name">' + _A.escHtml(item.name) + '</div>' +
-            (item.brand ? '<div class="fl-picker-brand">' + _A.escHtml(item.brand) + '</div>' : '') +
-            '<div class="fl-picker-macros">' + itemMetaLine(item) + '</div>' +
-          '</div>' +
-        '</div>';
+      var groups = {};
+      library.forEach(function (item) {
+        var key = item.category ? _titleCase(item.category) : 'Other';
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(item);
+      });
+      var sortedKeys = Object.keys(groups).filter(function (k) { return k !== 'Other'; }).sort();
+      if (groups['Other']) sortedKeys.push('Other');
+
+      var rows = sortedKeys.map(function (groupKey) {
+        var groupItems = groups[groupKey].slice().sort(function (a, b) {
+          return (a.name || '').localeCompare(b.name || '');
+        });
+        return '<div class="product-group-title" style="padding:8px 0 4px">' + _A.escHtml(groupKey) + '</div>' +
+          groupItems.map(function (item) {
+            var checked = selectedIds.indexOf(item.id) !== -1;
+            return '<div class="fl-picker-row" data-picker-id="' + item.id + '">' +
+              '<div class="fl-picker-check' + (checked ? ' checked' : '') + '"></div>' +
+              '<div class="fl-picker-info">' +
+                '<div class="fl-picker-name">' + _A.escHtml(item.name) + '</div>' +
+                (item.brand ? '<div class="fl-picker-brand">' + _A.escHtml(item.brand) + '</div>' : '') +
+                '<div class="fl-picker-macros">' + itemMetaLine(item) + '</div>' +
+              '</div>' +
+            '</div>';
+          }).join('');
       }).join('');
 
       var n = selectedIds.length;
@@ -1248,7 +1263,7 @@
             });
             _A.on(searchEl, 'blur', function () {
               window.visualViewport.removeEventListener('resize', onVPResize);
-              resetSheetPosition();
+              setTimeout(resetSheetPosition, 150);
             });
           }
           function removeWithCleanup() {
