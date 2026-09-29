@@ -106,6 +106,26 @@ In `itemMetaLine(item)`: if `item.caffeinePerServing && item.caffeinePerServing 
 - No major new styles; ad-hoc result block uses existing form/button classes.
 
 ## Order of implementation
-1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
+1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11
 
-Tasks 2 and 3 can be done in parallel. Tasks 4 and 5 are sequential (HTML must exist before JS wires it). Task 7 is independent and small.
+Tasks 2 and 3 can be done in parallel. Tasks 4 and 5 are sequential (HTML must exist before JS wires it). Task 7 is independent and small. Tasks 9–11 are follow-up polish, independent of each other.
+
+### Task 9 — UI polish: library list + edit form
+- Library list: add `.lib-fuel-badge` ("Fuel") pill right-aligned on fuel item rows
+- Library list: group items by category/subtype (`.product-group` / `.product-group-title`)
+- Edit form: use label "Category" for both fuel and food items (remove "Category/Type" wording)
+- Event sheet Food tab: group food items by category (matching Fuel tab behaviour)
+- Ad-hoc tab: after LLM parse, auto-populate the manual form fields and open the `<details>` so user can review/edit before saving; fix broken "Add + save to library" flow (was using wrong ID path)
+
+### Task 10 — Search clear button on all search bars
+- Add `.search-wrap` / `.search-clear` CSS: 18×18 px circle, `border-radius: 50%`, `background: var(--text-tertiary)`, `color: var(--bg)`, `display: flex` when `.visible`
+- Hide native browser clear button: `input[type="search"]::-webkit-search-cancel-button { display: none }` inside wrapper selectors
+- Add `initSearchClear(inputEl, clearEl)` helper in `app.js`
+- Apply to `product-search` and `food-lib-search` in `index.html` (static) and wire in DOMContentLoaded
+- Apply to `lib-search` in `renderLibrary` — call `initSearchClear` before the `getLibrary` await so it runs even if the fetch fails/returns early
+- Apply to `fl-picker-search` in `food-log.js` `pickerSheetHTML`
+
+### Task 11 — Food log block on all dated events + picker group header fix
+- Fix picker search: wrap each group in `<div class="picker-group">` in `pickerSheetHTML`; update search handler to hide groups when all their rows are filtered out
+- `renderDetail`: change gating condition from `isDailyEvent` (`.every(mode==='daily')`) to `hasSegmentDates` (`.some(s.date) || !!evt.date`); deduplicate dates; keep `isDailyEvent` for the separate `showActuals` guard
+- `segmentSectionHTML`: add `eventDate` 4th parameter; in hourly path add a food log block using `seg.date || eventDate`; update all 5 call sites to pass `evt.date`

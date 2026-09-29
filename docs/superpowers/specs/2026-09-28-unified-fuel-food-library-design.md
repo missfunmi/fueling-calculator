@@ -101,9 +101,26 @@ One "+" FAB opens a unified form with a "Fuel item" toggle at the top (checked b
 
 Both paths share name and brand fields. Saves and deletes route through `FoodLogData.saveLibraryItem` / `updateLibraryItem` / `deleteLibraryItem` for all item types.
 
+### Library list UI
+
+Each row carries a right-aligned **Fuel** badge (`.lib-fuel-badge`) for fuel items and a category chip for food items, so they are distinguishable at a glance without sub-tabs. Items are grouped by category/subtype within the list. The edit form uses the label "Category" (not "Category/Type") for both item types.
+
 ### Food log item picker
 
-No UI change required. Fuel items appear automatically (they are now `food_library` rows). In the picker row, if `caffeinePerServing > 0`, caffeine is appended to the meta line.
+Fuel items appear automatically (they are now `food_library` rows). In the picker row, if `caffeinePerServing > 0`, caffeine is appended to the meta line.
+
+Picker groups are wrapped in `.picker-group` divs so the search filter can hide the group header when all its rows are filtered out. A × clear button appears inside the search bar when text is present.
+
+### Search bars
+
+All four search bars (food log picker, library filter, event sheet Fuel tab, event sheet Food tab) use a `.search-wrap` / `.search-clear` pattern:
+- `.search-clear` is an 18×18 px grey circle (iOS spotlight style), visible only when the input has text.
+- Clicking it clears the field and re-fires the `input` event.
+- The native browser `type="search"` cancel button is hidden via `::-webkit-search-cancel-button { display: none }`.
+
+### Food log block on all dated events
+
+All event detail views that have at least one dated segment (or an event-level `evt.date`) show a food log block at the bottom of each segment, not just carb-load (daily-mode) events. For hourly segments the date falls back to `evt.date`. The block shows the date, a "View ›" link, and a carbs/sodium summary line (or "No entries" / "Not yet logged"). No progress bars are shown for hourly segments since they have per-hour targets, not daily totals.
 
 ## Backward compatibility
 
