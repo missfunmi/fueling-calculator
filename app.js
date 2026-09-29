@@ -316,6 +316,21 @@
       .replace(/"/g, "&quot;");
   }
 
+  function initSearchClear(inputEl, clearEl) {
+    if (!inputEl || !clearEl) return;
+    function sync() {
+      clearEl.classList.toggle('visible', inputEl.value.length > 0);
+    }
+    sync();
+    on(inputEl, 'input', sync);
+    on(clearEl, 'click', function () {
+      inputEl.value = '';
+      sync();
+      inputEl.dispatchEvent(new Event('input'));
+      inputEl.focus();
+    });
+  }
+
   function isEventPastOrToday(dateStr) {
     if (!dateStr) return true; // no date set = treat as past
     return dateStr <= new Date().toISOString().slice(0, 10);
@@ -918,10 +933,10 @@
       evt.category === "multi" && evt.endDate ? evt.endDate : evt.date;
     var canAddActuals = isEventPastOrToday(archiveDate);
     var showActuals = canAddActuals && Object.keys(evt.actuals).length > 0;
-    var isDailyEvent = evt.segments.length > 0 && evt.segments.every(function (s) { return s.mode === 'daily'; });
+    var hasSegmentDates = evt.segments.some(function (s) { return !!s.date; });
 
     var foodLogActuals = undefined;
-    if (isDailyEvent) {
+    if (hasSegmentDates) {
       try {
         var uid = Data.getUserId();
         if (uid) {
@@ -1301,6 +1316,27 @@
       '<button class="btn-add-item" data-add-segment-id="' +
       seg.id +
       '">+ Add item</button>' +
+      (function () {
+        if (foodLogActuals === undefined || !seg.date) return '';
+        var todayIso = new Date().toISOString().slice(0, 10);
+        var isFutureDay = seg.date > todayIso;
+        var actuals = foodLogActuals[seg.date] || null;
+        var actCarbs = actuals ? Math.round(actuals.carbs) : 0;
+        var actSodium = actuals ? Math.round(actuals.sodium) : 0;
+        return '<div class="food-log-actuals">' +
+          '<div class="food-log-actuals-header">' +
+          '<span>Food log · ' + escHtml(seg.date) + '</span>' +
+          (!isFutureDay ? '<a href="#" class="food-log-actuals-link" data-navigate-food-log="' + escHtml(seg.date) + '">View ›</a>' : '') +
+          '</div>' +
+          (actuals && !isFutureDay
+            ? '<div style="font-size:13px;color:var(--text-secondary);padding:2px 0">' +
+              actCarbs + 'g carbs · ' + actSodium + 'mg Na' +
+              '</div>'
+            : '<div style="padding:4px 0 2px;font-size:13px;color:var(--text-tertiary)">' +
+              (isFutureDay ? 'Not yet logged' : 'No entries') +
+              '</div>') +
+          '</div>';
+      })() +
       executionPlanHTML(seg) +
       "</div>"
     );
@@ -3209,6 +3245,7 @@
       showToast("Couldn't search — check your connection.");
     });
   });
+  initSearchClear($("product-search"), $("product-search-clear"));
 
   // Live search — food tab
   on($("food-lib-search"), "input", function () {
@@ -3216,6 +3253,7 @@
       showToast("Couldn't search — check your connection.");
     });
   });
+  initSearchClear($("food-lib-search"), $("food-lib-search-clear"));
 
   // One-off form submit
   on($("oneoff-form"), "submit", async function (e) {
@@ -3331,7 +3369,7 @@
 
     $body.innerHTML =
       '<div style="padding:12px 16px 0">' +
-      '<input id="lib-search" class="search-input" type="search" placeholder="Search library…" autocomplete="off">' +
+      '<div class="search-wrap"><input id="lib-search" class="search-input" type="search" placeholder="Search library…" autocomplete="off"><button class="search-clear" id="lib-search-clear" aria-label="Clear search">&times;</button></div>' +
       "</div>" +
       '<div id="lib-list"></div>';
 
@@ -3453,6 +3491,7 @@
     on($("lib-search"), "input", function () {
       renderList($("lib-search").value.trim());
     });
+    initSearchClear($("lib-search"), $("lib-search-clear"));
   }
 
   async function renderSettings() {
