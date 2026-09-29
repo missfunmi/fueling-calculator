@@ -130,7 +130,7 @@
       id:              row.id,
       brand:           row.brand || '',
       name:            row.name,
-      type:            normalizeItemType(row.fuel_type || row.type || 'other'),
+      type:            normalizeItemType(row.category || 'other'),
       carbsPerUnit:    row.carbs_per_serving    || 0,
       sodiumPerUnit:   row.sodium_per_serving   || 0,
       caffeinePerUnit: row.caffeine_per_serving || 0
@@ -252,8 +252,7 @@
       name:                 product.name,
       brand:                product.brand || null,
       is_fuel:              true,
-      fuel_type:            product.type  || null,
-      category:             'fuel',
+      category:             product.type  || null,
       carbs_per_serving:    product.carbsPerUnit    || 0,
       sodium_per_serving:   product.sodiumPerUnit   || 0,
       caffeine_per_serving: product.caffeinePerUnit || 0,

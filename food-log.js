@@ -10,6 +10,11 @@
     'lunch':        { bg: 'var(--blue-bg)',   color: 'var(--blue-text)'   },
     'dinner':       { bg: 'var(--purple-bg)', color: 'var(--purple-text)' },
     'fuel':         { bg: 'var(--red-bg)',    color: 'var(--red-text)'    },
+    'gel':          { bg: 'var(--red-bg)',    color: 'var(--red-text)'    },
+    'bar':          { bg: 'var(--red-bg)',    color: 'var(--red-text)'    },
+    'chew':         { bg: 'var(--red-bg)',    color: 'var(--red-text)'    },
+    'drink_powder': { bg: 'var(--red-bg)',    color: 'var(--red-text)'    },
+    'liquid':       { bg: 'var(--red-bg)',    color: 'var(--red-text)'    },
     'snack':        { bg: 'var(--green-bg)',  color: 'var(--green-text)'  },
     'pre-workout':  { bg: 'var(--red-bg)',    color: 'var(--red-text)'    },
     'post-workout': { bg: 'var(--green-bg)',  color: 'var(--green-text)'  }

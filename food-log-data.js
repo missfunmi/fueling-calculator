@@ -160,7 +160,7 @@
       brand:              r.brand || null,
       category:           r.category || '',
       isFuel:             r.is_fuel || false,
-      fuelType:           r.fuel_type || null,
+      fuelType:           r.is_fuel ? (r.category || null) : null,
       proteinPerServing:  r.protein_per_serving,
       carbsPerServing:    r.carbs_per_serving,
       fatPerServing:      r.fat_per_serving,
@@ -192,9 +192,8 @@
     var rows = await req('POST', 'food_library', {
       user_id:              userId,
       name:                 item.name,
-      category:             item.category || null,
       is_fuel:              item.isFuel   || false,
-      fuel_type:            item.fuelType || null,
+      category:             item.isFuel ? (item.fuelType || null) : (item.category || null),
       protein_per_serving:  item.proteinPerServing  != null ? item.proteinPerServing  : null,
       carbs_per_serving:    item.carbsPerServing    != null ? item.carbsPerServing    : null,
       fat_per_serving:      item.fatPerServing      != null ? item.fatPerServing      : null,
@@ -224,7 +223,7 @@
     if (fields.brand              !== undefined) body.brand                = fields.brand;
     if (fields.servingSize        !== undefined) body.serving_size         = fields.servingSize;
     if (fields.isFuel             !== undefined) body.is_fuel              = fields.isFuel;
-    if (fields.fuelType           !== undefined) body.fuel_type            = fields.fuelType;
+    if (fields.fuelType           !== undefined) body.category             = fields.fuelType;
     if (fields.caffeinePerServing !== undefined) body.caffeine_per_serving = fields.caffeinePerServing;
     var rows = await req('PATCH',
       'food_library?id=eq.' + encodeURIComponent(id) + '&user_id=eq.' + encodeURIComponent(userId),
