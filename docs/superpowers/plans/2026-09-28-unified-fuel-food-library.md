@@ -8,24 +8,24 @@
 ### Task 1 — DB migration
 File: `migrations/0013_unified_library.sql`
 
-- `ALTER TABLE food_library ADD COLUMN is_fuel BOOLEAN NOT NULL DEFAULT false`
-- `ALTER TABLE food_library ADD COLUMN caffeine_per_serving REAL`
-- `ALTER TABLE food_library ADD COLUMN fuel_type TEXT`
-- `INSERT INTO food_library ... SELECT ... FROM products ON CONFLICT (id) DO NOTHING`
-  - Map: `type → fuel_type`, `carbs_per_unit → carbs_per_serving`, `sodium_per_unit → sodium_per_serving`, `caffeine_per_unit → caffeine_per_serving`, `is_fuel = true`, `category = 'fuel'`, `calories_per_serving = ROUND((carbs_per_unit * 4)::numeric, 1)`, `protein_per_serving = 0`, `fat_per_serving = 0`
+- `ALTER TABLE food_library ADD COLUMN IF NOT EXISTS is_fuel BOOLEAN NOT NULL DEFAULT false`
+- `ALTER TABLE food_library ADD COLUMN IF NOT EXISTS caffeine_per_serving REAL`
+- No `fuel_type` column — `category` already exists and holds the subtype (gel, bar, etc.)
+- Pre-flight DO block: raises an exception if any `products.id` already exists in `food_library` (catches silent-skip risk; UUID collisions are near-impossible but better to fail loudly)
+- `INSERT INTO food_library ... SELECT ... FROM products` (no ON CONFLICT — the pre-flight block guarantees clean state)
+  - Map: `type → category`, `carbs_per_unit → carbs_per_serving`, `sodium_per_unit → sodium_per_serving`, `caffeine_per_unit → caffeine_per_serving`, `is_fuel = true`, `calories_per_serving = ROUND((carbs_per_unit * 4)::numeric, 1)`, `protein_per_serving = 0`, `fat_per_serving = 0`
 
 ### Task 2 — food-log-data.js
-- `rowToItem`: add `isFuel: r.is_fuel || false`, `caffeinePerServing: r.caffeine_per_serving ?? null`, `fuelType: r.fuel_type || null`
-- `saveLibraryItem`: add `is_fuel`, `caffeine_per_serving`, `fuel_type` to INSERT body
-- `updateLibraryItem`: add `isFuel → is_fuel`, `caffeinePerServing → caffeine_per_serving`, `fuelType → fuel_type` to PATCH body
+- `rowToItem`: add `isFuel: r.is_fuel || false`, `caffeinePerServing: r.caffeine_per_serving ?? null`, `fuelType: r.is_fuel ? (r.category || null) : null` (reads from `category`, not a separate column)
+- `saveLibraryItem`: add `is_fuel`, `caffeine_per_serving` to INSERT body; `category` key resolves to `item.isFuel ? (item.fuelType || null) : (item.category || null)` (single key, no duplicate)
+- `updateLibraryItem`: add `isFuel → is_fuel`, `caffeinePerServing → caffeine_per_serving`, `fuelType → category` (writes fuel subtype back into `category`)
 - Add exported `getFuelItems(userId)`: queries `food_library?user_id=eq.&is_fuel=eq.true&order=name.asc`
 - `itemMetaLine` in `food-log.js`: append `caffeinePerServing` if > 0 (e.g. `50mg caffeine`)
 
 ### Task 3 — data.js
-- `dbToProduct(row)` → replace with `fuelItemFromRow(row)` that reads from food_library shape:
-  - `id: row.id`, `brand: row.brand || ''`, `name: row.name`, `type: normalizeItemType(row.fuel_type || row.type || 'other')`, `carbsPerUnit: row.carbs_per_serving || 0`, `sodiumPerUnit: row.sodium_per_serving || 0`, `caffeinePerUnit: row.caffeine_per_serving || 0`
+- `dbToProduct(row)` → reads from food_library column names: `type: normalizeItemType(row.category || 'other')` (no `fuel_type`), `carbsPerUnit: row.carbs_per_serving || 0`, `sodiumPerUnit: row.sodium_per_serving || 0`, `caffeinePerUnit: row.caffeine_per_serving || 0`
 - `getProducts()` → redirect to query `food_library?user_id=eq.&is_fuel=eq.true&order=name.asc` using the Supabase URL/key from the existing `supabaseRequest` helper. Map rows with `fuelItemFromRow`.
-- `saveProduct(product)` → upsert into `food_library` with `is_fuel=true`, mapping product fields to food_library column names. Must also set `protein_per_serving=0`, `fat_per_serving=0`, `calories_per_serving=(carbsPerUnit*4)` when values are absent.
+- `saveProduct(product)` → upsert into `food_library` with `is_fuel=true`, `category: product.type` (fuel subtype into category). Must also set `protein_per_serving=0`, `fat_per_serving=0`, `calories_per_serving=(carbsPerUnit*4)` when values are absent. No `fuel_type` key.
 - `deleteProduct(id)` → DELETE from `food_library` (same endpoint pattern).
 - `itemFromProduct(product)` → unchanged functionally (already copies values).
 
@@ -91,7 +91,7 @@ Remove old `sheet-tab-oneoff` div. Keep `oneoff-form` id inside the `adhoc-manua
 
 ### Task 6 — app.js: renderLibrary + new-item form
 - `renderLibrary()`: tabs now labelled "Fuel" / "Food" as before but both backed by `food_library`. No logic change since fuel pane already calls `Data.getProducts()` (which now hits food_library) and food pane calls `FoodLog.renderFoodLibraryPane`.
-- New fuel item form (`renderProductForm` / `product-form` view): add `caffeine_per_serving` field labelled "Caffeine/unit (mg)". Existing carbs/sodium fields remain. `fuel_type` field continues to use `<input list="fuel-type-suggestions">`.
+- New fuel item form (`renderProductForm` / `product-form` view): add `caffeine_per_serving` field labelled "Caffeine/unit (mg)". Existing carbs/sodium fields remain. Fuel subtype uses the existing `category` / `<input list="fuel-type-suggestions">` field (no separate `fuel_type` input).
 - `saveProductForm`: write `caffeinePerUnit` from new field to `saveProduct` call.
 
 ### Task 7 — food-log.js: fuel item display in picker

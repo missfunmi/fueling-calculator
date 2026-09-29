@@ -15,7 +15,7 @@ Additionally, when planning events, users sometimes want to add food items (e.g.
 
 ## Solution
 
-Unify both libraries into a single `food_library` table. Fuel items become `food_library` rows with `is_fuel = true`, gaining two new columns: `caffeine_per_serving` and `fuel_type` (gel, bar, etc.). Existing products are migrated in.
+Unify both libraries into a single `food_library` table. Fuel items become `food_library` rows with `is_fuel = true`, gaining one new column: `caffeine_per_serving`. The existing `category` column doubles as the fuel subtype (gel, bar, drink_powder, etc.) — no separate `fuel_type` column needed. Existing products are migrated in.
 
 The event item picker gains three tabs:
 1. **Fuel** (default) — `food_library WHERE is_fuel = true`
@@ -31,37 +31,42 @@ The food log picker already uses `food_library`, so fuel items appear there auto
 ```sql
 ALTER TABLE food_library
   ADD COLUMN is_fuel             BOOLEAN NOT NULL DEFAULT false,
-  ADD COLUMN caffeine_per_serving REAL,
-  ADD COLUMN fuel_type            TEXT;
+  ADD COLUMN caffeine_per_serving REAL;
 ```
+
+No `fuel_type` column. The existing `category` column already exists and holds the subtype (gel, bar, drink_powder, liquid, etc.) for fuel items, just as it holds the meal category for food items.
 
 ### Products → food_library migration
 
 ```sql
+-- Fail loudly on any ID collision (should be impossible with UUIDs,
+-- but silent data loss from ON CONFLICT DO NOTHING is worse).
+DO $$ ... RAISE EXCEPTION IF conflicts > 0 ... END $$;
+
 INSERT INTO food_library (
-  id, user_id, name, brand, category, is_fuel, fuel_type,
+  id, user_id, name, brand, category, is_fuel,
   carbs_per_serving, sodium_per_serving, caffeine_per_serving,
   protein_per_serving, fat_per_serving, calories_per_serving,
   created_at
 )
 SELECT
-  id, user_id, name, brand, 'fuel', true, type,
-  carbs_per_unit, sodium_per_unit, caffeine_per_unit,
+  id, user_id, name, NULLIF(brand,''), type, true,
+  carbs_per_unit, sodium_per_unit,
+  CASE WHEN caffeine_per_unit > 0 THEN caffeine_per_unit ELSE NULL END,
   0, 0, ROUND((carbs_per_unit * 4)::numeric, 1),
   created_at
-FROM products
-ON CONFLICT (id) DO NOTHING;
+FROM products;
 ```
 
-Calories estimated as `carbs × 4` (carbs-only fuel approximation). Users can edit to add protein/fat/exact calories later.
+`products.type` (gel, bar, etc.) maps directly to `food_library.category`. Calories estimated as `carbs × 4`. Users can edit to add protein/fat/exact calories later.
 
 ### Unified food_library row shape
 
 | Column | Role |
 |---|---|
 | `is_fuel` | `true` = fuel item; `false` = food item |
-| `fuel_type` | gel, bar, drink_powder, liquid, other (nullable; only on fuel items) |
-| `caffeine_per_serving` | mg; fuel items only |
+| `category` | meal category for food items; fuel subtype (gel, bar, drink_powder, liquid) for fuel items |
+| `caffeine_per_serving` | mg; fuel items only (nullable) |
 | `carbs_per_serving` | g; acts as carbs-per-unit for fuel items |
 | `sodium_per_serving` | mg; same dual role |
 | `protein_per_serving` | g; 0 for migrated fuel items |
@@ -74,7 +79,7 @@ Calories estimated as `carbs × 4` (carbs-only fuel approximation). Users can ed
 
 Tabs change from `Library | One-off` to `Fuel | Food | Ad-hoc`.
 
-**Fuel tab** (default): queries `food_library WHERE is_fuel = true`, ordered by `name`. Search works across name, brand, fuel_type. Behaviour identical to today's Library tab.
+**Fuel tab** (default): queries `food_library WHERE is_fuel = true`, ordered by `name`. Search works across name, brand, category. Behaviour identical to today's Library tab.
 
 **Food tab**: queries `food_library WHERE is_fuel = false`. Same list/search behaviour. Selecting a food item maps `carbsPerServing → carbsPerUnit`, `sodiumPerServing → sodiumPerUnit`, `caffeinePerServing → caffeinePerUnit` (0 for food items). Item added to segment with `quantity = 1`.
 
@@ -90,7 +95,7 @@ Tabs change from `Library | One-off` to `Fuel | Food | Ad-hoc`.
 
 Library tab keeps Fuel / Food sub-tabs. Both now draw from `food_library` filtered by `is_fuel`. Fuel items display `carbs · sodium · caffeine` metadata. Food items display `kcal · protein · carbs · fat`. The new-item FAB context stays (Fuel tab → fuel form; Food tab → food form).
 
-New/edit forms merge into one: a `Fuel item` toggle at the top switches between fuel-specific fields (fuel type, carbs/sodium/caffeine per unit) and food-specific fields (full macro form). Both share name, brand, and serving size.
+New/edit forms merge into one: a `Fuel item` toggle at the top switches between fuel-specific fields (category/subtype, carbs/sodium/caffeine per unit) and food-specific fields (full macro form). Both share name, brand, and serving size.
 
 ### Food log item picker
 
