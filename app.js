@@ -934,6 +934,7 @@
     var canAddActuals = isEventPastOrToday(archiveDate);
     var showActuals = canAddActuals && Object.keys(evt.actuals).length > 0;
     var hasSegmentDates = evt.segments.some(function (s) { return !!s.date; });
+    var isDailyEvent = evt.segments.length > 0 && evt.segments.every(function (s) { return s.mode === 'daily'; });
 
     var foodLogActuals = undefined;
     if (hasSegmentDates) {
