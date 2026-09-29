@@ -8,7 +8,7 @@
     currentEventId: null,
     currentEvent: null,
     addingToSegmentId: null,
-    editingProductId: null, // null = creating new product
+    editingLibraryItemId: null,
     claimReturnView: null, // where to return after claim view (null = landing)
   };
 
@@ -314,6 +314,21 @@
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
+  }
+
+  function initSearchClear(inputEl, clearEl) {
+    if (!inputEl || !clearEl) return;
+    function sync() {
+      clearEl.classList.toggle('visible', inputEl.value.length > 0);
+    }
+    sync();
+    on(inputEl, 'input', sync);
+    on(clearEl, 'click', function () {
+      inputEl.value = '';
+      sync();
+      inputEl.dispatchEvent(new Event('input'));
+      inputEl.focus();
+    });
   }
 
   function isEventPastOrToday(dateStr) {
@@ -918,18 +933,18 @@
       evt.category === "multi" && evt.endDate ? evt.endDate : evt.date;
     var canAddActuals = isEventPastOrToday(archiveDate);
     var showActuals = canAddActuals && Object.keys(evt.actuals).length > 0;
+    var hasSegmentDates = evt.segments.some(function (s) { return !!s.date; }) || !!evt.date;
     var isDailyEvent = evt.segments.length > 0 && evt.segments.every(function (s) { return s.mode === 'daily'; });
 
     var foodLogActuals = undefined;
-    if (isDailyEvent) {
+    if (hasSegmentDates) {
       try {
         var uid = Data.getUserId();
         if (uid) {
           var segDates = evt.segments
-            .map(function (s) {
-              return s.date;
-            })
-            .filter(Boolean);
+            .map(function (s) { return s.date || evt.date; })
+            .filter(Boolean)
+            .filter(function (d, i, arr) { return arr.indexOf(d) === i; });
           foodLogActuals = await window.FoodLogData.getFoodLogTotalsForDates(
             uid,
             segDates,
@@ -1002,7 +1017,7 @@
     $body.innerHTML =
       evt.segments
         .map(function (seg) {
-          var html = segmentSectionHTML(seg, multiSeg, foodLogActuals);
+          var html = segmentSectionHTML(seg, multiSeg, foodLogActuals, evt.date);
           if (showActuals && !isDailyEvent) {
             var actualSeg = evt.actuals[seg.id] || {
               durationHours: null,
@@ -1059,7 +1074,7 @@
     );
   }
 
-  function segmentSectionHTML(seg, showLabel, foodLogActuals) {
+  function segmentSectionHTML(seg, showLabel, foodLogActuals, eventDate) {
     var totals = Data.calcSegmentTotals(seg);
     var rates = Data.calcSegmentRates(seg);
     var tgt = seg.targets;
@@ -1301,6 +1316,28 @@
       '<button class="btn-add-item" data-add-segment-id="' +
       seg.id +
       '">+ Add item</button>' +
+      (function () {
+        var segDate = seg.date || eventDate;
+        if (foodLogActuals === undefined || !segDate) return '';
+        var todayIso = new Date().toISOString().slice(0, 10);
+        var isFutureDay = segDate > todayIso;
+        var actuals = foodLogActuals[segDate] || null;
+        var actCarbs = actuals ? Math.round(actuals.carbs) : 0;
+        var actSodium = actuals ? Math.round(actuals.sodium) : 0;
+        return '<div class="food-log-actuals">' +
+          '<div class="food-log-actuals-header">' +
+          '<span>Food log · ' + escHtml(segDate) + '</span>' +
+          (!isFutureDay ? '<a href="#" class="food-log-actuals-link" data-navigate-food-log="' + escHtml(segDate) + '">View ›</a>' : '') +
+          '</div>' +
+          (actuals && !isFutureDay
+            ? '<div style="font-size:13px;color:var(--text-secondary);padding:2px 0">' +
+              actCarbs + 'g carbs · ' + actSodium + 'mg Na' +
+              '</div>'
+            : '<div style="padding:4px 0 2px;font-size:13px;color:var(--text-tertiary)">' +
+              (isFutureDay ? 'Not yet logged' : 'No entries') +
+              '</div>') +
+          '</div>';
+      })() +
       executionPlanHTML(seg) +
       "</div>"
     );
@@ -2127,7 +2164,7 @@
           return s.id === segId;
         });
         if (seg2) {
-          segEl.outerHTML = segmentSectionHTML(seg2, multiSeg, state.foodLogActuals);
+          segEl.outerHTML = segmentSectionHTML(seg2, multiSeg, state.foodLogActuals, evt.date);
           reattachSegmentHandlers(segId);
         }
       });
@@ -2226,7 +2263,7 @@
       var multiSeg = evt.segments.length > 1;
       var segEl = document.querySelector('[data-segment-id="' + segId + '"]');
       if (segEl) {
-        segEl.outerHTML = segmentSectionHTML(seg, multiSeg, state.foodLogActuals);
+        segEl.outerHTML = segmentSectionHTML(seg, multiSeg, state.foodLogActuals, evt.date);
         reattachSegmentHandlers(segId);
       }
       // Auto-expand the panel after generation
@@ -2499,7 +2536,7 @@
     var multiSeg = evt.segments.length > 1;
     var segEl = document.querySelector('[data-segment-id="' + segId + '"]');
     if (segEl) {
-      segEl.outerHTML = segmentSectionHTML(liveSeg, multiSeg, state.foodLogActuals);
+      segEl.outerHTML = segmentSectionHTML(liveSeg, multiSeg, state.foodLogActuals, evt.date);
       reattachSegmentHandlers(segId);
     }
     // Re-open body since re-render collapsed it
@@ -2734,7 +2771,7 @@
     var multiSeg = evt.segments.length > 1;
     var segEl = document.querySelector('[data-segment-id="' + segId + '"]');
     if (segEl) {
-      segEl.outerHTML = segmentSectionHTML(seg, multiSeg, state.foodLogActuals);
+      segEl.outerHTML = segmentSectionHTML(seg, multiSeg, state.foodLogActuals, evt.date);
       reattachSegmentHandlers(segId);
     }
     refreshSummaryCards();
@@ -2845,22 +2882,25 @@
     _sheetIsActual = !!isActual;
     $("sheet-overlay").classList.remove("hidden");
     $("product-search").value = "";
-    renderSheetLibraryTab().catch(function (e) {
+    renderSheetFuelTab().catch(function (e) {
       showToast("Couldn't load library — check your connection.");
     });
-    // Reset to library tab
+    // Reset to fuel tab
     $$(".sheet-tab-btn").forEach(function (b) {
       b.classList.remove("active");
     });
     $$(".sheet-tab-content").forEach(function (c) {
       c.classList.remove("active");
     });
-    $("sheet-tab-library").classList.add("active");
+    $("sheet-tab-fuel").classList.add("active");
     document
-      .querySelector('[data-sheet-tab="library"]')
+      .querySelector('[data-sheet-tab="fuel"]')
       .classList.add("active");
-    // Reset one-off form
+    // Reset manual form
     $("oneoff-form").reset();
+    $("oo-is-fuel").checked = true;
+    $("adhoc-freeform").value = "";
+    $("adhoc-result").style.display = "none";
     $("product-search").focus();
   }
 
@@ -2871,7 +2911,7 @@
     _sheetIsActual = false;
   }
 
-  async function renderSheetLibraryTab(query) {
+  async function renderSheetFuelTab(query) {
     var products;
     try {
       products = await Data.getProducts();
@@ -3047,6 +3087,90 @@
     });
   }
 
+  // ── Food tab in event item picker ────────────────────────────────────────────
+
+  async function renderSheetFoodTab(query) {
+    var $results = $("food-lib-results");
+    if (!$results) return;
+    var allItems;
+    try {
+      allItems = await window.FoodLogData.getLibrary(localStorage.getItem('fuelPlanner.userId'));
+    } catch (e) {
+      showToast("Couldn't load food library — check your connection.");
+      return;
+    }
+    var items = allItems.filter(function (i) { return !i.isFuel; });
+    if (query) {
+      var q = query.toLowerCase();
+      items = items.filter(function (i) {
+        return (i.name || '').toLowerCase().includes(q) ||
+               (i.brand || '').toLowerCase().includes(q) ||
+               (i.category || '').toLowerCase().includes(q);
+      });
+    }
+    if (!items.length) {
+      $results.innerHTML = '<div style="padding:16px;font-size:14px;color:var(--text-tertiary)">' +
+        (query ? 'No results.' : 'No food items in your library yet.') + '</div>';
+      return;
+    }
+
+    var foodGroups = {};
+    items.forEach(function (i) {
+      var raw = i.category || '';
+      var key = raw ? raw.trim().replace(/\b\w/g, function (c) { return c.toUpperCase(); }) : 'Other';
+      if (!foodGroups[key]) foodGroups[key] = [];
+      foodGroups[key].push(i);
+    });
+    var foodKeys = Object.keys(foodGroups).filter(function (k) { return k !== 'Other'; }).sort();
+    if (foodGroups['Other']) foodKeys.push('Other');
+    foodKeys.forEach(function (k) {
+      foodGroups[k].sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
+    });
+
+    $results.innerHTML = foodKeys.map(function (key) {
+      return '<div class="product-group-title" style="padding:8px 16px 4px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-tertiary)">' +
+        escHtml(key) + '</div>' +
+        foodGroups[key].map(foodRowSheetHTML).join('');
+    }).join('');
+    attachSheetFoodHandlers($results, items);
+  }
+
+  function foodRowSheetHTML(item) {
+    var meta = [];
+    if (item.caloriesPerServing != null) meta.push(Math.round(item.caloriesPerServing) + ' kcal');
+    if (item.carbsPerServing    != null) meta.push(Math.round(item.carbsPerServing)    + 'g carbs');
+    if (item.proteinPerServing  != null) meta.push(Math.round(item.proteinPerServing)  + 'g protein');
+    var ctx = item.servingSize ? (item.servingSize + (item.servingUnit ? ' ' + item.servingUnit : 'g')) : (item.servingUnit || '');
+    return '<div class="product-row" data-food-lib-id="' + item.id + '">' +
+      '<div class="product-row-info">' +
+        '<div class="product-row-name">' + escHtml((item.brand ? item.brand + ' ' : '') + item.name) + '</div>' +
+        '<div class="product-row-meta">' + escHtml(meta.join(' · ') + (ctx ? ' · per ' + ctx : '')) + '</div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function attachSheetFoodHandlers($container, items) {
+    $$('.product-row[data-food-lib-id]', $container).forEach(function (row) {
+      on(row, 'click', async function () {
+        var itemId = row.dataset.foodLibId;
+        var item = items.find(function (i) { return i.id === itemId; });
+        if (!item || !_sheetEventId || !_sheetSegmentId) return;
+        try {
+          var segItem = Data.itemFromFoodLibraryItem(item);
+          if (_sheetIsActual) {
+            await addItemToActualSegment(_sheetEventId, _sheetSegmentId, segItem);
+          } else {
+            await addItemToSegment(_sheetEventId, _sheetSegmentId, segItem);
+          }
+          closeSheet();
+          await renderDetail();
+        } catch (e) {
+          showToast("Couldn't add item — check your connection.");
+        }
+      });
+    });
+  }
+
   async function addItemToSegment(eventId, segmentId, item) {
     var evt = await Data.getEvent(eventId);
     if (!evt) return;
@@ -3105,22 +3229,33 @@
       });
       btn.classList.add("active");
       $("sheet-tab-" + tab).classList.add("active");
-      if (tab === "library") {
-        renderSheetLibraryTab($("product-search").value.trim()).catch(
-          function (e) {
-            showToast("Couldn't load library — check your connection.");
-          },
-        );
+      if (tab === "fuel") {
+        renderSheetFuelTab($("product-search").value.trim()).catch(function (e) {
+          showToast("Couldn't load library — check your connection.");
+        });
+      } else if (tab === "food") {
+        renderSheetFoodTab($("food-lib-search").value.trim()).catch(function (e) {
+          showToast("Couldn't load food library — check your connection.");
+        });
       }
     });
   });
 
-  // Live search
+  // Live search — fuel tab
   on($("product-search"), "input", function () {
-    renderSheetLibraryTab($("product-search").value.trim()).catch(function (e) {
+    renderSheetFuelTab($("product-search").value.trim()).catch(function (e) {
       showToast("Couldn't search — check your connection.");
     });
   });
+  initSearchClear($("product-search"), $("product-search-clear"));
+
+  // Live search — food tab
+  on($("food-lib-search"), "input", function () {
+    renderSheetFoodTab($("food-lib-search").value.trim()).catch(function (e) {
+      showToast("Couldn't search — check your connection.");
+    });
+  });
+  initSearchClear($("food-lib-search"), $("food-lib-search-clear"));
 
   // One-off form submit
   on($("oneoff-form"), "submit", async function (e) {
@@ -3143,14 +3278,26 @@
 
     try {
       if ($("oo-save-library").checked) {
-        var product = Object.assign({ id: Data.generateId() }, fields, {
-          carbsPerUnit: Number(fields.carbsPerUnit) || 0,
-          sodiumPerUnit: Number(fields.sodiumPerUnit) || 0,
-          caffeinePerUnit: Number(fields.caffeinePerUnit) || 0,
-        });
-        await Data.saveProduct(product);
-        item.productId = product.id;
-        Data.recordProductUsed(product.id);
+        var userId = localStorage.getItem('fuelPlanner.userId');
+        var isFuel = $("oo-is-fuel") ? $("oo-is-fuel").checked : true;
+        var typeVal = $("oo-type").value.trim() || null;
+        var libId = Data.generateId();
+        var libItem = {
+          id:                 libId,
+          name:               name,
+          brand:              fields.brand,
+          isFuel:             isFuel,
+          fuelType:           isFuel ? typeVal : null,
+          category:           !isFuel ? typeVal : null,
+          carbsPerServing:    Number($("oo-carbs").value)    || 0,
+          sodiumPerServing:   Number($("oo-sodium").value)   || 0,
+          caffeinePerServing: Number($("oo-caffeine").value) || 0,
+          caloriesPerServing: $("oo-calories").value !== '' ? Number($("oo-calories").value) : null,
+          proteinPerServing:  $("oo-protein").value  !== '' ? Number($("oo-protein").value)  : null,
+          fatPerServing:      $("oo-fat").value      !== '' ? Number($("oo-fat").value)      : null,
+          fiberPerServing:    $("oo-fiber").value    !== '' ? Number($("oo-fiber").value)    : null,
+        };
+        await window.FoodLogData.saveLibraryItem(userId, libItem);
       }
       if (_sheetIsActual) {
         await addItemToActualSegment(_sheetEventId, _sheetSegmentId, item);
@@ -3161,6 +3308,66 @@
       await renderDetail();
     } catch (e) {
       showToast("Couldn't save — check your connection.");
+    }
+  });
+
+  // Ad-hoc tab: LLM lookup — populate the manual form with parsed values
+  on($("adhoc-parse-btn"), "click", async function () {
+    var input = $("adhoc-freeform").value.trim();
+    if (!input) { $("adhoc-freeform").focus(); return; }
+    var btn = $("adhoc-parse-btn");
+    btn.disabled = true;
+    btn.textContent = "Looking up…";
+    var $result = $("adhoc-result");
+    $result.style.display = "none";
+    try {
+      var userId = localStorage.getItem('fuelPlanner.userId');
+      var library = [];
+      try { library = await window.FoodLogData.getLibrary(userId); } catch (e) {}
+      var parsed = await window.FoodLogData.parseMeal(input, library);
+      var carbs    = Math.round(parsed.carbs    || 0);
+      var sodium   = Math.round(parsed.sodium   || 0);
+      var caffeine = Math.round(parsed.caffeine || 0);
+      var calories = Math.round(parsed.calories || 0);
+      var protein  = Math.round(parsed.protein  || 0);
+      var fat      = Math.round(parsed.fat      || 0);
+      var fiber    = Math.round(parsed.fiber    || 0);
+      var name     = parsed.name || input;
+
+      // Populate the manual form with parsed values and open it
+      $("oo-name").value     = name;
+      $("oo-brand").value    = '';
+      $("oo-type").value     = '';
+      $("oo-carbs").value    = carbs;
+      $("oo-sodium").value   = sodium;
+      $("oo-caffeine").value = caffeine > 0 ? caffeine : 0;
+      $("oo-calories").value = calories > 0 ? calories : '';
+      $("oo-protein").value  = protein  > 0 ? protein  : '';
+      $("oo-fat").value      = fat      > 0 ? fat      : '';
+      $("oo-fiber").value    = fiber    > 0 ? fiber    : '';
+      var details = $("adhoc-manual-details");
+      if (details) details.open = true;
+
+      // Show a brief confirmation above the form
+      $result.innerHTML =
+        '<div class="adhoc-parsed-result">' +
+          '<div class="adhoc-parsed-name">' + escHtml(name) + '</div>' +
+          '<div class="adhoc-parsed-meta">' +
+            escHtml([
+              carbs    > 0 ? carbs    + 'g carbs'     : null,
+              calories > 0 ? calories + ' kcal'       : null,
+              protein  > 0 ? protein  + 'g protein'   : null,
+              sodium   > 0 ? sodium   + 'mg Na'       : null,
+              caffeine > 0 ? caffeine + 'mg caffeine'  : null
+            ].filter(Boolean).join(' · ')) +
+          '</div>' +
+        '</div>';
+      $result.style.display = "";
+    } catch (e) {
+      showToast("Couldn't look up item — check your connection.");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Look up";
     }
   });
 
@@ -3182,153 +3389,133 @@
 
   async function renderLibrary() {
     var $body = $("library-body");
+    var userId = localStorage.getItem("fuelPlanner.userId");
 
-    var initialTab = state.libraryTab || "fuel";
-
-    // Sub-tab header
     $body.innerHTML =
-      '<div class="fl-lib-tabs" id="lib-subtab-bar">' +
-      '<button class="fl-lib-tab' +
-      (initialTab === "fuel" ? " active" : "") +
-      '" data-lib-tab="fuel">Fuel</button>' +
-      '<button class="fl-lib-tab' +
-      (initialTab === "food" ? " active" : "") +
-      '" data-lib-tab="food">Food</button>' +
+      '<div style="padding:12px 16px 0">' +
+      '<div class="search-wrap"><input id="lib-search" class="search-input" type="search" placeholder="Search library…" autocomplete="off"><button class="search-clear" id="lib-search-clear" aria-label="Clear search">&times;</button></div>' +
       "</div>" +
-      '<div id="lib-pane-fuel"' +
-      (initialTab === "food" ? ' style="display:none"' : "") +
-      "></div>" +
-      '<div id="lib-pane-food"' +
-      (initialTab === "fuel" ? ' style="display:none"' : "") +
-      "></div>";
+      '<div id="lib-list"></div>';
 
-    // Wire sub-tab switching
-    $$(".fl-lib-tab", $body).forEach(function (btn) {
-      on(btn, "click", function () {
-        $$(".fl-lib-tab", $body).forEach(function (b) {
-          b.classList.remove("active");
-        });
-        btn.classList.add("active");
-        state.libraryTab = btn.dataset.libTab;
-        $("lib-pane-fuel").style.display =
-          btn.dataset.libTab === "fuel" ? "" : "none";
-        $("lib-pane-food").style.display =
-          btn.dataset.libTab === "food" ? "" : "none";
-      });
+    // FAB
+    var existing = $("lib-fab");
+    if (existing) existing.parentNode.removeChild(existing);
+    var viewEl = document.getElementById("view-library");
+    viewEl.insertAdjacentHTML(
+      "beforeend",
+      '<button class="fl-fab" id="lib-fab" aria-label="New item"><i class="ti ti-plus"></i></button>',
+    );
+    on($("lib-fab"), "click", function () {
+      state.editingLibraryItemId = null;
+      navigate("product-form");
     });
 
-    // Inject library FAB
-    (function () {
-      var existing = $("lib-fab");
-      if (existing) existing.parentNode.removeChild(existing);
-      var viewEl = document.getElementById("view-library");
-      viewEl.insertAdjacentHTML(
-        "beforeend",
-        '<button class="fl-fab" id="lib-fab" aria-label="New item"><i class="ti ti-plus"></i></button>',
-      );
-      on($("lib-fab"), "click", function () {
-        var activeTab = $$(".fl-lib-tab.active", $body)[0];
-        var tab = activeTab ? activeTab.dataset.libTab : "fuel";
-        if (tab === "food") {
-          if (window.FoodLog) window.FoodLog.newFoodItem();
-        } else {
-          navigate("product-form", { editingProductId: null });
-        }
-      });
-    })();
+    initSearchClear($("lib-search"), $("lib-search-clear"));
 
-    // Render food library pane (food-log.js registers this)
-    if (window.FoodLog && window.FoodLog.renderFoodLibraryPane) {
-      window.FoodLog.renderFoodLibraryPane($("lib-pane-food"));
-    }
+    var $list = $("lib-list");
+    showContainerSpinner($list);
 
-    // Render fuel pane (existing logic, targeting lib-pane-fuel)
-    var $fuel = $("lib-pane-fuel");
-    showContainerSpinner($fuel);
-
-    var products;
+    var allItems;
     try {
-      products = await Data.getProducts();
+      allItems = await window.FoodLogData.getLibrary(userId);
     } catch (e) {
-      $fuel.innerHTML = "";
+      $list.innerHTML = "";
       showToast("Couldn't load library — check your connection.");
       return;
     }
 
-    if (!products.length) {
-      $fuel.innerHTML =
-        '<div class="empty-state"><div style="font-size:48px">📦</div><p>No products yet.</p><p>Tap + to add your first product.</p></div>';
-      return;
+    function libItemMeta(item) {
+      var parts = [];
+      if (item.caloriesPerServing) parts.push(Math.round(item.caloriesPerServing) + " kcal");
+      if (item.carbsPerServing) parts.push(item.carbsPerServing + "g carbs");
+      if (item.proteinPerServing) parts.push(item.proteinPerServing + "g protein");
+      if (item.fiberPerServing) parts.push(item.fiberPerServing + "g fiber");
+      if (item.sodiumPerServing) parts.push(item.sodiumPerServing + "mg Na");
+      if (item.fatPerServing) parts.push(item.fatPerServing + "g fat");
+      if (item.caffeinePerServing) parts.push(Math.round(item.caffeinePerServing) + "mg caff");
+      return parts.join(" · ");
     }
 
-    // Group by normalised type key so "Gel" and "gel" land in the same bucket.
-    var groups = {};
-    products.forEach(function (p) {
-      var key = normalizeType(p.type);
-      if (!groups[key]) groups[key] = [];
-      groups[key].push(p);
-    });
+    function libItemRowHTML(item) {
+      var meta = libItemMeta(item);
+      var rawCategory = item.isFuel ? (item.fuelType || "") : (item.category || "");
+      var chipLabel = item.isFuel
+        ? escHtml(TYPE_LABELS[rawCategory.toLowerCase()] || rawCategory || "Fuel")
+        : escHtml(rawCategory || "Food");
+      return (
+        '<div class="product-row" data-lib-item-id="' + item.id + '">' +
+        '<div class="product-row-info">' +
+        '<div class="product-row-name">' +
+        '<strong>' + escHtml(item.name) + '</strong>' +
+        (item.brand ? '<span class="lib-brand-pill">' + escHtml(item.brand) + '</span>' : '') +
+        (item.isFuel ? '<span class="lib-fuel-badge">Fuel</span>' : '') +
+        "</div>" +
+        '<div class="product-row-meta">' +
+        '<span class="product-type-chip">' + chipLabel + "</span>" +
+        (meta ? '<span style="margin-left:6px">' + meta + "</span>" : "") +
+        "</div>" +
+        "</div>" +
+        '<span style="color:var(--text-tertiary);font-size:20px">&#8250;</span>' +
+        "</div>"
+      );
+    }
 
-    // Sort each group alphabetically by brand + name.
-    Object.keys(groups).forEach(function (key) {
-      groups[key].sort(function (a, b) {
-        return productSortKey(a) < productSortKey(b)
-          ? -1
-          : productSortKey(a) > productSortKey(b)
-            ? 1
-            : 0;
+    function libGroupKey(item) {
+      var raw = item.isFuel ? (item.fuelType || "") : (item.category || "");
+      if (!raw) return "Other";
+      return raw.trim().replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+    }
+
+    function renderList(query) {
+      var filtered = query
+        ? allItems.filter(function (item) {
+            var q = query.toLowerCase();
+            return (
+              (item.name || "").toLowerCase().includes(q) ||
+              (item.brand || "").toLowerCase().includes(q) ||
+              (item.category || "").toLowerCase().includes(q) ||
+              (item.fuelType || "").toLowerCase().includes(q)
+            );
+          })
+        : allItems;
+
+      if (!filtered.length) {
+        $list.innerHTML =
+          '<div class="empty-state"><div style="font-size:48px">📦</div>' +
+          "<p>" + (query ? "No matches." : "No items yet.") + "</p>" +
+          (query ? "" : "<p>Tap + to add your first item.</p>") +
+          "</div>";
+        return;
+      }
+
+      var groups = {};
+      filtered.forEach(function (item) {
+        var key = libGroupKey(item);
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(item);
       });
-    });
+      var sortedKeys = Object.keys(groups).filter(function (k) { return k !== "Other"; }).sort();
+      if (groups["Other"]) sortedKeys.push("Other");
 
-    var types = TYPE_ORDER.concat(
-      Object.keys(groups)
-        .filter(function (t) {
-          return TYPE_ORDER.indexOf(t) === -1;
-        })
-        .sort(),
-    ).filter(function (t) {
-      return groups[t];
-    });
+      $list.innerHTML = sortedKeys.map(function (key) {
+        return '<div class="product-group">' +
+          '<div class="product-group-title">' + escHtml(key) + '</div>' +
+          groups[key].map(libItemRowHTML).join("") +
+          '</div>';
+      }).join("");
 
-    $fuel.innerHTML = types
-      .map(function (type) {
-        return (
-          '<div class="product-group">' +
-          '<div class="product-group-title">' +
-          escHtml(TYPE_LABELS[type] || type) +
-          "s</div>" +
-          groups[type]
-            .map(function (p) {
-              var meta = [];
-              if (p.carbsPerUnit) meta.push(p.carbsPerUnit + "g carbs");
-              if (p.sodiumPerUnit) meta.push(p.sodiumPerUnit + "mg Na");
-              if (p.caffeinePerUnit) meta.push(p.caffeinePerUnit + "mg caff");
-              return (
-                '<div class="product-row" data-product-id="' +
-                p.id +
-                '">' +
-                '<div class="product-row-info">' +
-                '<div class="product-row-name">' +
-                escHtml((p.brand ? p.brand + " " : "") + p.name) +
-                "</div>" +
-                '<div class="product-row-meta">' +
-                meta.join(" · ") +
-                "</div>" +
-                "</div>" +
-                '<span style="color:var(--text-tertiary);font-size:20px">&#8250;</span>' +
-                "</div>"
-              );
-            })
-            .join("") +
-          "</div>"
-        );
-      })
-      .join("");
-
-    $$(".product-row", $fuel).forEach(function (row) {
-      on(row, "click", function () {
-        navigate("product-form", { editingProductId: row.dataset.productId });
+      $$(".product-row", $list).forEach(function (row) {
+        on(row, "click", function () {
+          state.editingLibraryItemId = row.dataset.libItemId;
+          navigate("product-form");
+        });
       });
+    }
+
+    renderList("");
+
+    on($("lib-search"), "input", function () {
+      renderList($("lib-search").value.trim());
     });
   }
 
@@ -3493,38 +3680,51 @@
   renders.library = renderLibrary;
   renders.settings = renderSettings;
 
-  // ── Product form ──────────────────────────────────────────────────────────────
+  // ── Library item form (unified fuel + food) ───────────────────────────────────
 
   async function renderProductForm() {
-    var isEdit = !!state.editingProductId;
-    var product = null;
+    var itemId = state.editingLibraryItemId;
+    var isEdit = !!itemId;
+    var item = null;
+
     if (isEdit) {
-      var products;
+      var userId = localStorage.getItem("fuelPlanner.userId");
       try {
-        products = await Data.getProducts();
+        var items = await window.FoodLogData.getLibrary(userId);
+        item = items.find(function (i) { return i.id === itemId; }) || null;
       } catch (e) {
-        showToast("Couldn't load product — check your connection.");
+        showToast("Couldn't load item — check your connection.");
         return;
       }
-      product =
-        products.find(function (p) {
-          return p.id === state.editingProductId;
-        }) || null;
     }
 
-    $("pf-title").textContent = isEdit ? "Edit Fuel Item" : "New Fuel Item";
+    var isFuel = item ? item.isFuel : true;
+    $("pf-title").textContent = isEdit ? "Edit Item" : "New Item";
     $("btn-delete-product").style.display = isEdit ? "" : "none";
-    $("pf-brand").value = product ? product.brand || "" : "";
-    $("pf-name").value = product ? product.name : "";
-    $("pf-type").value = product
-      ? TYPE_LABELS[product.type] || product.type
-      : "Gel";
-    $("pf-carbs").value = product ? product.carbsPerUnit : 0;
-    $("pf-sodium").value = product ? product.sodiumPerUnit : 0;
-    $("pf-caffeine").value = product ? product.caffeinePerUnit : 0;
+    $("pf-is-fuel").checked = isFuel;
+
+    var notice = $("pf-changes-notice");
+    if (notice) notice.style.display = isEdit ? "" : "none";
+
+    $("pf-brand").value = item ? (item.brand || "") : "";
+    $("pf-name").value = item ? item.name : "";
+    $("pf-category").value = item ? (item.isFuel ? (item.fuelType || "") : (item.category || "")) : "";
+    $("pf-serving-size").value = item && item.servingSize != null ? item.servingSize : "";
+    $("pf-serving-unit").value = item ? (item.servingUnit || "") : "";
+    $("pf-calories").value = item && item.caloriesPerServing != null ? item.caloriesPerServing : "";
+    $("pf-protein").value = item && item.proteinPerServing != null ? item.proteinPerServing : "";
+    $("pf-food-carbs").value = item && item.carbsPerServing != null ? item.carbsPerServing : "";
+    $("pf-fat").value = item && item.fatPerServing != null ? item.fatPerServing : "";
+    $("pf-fiber").value = item && item.fiberPerServing != null ? item.fiberPerServing : "";
+    $("pf-food-sodium").value = item && item.sodiumPerServing != null ? item.sodiumPerServing : "";
+    $("pf-caffeine").value = item && item.caffeinePerServing != null ? item.caffeinePerServing : "";
   }
 
   renders["product-form"] = renderProductForm;
+
+  on($("pf-is-fuel"), "change", function () {
+    // unified form — no field toggling needed
+  });
 
   on($("btn-pf-back"), "click", function () {
     navigate("library");
@@ -3538,22 +3738,37 @@
       return;
     }
 
-    var product = {
-      id: state.editingProductId || Data.generateId(),
-      brand: $("pf-brand").value.trim(),
-      name: name,
-      type: $("pf-type").value.trim() || "other",
-      carbsPerUnit: parseFloat($("pf-carbs").value) || 0,
-      sodiumPerUnit: parseFloat($("pf-sodium").value) || 0,
-      caffeinePerUnit: parseFloat($("pf-caffeine").value) || 0,
-    };
-
+    var userId = localStorage.getItem("fuelPlanner.userId");
+    var isFuel = $("pf-is-fuel").checked;
+    var itemId = state.editingLibraryItemId;
     var saveBtn = document.querySelector('#product-form button[type="submit"]');
     if (saveBtn) saveBtn.disabled = true;
+
     try {
-      await Data.saveProduct(product);
-      navigate("library", { libraryTab: "fuel" });
-    } catch (e) {
+      var categoryVal = $("pf-category").value.trim() || null;
+      var payload = {
+        name: name,
+        brand: $("pf-brand").value.trim() || null,
+        isFuel: isFuel,
+        category: categoryVal,
+        fuelType: categoryVal,
+        servingSize: $("pf-serving-size").value !== "" ? parseFloat($("pf-serving-size").value) : null,
+        servingUnit: $("pf-serving-unit").value.trim() || null,
+        caloriesPerServing: $("pf-calories").value !== "" ? parseFloat($("pf-calories").value) : null,
+        proteinPerServing: $("pf-protein").value !== "" ? parseFloat($("pf-protein").value) : null,
+        carbsPerServing: $("pf-food-carbs").value !== "" ? parseFloat($("pf-food-carbs").value) : null,
+        fatPerServing: $("pf-fat").value !== "" ? parseFloat($("pf-fat").value) : null,
+        fiberPerServing: $("pf-fiber").value !== "" ? parseFloat($("pf-fiber").value) : null,
+        sodiumPerServing: $("pf-food-sodium").value !== "" ? parseFloat($("pf-food-sodium").value) : null,
+        caffeinePerServing: $("pf-caffeine").value !== "" ? (parseFloat($("pf-caffeine").value) || null) : null,
+      };
+      if (itemId) {
+        await window.FoodLogData.updateLibraryItem(userId, itemId, payload);
+      } else {
+        await window.FoodLogData.saveLibraryItem(userId, payload);
+      }
+      navigate("library");
+    } catch (err) {
       showToast("Couldn't save — check your connection.");
     } finally {
       if (saveBtn) saveBtn.disabled = false;
@@ -3561,16 +3776,13 @@
   });
 
   on($("btn-delete-product"), "click", async function () {
-    if (!state.editingProductId) return;
-    if (
-      !confirm(
-        "Delete this product from your library? Existing plans won't be affected.",
-      )
-    )
-      return;
+    var itemId = state.editingLibraryItemId;
+    if (!itemId) return;
+    if (!confirm("Delete this item from your library? Existing plans won't be affected.")) return;
+    var userId = localStorage.getItem("fuelPlanner.userId");
     try {
-      await Data.deleteProduct(state.editingProductId);
-      navigate("library", { libraryTab: "fuel" });
+      await window.FoodLogData.deleteLibraryItem(userId, itemId);
+      navigate("library");
     } catch (e) {
       showToast("Couldn't delete — check your connection.");
     }

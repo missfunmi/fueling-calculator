@@ -190,7 +190,7 @@
       <button id="btn-delete-product" class="btn-icon btn-danger" aria-label="Delete product" style="display:none"><i class="ti ti-trash"></i></button>
     </header>
     <div class="view-body">
-      <p style="font-size:13px;color:var(--text-secondary);background:var(--amber-bg);color:var(--amber-text);padding:10px 14px;border-radius:var(--radius-sm)">
+      <p id="pf-changes-notice" style="font-size:13px;background:var(--amber-bg);color:var(--amber-text);padding:10px 14px;border-radius:var(--radius-sm)">
         Changes won't update existing plans.
       </p>
       <form id="product-form" novalidate>
@@ -205,26 +205,60 @@
               <input id="pf-name" class="form-input" type="text" placeholder="e.g. C-160" autocomplete="off" required>
             </div>
           </div>
-          <div class="form-group">
-            <label for="pf-type">Type</label>
-            <input id="pf-type" class="form-input" type="text" list="fuel-type-suggestions" placeholder="e.g. Gel, Bar, Drink…" autocomplete="off">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="pf-category">Category</label>
+              <input id="pf-category" class="form-input" type="text" list="fuel-type-suggestions" placeholder="e.g. Gel, Snack, Breakfast…" autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label for="pf-serving-size">Serving size</label>
+              <input id="pf-serving-size" class="form-input" type="number" min="0" step="0.5" placeholder="e.g. 100">
+            </div>
+            <div class="form-group">
+              <label for="pf-serving-unit">Unit</label>
+              <input id="pf-serving-unit" class="form-input" type="text" placeholder="e.g. g, ml">
+            </div>
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label for="pf-carbs">Carbs/unit (g)</label>
-              <input id="pf-carbs" class="form-input" type="number" min="0" step="0.5" value="0">
+              <label for="pf-calories">Calories (kcal)</label>
+              <input id="pf-calories" class="form-input" type="number" min="0" step="1" placeholder="0">
             </div>
             <div class="form-group">
-              <label for="pf-sodium">Sodium/unit (mg)</label>
-              <input id="pf-sodium" class="form-input" type="number" min="0" step="1" value="0">
+              <label for="pf-protein">Protein (g)</label>
+              <input id="pf-protein" class="form-input" type="number" min="0" step="0.1" placeholder="0">
             </div>
             <div class="form-group">
-              <label for="pf-caffeine">Caff/unit (mg)</label>
-              <input id="pf-caffeine" class="form-input" type="number" min="0" step="1" value="0">
+              <label for="pf-food-carbs">Carbs (g)</label>
+              <input id="pf-food-carbs" class="form-input" type="number" min="0" step="0.1" placeholder="0">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="pf-fat">Fat (g)</label>
+              <input id="pf-fat" class="form-input" type="number" min="0" step="0.1" placeholder="0">
+            </div>
+            <div class="form-group">
+              <label for="pf-fiber">Fiber (g)</label>
+              <input id="pf-fiber" class="form-input" type="number" min="0" step="0.1" placeholder="0">
+            </div>
+            <div class="form-group">
+              <label for="pf-food-sodium">Sodium (mg)</label>
+              <input id="pf-food-sodium" class="form-input" type="number" min="0" step="1" placeholder="0">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="pf-caffeine">Caffeine (mg)</label>
+              <input id="pf-caffeine" class="form-input" type="number" min="0" step="1" placeholder="0">
             </div>
           </div>
         </div>
-        <button type="submit" class="btn-primary" style="margin-top:16px">Save Product</button>
+        <label class="toggle-row" for="pf-is-fuel" style="margin-top:12px;padding:0 2px">
+          <span class="toggle-label">Fuel item</span>
+          <input id="pf-is-fuel" type="checkbox" class="toggle-input" checked>
+        </label>
+        <button type="submit" class="btn-primary" style="margin-top:12px">Save Item</button>
       </form>
     </div>
   </div>
@@ -280,55 +314,95 @@
       <button id="btn-close-sheet" class="sheet-close" type="button" aria-label="Close">&#215;</button>
     </div>
     <div class="sheet-tabs">
-      <button class="sheet-tab-btn active" data-sheet-tab="library">Library</button>
-      <button class="sheet-tab-btn" data-sheet-tab="oneoff">One-off</button>
+      <button class="sheet-tab-btn active" data-sheet-tab="fuel">Fuel</button>
+      <button class="sheet-tab-btn" data-sheet-tab="food">Food</button>
+      <button class="sheet-tab-btn" data-sheet-tab="adhoc">Ad-hoc</button>
     </div>
-    <div id="sheet-tab-library" class="sheet-tab-content active">
-      <input id="product-search" class="search-input" type="search" placeholder="Search name, brand, type&#8230;">
+    <div id="sheet-tab-fuel" class="sheet-tab-content active">
+      <div class="search-wrap"><input id="product-search" class="search-input" type="search" placeholder="Search name, brand, type&#8230;"><button class="search-clear" id="product-search-clear" aria-label="Clear search">&times;</button></div>
       <div id="recent-products-section">
         <p class="section-label">Recently used</p>
         <div id="recent-products-list"></div>
       </div>
       <div id="product-search-results"></div>
     </div>
-    <div id="sheet-tab-oneoff" class="sheet-tab-content">
-      <form id="oneoff-form" novalidate>
-        <div style="display:flex;flex-direction:column;gap:12px">
-          <div class="form-row">
-            <div class="form-group">
-              <label for="oo-brand">Brand</label>
-              <input id="oo-brand" class="form-input" type="text" placeholder="Optional">
-            </div>
-            <div class="form-group">
-              <label for="oo-name">Name *</label>
-              <input id="oo-name" class="form-input" type="text" placeholder="Required" required>
-            </div>
-          </div>
-          <div class="form-group">
-            <label for="oo-type">Type</label>
-            <input id="oo-type" class="form-input" type="text" list="fuel-type-suggestions" placeholder="e.g. Gel, Bar, Drink…" autocomplete="off">
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label for="oo-carbs">Carbs/unit (g)</label>
-              <input id="oo-carbs" class="form-input" type="number" min="0" value="0">
-            </div>
-            <div class="form-group">
-              <label for="oo-sodium">Sodium/unit (mg)</label>
-              <input id="oo-sodium" class="form-input" type="number" min="0" value="0">
-            </div>
-            <div class="form-group">
-              <label for="oo-caffeine">Caff/unit (mg)</label>
-              <input id="oo-caffeine" class="form-input" type="number" min="0" value="0">
-            </div>
-          </div>
-          <div class="toggle-row">
-            <span class="toggle-label">Save to library</span>
-            <input id="oo-save-library" class="toggle-input" type="checkbox">
-          </div>
-          <button type="submit" class="btn-primary">Add item</button>
+    <div id="sheet-tab-food" class="sheet-tab-content">
+      <div class="search-wrap"><input id="food-lib-search" class="search-input" type="search" placeholder="Search food&#8230;"><button class="search-clear" id="food-lib-search-clear" aria-label="Clear search">&times;</button></div>
+      <div id="food-lib-results"></div>
+    </div>
+    <div id="sheet-tab-adhoc" class="sheet-tab-content">
+      <div style="display:flex;flex-direction:column;gap:12px;padding:12px 16px 0">
+        <div class="form-group">
+          <label for="adhoc-freeform">Describe the item</label>
+          <input id="adhoc-freeform" class="form-input" type="text" placeholder="e.g. 1 banana, half a Clif Bar">
         </div>
-      </form>
+        <button id="adhoc-parse-btn" class="btn-primary" type="button">Look up</button>
+        <div id="adhoc-result" style="display:none"></div>
+        <details id="adhoc-manual-details">
+          <summary style="cursor:pointer;font-size:13px;color:var(--text-secondary);padding:4px 0">Enter manually instead</summary>
+          <form id="oneoff-form" novalidate>
+            <div style="display:flex;flex-direction:column;gap:12px;padding-top:12px">
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="oo-brand">Brand</label>
+                  <input id="oo-brand" class="form-input" type="text" placeholder="Optional">
+                </div>
+                <div class="form-group">
+                  <label for="oo-name">Name *</label>
+                  <input id="oo-name" class="form-input" type="text" placeholder="Required" required>
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="oo-type">Category</label>
+                <input id="oo-type" class="form-input" type="text" list="fuel-type-suggestions" placeholder="e.g. Gel, Bar, Breakfast…" autocomplete="off">
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="oo-carbs">Carbs (g)</label>
+                  <input id="oo-carbs" class="form-input" type="number" min="0" value="0">
+                </div>
+                <div class="form-group">
+                  <label for="oo-sodium">Sodium (mg)</label>
+                  <input id="oo-sodium" class="form-input" type="number" min="0" value="0">
+                </div>
+                <div class="form-group">
+                  <label for="oo-caffeine">Caffeine (mg)</label>
+                  <input id="oo-caffeine" class="form-input" type="number" min="0" value="0">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="oo-calories">Calories (kcal)</label>
+                  <input id="oo-calories" class="form-input" type="number" min="0" placeholder="0">
+                </div>
+                <div class="form-group">
+                  <label for="oo-protein">Protein (g)</label>
+                  <input id="oo-protein" class="form-input" type="number" min="0" placeholder="0">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="oo-fat">Fat (g)</label>
+                  <input id="oo-fat" class="form-input" type="number" min="0" placeholder="0">
+                </div>
+                <div class="form-group">
+                  <label for="oo-fiber">Fiber (g)</label>
+                  <input id="oo-fiber" class="form-input" type="number" min="0" placeholder="0">
+                </div>
+              </div>
+              <div class="toggle-row">
+                <span class="toggle-label">Fuel item</span>
+                <input id="oo-is-fuel" class="toggle-input" type="checkbox" checked>
+              </div>
+              <div class="toggle-row">
+                <span class="toggle-label">Save to library</span>
+                <input id="oo-save-library" class="toggle-input" type="checkbox">
+              </div>
+              <button type="submit" class="btn-primary">Add item</button>
+            </div>
+          </form>
+        </details>
+      </div>
     </div>
   </div>
 </div>

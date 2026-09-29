@@ -10,6 +10,11 @@
     'lunch':        { bg: 'var(--blue-bg)',   color: 'var(--blue-text)'   },
     'dinner':       { bg: 'var(--purple-bg)', color: 'var(--purple-text)' },
     'fuel':         { bg: 'var(--red-bg)',    color: 'var(--red-text)'    },
+    'gel':          { bg: 'var(--red-bg)',    color: 'var(--red-text)'    },
+    'bar':          { bg: 'var(--red-bg)',    color: 'var(--red-text)'    },
+    'chew':         { bg: 'var(--red-bg)',    color: 'var(--red-text)'    },
+    'drink_powder': { bg: 'var(--red-bg)',    color: 'var(--red-text)'    },
+    'liquid':       { bg: 'var(--red-bg)',    color: 'var(--red-text)'    },
     'snack':        { bg: 'var(--green-bg)',  color: 'var(--green-text)'  },
     'pre-workout':  { bg: 'var(--red-bg)',    color: 'var(--red-text)'    },
     'post-workout': { bg: 'var(--green-bg)',  color: 'var(--green-text)'  }
@@ -53,7 +58,10 @@
   // Returns full meta line for library list and picker rows.
   function itemMetaLine(item) {
     var parts = itemMacroMeta(item);
-    var ctx   = itemServingContext(item);
+    if (item.caffeinePerServing && item.caffeinePerServing > 0) {
+      parts.push(Math.round(item.caffeinePerServing) + 'mg caffeine');
+    }
+    var ctx = itemServingContext(item);
     if (ctx) parts.push(ctx);
     return parts.join(' · ');
   }
@@ -970,16 +978,33 @@
     }
 
     function pickerSheetHTML(library, selectedIds) {
-      var rows = library.map(function (item) {
-        var checked = selectedIds.indexOf(item.id) !== -1;
-        return '<div class="fl-picker-row" data-picker-id="' + item.id + '">' +
-          '<div class="fl-picker-check' + (checked ? ' checked' : '') + '"></div>' +
-          '<div class="fl-picker-info">' +
-            '<div class="fl-picker-name">' + _A.escHtml(item.name) + '</div>' +
-            (item.brand ? '<div class="fl-picker-brand">' + _A.escHtml(item.brand) + '</div>' : '') +
-            '<div class="fl-picker-macros">' + itemMetaLine(item) + '</div>' +
-          '</div>' +
-        '</div>';
+      var groups = {};
+      library.forEach(function (item) {
+        var key = item.category ? _titleCase(item.category) : 'Other';
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(item);
+      });
+      var sortedKeys = Object.keys(groups).filter(function (k) { return k !== 'Other'; }).sort();
+      if (groups['Other']) sortedKeys.push('Other');
+
+      var rows = sortedKeys.map(function (groupKey) {
+        var groupItems = groups[groupKey].slice().sort(function (a, b) {
+          return (a.name || '').localeCompare(b.name || '');
+        });
+        return '<div class="picker-group">' +
+          '<div class="product-group-title" style="padding:8px 0 4px">' + _A.escHtml(groupKey) + '</div>' +
+          groupItems.map(function (item) {
+            var checked = selectedIds.indexOf(item.id) !== -1;
+            return '<div class="fl-picker-row" data-picker-id="' + item.id + '">' +
+              '<div class="fl-picker-check' + (checked ? ' checked' : '') + '"></div>' +
+              '<div class="fl-picker-info">' +
+                '<div class="fl-picker-name">' + _A.escHtml(item.name) + '</div>' +
+                (item.brand ? '<div class="fl-picker-brand">' + _A.escHtml(item.brand) + '</div>' : '') +
+                '<div class="fl-picker-macros">' + itemMetaLine(item) + '</div>' +
+              '</div>' +
+            '</div>';
+          }).join('') +
+          '</div>';
       }).join('');
 
       var n = selectedIds.length;
@@ -990,7 +1015,7 @@
             '<div class="fl-sheet-title">Add from Library</div>' +
             '<span class="fl-sheet-count" id="fl-picker-count">' + (n ? n + ' selected' : '') + '</span>' +
           '</div>' +
-          '<input class="fl-sheet-search" id="fl-picker-search" placeholder="Search…" type="search">' +
+          '<div class="fl-sheet-search-wrap"><input class="fl-sheet-search" id="fl-picker-search" placeholder="Search…" type="search"><button class="search-clear" id="fl-picker-clear" aria-label="Clear search">&times;</button></div>' +
           '<div class="fl-sheet-list" id="fl-picker-list">' + (rows || '<div style="padding:24px 16px;text-align:center;color:var(--text-secondary);font-size:14px">No items in your library yet</div>') + '</div>' +
           '<div class="fl-sheet-confirm-btn' + (n === 0 ? '" style="opacity:0.4;pointer-events:none' : '') + '" id="fl-picker-confirm">Add ' + (n > 0 ? n + ' ' : '') + 'item' + (n !== 1 ? 's' : '') + ' →</div>' +
         '</div>' +
@@ -1174,16 +1199,33 @@
 
           // Search filter
           var searchEl = _A.$('fl-picker-search');
+          var clearEl = _A.$('fl-picker-clear');
           if (searchEl) {
-            _A.on(searchEl, 'input', function () {
+            function syncPickerSearch() {
               var q = searchEl.value.toLowerCase();
+              if (clearEl) clearEl.classList.toggle('visible', searchEl.value.length > 0);
               _A.$$('.fl-picker-row', overlay).forEach(function (row) {
                 var item = libraryMap[row.dataset.pickerId];
                 if (!item) return;
                 var text = ((item.brand || '') + ' ' + item.name).toLowerCase();
                 row.style.display = text.indexOf(q) !== -1 ? '' : 'none';
               });
-            });
+              _A.$$('.picker-group', overlay).forEach(function (group) {
+                var anyVisible = Array.prototype.some.call(
+                  _A.$$('.fl-picker-row', group),
+                  function (row) { return row.style.display !== 'none'; }
+                );
+                group.style.display = anyVisible ? '' : 'none';
+              });
+            }
+            _A.on(searchEl, 'input', syncPickerSearch);
+            if (clearEl) {
+              _A.on(clearEl, 'click', function () {
+                searchEl.value = '';
+                syncPickerSearch();
+                searchEl.focus();
+              });
+            }
           }
 
           // Confirm
@@ -1240,7 +1282,7 @@
             });
             _A.on(searchEl, 'blur', function () {
               window.visualViewport.removeEventListener('resize', onVPResize);
-              resetSheetPosition();
+              setTimeout(resetSheetPosition, 150);
             });
           }
           function removeWithCleanup() {
