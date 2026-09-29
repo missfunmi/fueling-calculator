@@ -189,7 +189,7 @@
   }
 
   async function saveLibraryItem(userId, item) {
-    var rows = await req('POST', 'food_library', {
+    var body = {
       user_id:              userId,
       name:                 item.name,
       is_fuel:              item.isFuel   || false,
@@ -204,9 +204,14 @@
       serving_unit:         item.servingUnit || null,
       brand:                item.brand       || null,
       serving_size:         item.servingSize != null ? item.servingSize : null
-    });
-    if (!rows || !rows[0]) throw new Error('saveLibraryItem: no row returned');
-    return rowToItem(rows[0]);
+    };
+    if (item.id) body.id = item.id;
+    var path   = item.id ? 'food_library?on_conflict=id' : 'food_library';
+    var prefer = item.id ? 'return=representation,resolution=merge-duplicates' : undefined;
+    var rows = await req('POST', path, body, prefer);
+    if (rows && rows[0]) return rowToItem(rows[0]);
+    if (item.id) return { id: item.id };
+    throw new Error('saveLibraryItem: no row returned');
   }
 
   async function updateLibraryItem(userId, id, fields) {

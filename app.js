@@ -3281,7 +3281,9 @@
         var userId = localStorage.getItem('fuelPlanner.userId');
         var isFuel = $("oo-is-fuel") ? $("oo-is-fuel").checked : true;
         var typeVal = $("oo-type").value.trim() || null;
+        var libId = Data.generateId();
         var libItem = {
+          id:                 libId,
           name:               name,
           brand:              fields.brand,
           isFuel:             isFuel,
@@ -3295,9 +3297,9 @@
           fatPerServing:      $("oo-fat").value      !== '' ? Number($("oo-fat").value)      : null,
           fiberPerServing:    $("oo-fiber").value    !== '' ? Number($("oo-fiber").value)    : null,
         };
-        var saved = await window.FoodLogData.saveLibraryItem(userId, libItem);
-        item.productId = saved.id;
-        Data.recordProductUsed(saved.id);
+        await window.FoodLogData.saveLibraryItem(userId, libItem);
+        item.productId = libId;
+        Data.recordProductUsed(libId);
       }
       if (_sheetIsActual) {
         await addItemToActualSegment(_sheetEventId, _sheetSegmentId, item);
