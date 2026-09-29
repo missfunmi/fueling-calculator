@@ -3298,8 +3298,6 @@
           fiberPerServing:    $("oo-fiber").value    !== '' ? Number($("oo-fiber").value)    : null,
         };
         await window.FoodLogData.saveLibraryItem(userId, libItem);
-        item.productId = libId;
-        Data.recordProductUsed(libId);
       }
       if (_sheetIsActual) {
         await addItemToActualSegment(_sheetEventId, _sheetSegmentId, item);
