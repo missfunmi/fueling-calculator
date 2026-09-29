@@ -3387,6 +3387,8 @@
       navigate("product-form");
     });
 
+    initSearchClear($("lib-search"), $("lib-search-clear"));
+
     var $list = $("lib-list");
     showContainerSpinner($list);
 
@@ -3492,7 +3494,6 @@
     on($("lib-search"), "input", function () {
       renderList($("lib-search").value.trim());
     });
-    initSearchClear($("lib-search"), $("lib-search-clear"));
   }
 
   async function renderSettings() {
