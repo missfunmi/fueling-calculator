@@ -371,9 +371,9 @@
   async function migrateIfNeeded() {
     if (localStorage.getItem(KEYS.migrated) === 'true') return;
 
-    var existingEvents   = await supabaseRequest('GET', 'events?user_id=eq.'   + getUserId() + '&select=id&limit=1');
-    var existingProducts = await supabaseRequest('GET', 'products?user_id=eq.' + getUserId() + '&select=id&limit=1');
-    if (existingEvents.length > 0 && existingProducts.length > 0) {
+    var existingEvents        = await supabaseRequest('GET', 'events?user_id=eq.'       + getUserId() + '&select=id&limit=1');
+    var existingFuelLibrary   = await supabaseRequest('GET', 'food_library?user_id=eq.' + getUserId() + '&is_fuel=eq.true&select=id&limit=1');
+    if (existingEvents.length > 0 && existingFuelLibrary.length > 0) {
       localStorage.setItem(KEYS.migrated, 'true');
       return;
     }
@@ -544,20 +544,6 @@
       postEventNotes: '',
       actuals:        {},
       segments:       [newSegment(name || 'New Event', 1)]
-    };
-  }
-
-  function itemFromProduct(product) {
-    return {
-      id:              generateId(),
-      productId:       product.id,
-      name:            product.name,
-      brand:           product.brand || '',
-      type:            normalizeItemType(product.type),
-      carbsPerUnit:    Number(product.carbsPerUnit)    || 0,
-      sodiumPerUnit:   Number(product.sodiumPerUnit)   || 0,
-      caffeinePerUnit: Number(product.caffeinePerUnit) || 0,
-      quantity:        1
     };
   }
 
@@ -791,9 +777,6 @@
   exports.saveClaim          = saveClaim;
   exports.lookupClaim        = lookupClaim;
   exports.generateId         = generateId;
-  exports.getProducts        = getProducts;
-  exports.saveProduct        = saveProduct;
-  exports.deleteProduct      = deleteProduct;
   exports.getEvents          = getEvents;
   exports.getEvent           = getEvent;
   exports.saveEvent          = saveEvent;
@@ -818,7 +801,6 @@
   exports.eventToDb          = eventToDb;
   exports.newSegment         = newSegment;
   exports.newEvent           = newEvent;
-  exports.itemFromProduct           = itemFromProduct;
   exports.itemFromFoodLibraryItem   = itemFromFoodLibraryItem;
   exports.itemFromOneOff            = itemFromOneOff;
   exports.getDefaultExecInterval    = getDefaultExecInterval;
