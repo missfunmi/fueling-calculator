@@ -1601,7 +1601,7 @@
 
   function itemRowHTML(item) {
     var metaParts = [TYPE_LABELS[item.type] || escHtml(item.type)];
-    if (item.carbsPerUnit) metaParts.push(item.carbsPerUnit + "g");
+    if (item.carbsPerUnit) metaParts.push(item.carbsPerUnit + "g carbs");
     if (item.sodiumPerUnit) metaParts.push(item.sodiumPerUnit + "mg Na");
     if (item.caffeinePerUnit) metaParts.push(item.caffeinePerUnit + "mg caff");
     return (
@@ -1631,7 +1631,7 @@
 
   function actualItemRowHTML(item) {
     var metaParts = [TYPE_LABELS[item.type] || escHtml(item.type)];
-    if (item.carbsPerUnit) metaParts.push(item.carbsPerUnit + "g");
+    if (item.carbsPerUnit) metaParts.push(item.carbsPerUnit + "g carbs");
     if (item.sodiumPerUnit) metaParts.push(item.sodiumPerUnit + "mg Na");
     if (item.caffeinePerUnit) metaParts.push(item.caffeinePerUnit + "mg caff");
     var isOneOff = !item.productId;
