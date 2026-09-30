@@ -561,14 +561,14 @@
     };
   }
 
-  // Build a segment item from a food_library item (non-fuel food picked for an event).
+  // Build a segment item from a food_library item (fuel or food).
   function itemFromFoodLibraryItem(item) {
     return {
       id:              generateId(),
       productId:       item.id,
       name:            item.name,
       brand:           item.brand || '',
-      type:            'food',
+      type:            item.isFuel ? (item.category || 'other') : 'food',
       carbsPerUnit:    Number(item.carbsPerServing)    || 0,
       sodiumPerUnit:   Number(item.sodiumPerServing)   || 0,
       caffeinePerUnit: Number(item.caffeinePerServing) || 0,

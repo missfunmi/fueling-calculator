@@ -2912,19 +2912,20 @@
   }
 
   async function renderSheetFuelTab(query) {
-    var products;
+    var userId = localStorage.getItem('fuelPlanner.userId');
+    var items;
     try {
-      products = await Data.getProducts();
+      items = await window.FoodLogData.getFuelItems(userId);
     } catch (e) {
       showToast("Couldn't load library — check your connection.");
       return;
     }
 
-    // Resolve recent product IDs against the full product list
-    var recentIds = Data.getRecentProducts(); // returns array of IDs
+    // Resolve recent IDs against the full fuel item list
+    var recentIds = Data.getRecentProducts();
     var recent = recentIds
       .map(function (id) {
-        return products.find(function (p) {
+        return items.find(function (p) {
           return p.id === id;
         });
       })
@@ -2938,28 +2939,29 @@
           return productRowSheetHTML(p);
         })
         .join("");
-      attachSheetProductHandlers($("recent-products-list"));
+      attachSheetProductHandlers($("recent-products-list"), items);
     } else {
       $recentSection.style.display = "none";
     }
 
     var filtered = query
-      ? products.filter(function (p) {
+      ? items.filter(function (p) {
           var q = query.toLowerCase();
+          var typeLabel = TYPE_LABELS[normalizeType(p.category)] || p.category || '';
           return (
             (p.name || "").toLowerCase().includes(q) ||
             (p.brand || "").toLowerCase().includes(q) ||
-            (TYPE_LABELS[p.type] || p.type || "").toLowerCase().includes(q)
+            typeLabel.toLowerCase().includes(q)
           );
         })
-      : products.filter(function (p) {
+      : items.filter(function (p) {
           return recentIds.indexOf(p.id) === -1;
         });
 
     var $results = $("product-search-results");
-    if (!query && !products.length) {
+    if (!query && !items.length) {
       $results.innerHTML =
-        '<div style="padding:16px 0;font-size:14px;color:var(--text-tertiary)">Your library is empty. Add products via the Library tab.</div>';
+        '<div style="padding:16px 0;font-size:14px;color:var(--text-tertiary)">Your library is empty. Add fuel items via the Library tab.</div>';
       return;
     }
 
@@ -2978,10 +2980,10 @@
         })
         .join("");
     } else {
-      // No query: group by type, sort within each group, show category headings.
+      // No query: group by category (fuel subtype), sort within each group.
       var sheetGroups = {};
       filtered.forEach(function (p) {
-        var key = normalizeType(p.type);
+        var key = normalizeType(p.category);
         if (!sheetGroups[key]) sheetGroups[key] = [];
         sheetGroups[key].push(p);
       });
@@ -3019,14 +3021,15 @@
         })
         .join("");
     }
-    attachSheetProductHandlers($results);
+    attachSheetProductHandlers($results, items);
   }
 
   function productRowSheetHTML(p) {
     var meta = [];
-    if (p.carbsPerUnit) meta.push(p.carbsPerUnit + "g carbs");
-    if (p.sodiumPerUnit) meta.push(p.sodiumPerUnit + "mg Na");
-    if (p.caffeinePerUnit) meta.push(p.caffeinePerUnit + "mg caff");
+    if (p.carbsPerServing) meta.push(p.carbsPerServing + "g carbs");
+    if (p.sodiumPerServing) meta.push(p.sodiumPerServing + "mg Na");
+    if (p.caffeinePerServing) meta.push(p.caffeinePerServing + "mg caff");
+    var typeKey = normalizeType(p.category);
     return (
       '<div class="product-row" data-product-id="' +
       p.id +
@@ -3040,44 +3043,34 @@
       "</div>" +
       "</div>" +
       '<span class="product-type-chip">' +
-      escHtml(TYPE_LABELS[p.type] || p.type) +
+      escHtml(TYPE_LABELS[typeKey] || p.category) +
       "</span>" +
       "</div>"
     );
   }
 
-  function attachSheetProductHandlers($container) {
+  function attachSheetProductHandlers($container, items) {
     $$(".product-row", $container).forEach(function (row) {
       on(row, "click", async function () {
-        var productId = row.dataset.productId;
-        var products;
-        try {
-          products = await Data.getProducts();
-        } catch (e) {
-          showToast("Couldn't load product — check your connection.");
-          return;
-        }
-
-        var product = products.find(function (p) {
-          return p.id === productId;
-        });
-        if (!product || !_sheetEventId || !_sheetSegmentId) return;
+        var itemId = row.dataset.productId;
+        var item = items && items.find(function (p) { return p.id === itemId; });
+        if (!item || !_sheetEventId || !_sheetSegmentId) return;
 
         try {
           if (_sheetIsActual) {
             await addItemToActualSegment(
               _sheetEventId,
               _sheetSegmentId,
-              Data.itemFromProduct(product),
+              Data.itemFromFoodLibraryItem(item),
             );
           } else {
             await addItemToSegment(
               _sheetEventId,
               _sheetSegmentId,
-              Data.itemFromProduct(product),
+              Data.itemFromFoodLibraryItem(item),
             );
           }
-          Data.recordProductUsed(productId);
+          Data.recordProductUsed(itemId);
           closeSheet();
           await renderDetail();
         } catch (e) {
