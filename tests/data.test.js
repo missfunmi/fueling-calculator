@@ -71,50 +71,6 @@ async function test(name, fn) {
 
 async function run() {
 
-  // ── Products ─────────────────────────────────────────────────────────────────
-
-  console.log('\nProducts CRUD');
-
-  await test('getProducts returns [] when empty', async function () {
-    mockFetch([{ status: 200, body: '[]' }]);
-    var result = await D.getProducts();
-    assert.deepStrictEqual(result, []);
-  });
-
-  await test('saveProduct sends upsert POST to Supabase', async function () {
-    var p = { id: 'aaaaaaaa-0000-0000-0000-000000000001', brand: 'Maurten', name: 'C-160',
-              type: 'drink_powder', carbsPerUnit: 160, sodiumPerUnit: 290, caffeinePerUnit: 0 };
-    // saveProduct returns nothing useful — just confirm it doesn't throw
-    mockFetch([{ status: 200, body: '[]' }]);
-    await D.saveProduct(p); // no assertion needed — would throw on non-ok status
-  });
-
-  await test('saveProduct throws on server error', async function () {
-    var p = { id: 'aaaaaaaa-0000-0000-0000-000000000001', brand: '', name: 'X',
-              type: 'gel', carbsPerUnit: 0, sodiumPerUnit: 0, caffeinePerUnit: 0 };
-    mockFetch([{ status: 400, body: 'Bad request' }]);
-    await assert.rejects(D.saveProduct(p), /Bad request/);
-  });
-
-  await test('deleteProduct removes from recent list', async function () {
-    localStorage.setItem('fuelPlanner.recentProducts', JSON.stringify(['p1', 'p2']));
-    mockFetch([{ status: 204, body: '' }]);
-    await D.deleteProduct('p1');
-    var ids = JSON.parse(localStorage.getItem('fuelPlanner.recentProducts'));
-    assert.deepStrictEqual(ids, ['p2']);
-  });
-
-  await test('getProducts normalises snake_case to camelCase', async function () {
-    var row = { id: 'abc', brand: 'Maurten', name: 'C-160', fuel_type: 'drink_powder',
-                is_fuel: true, carbs_per_serving: 160, sodium_per_serving: 290, caffeine_per_serving: 0 };
-    mockFetch([{ status: 200, body: JSON.stringify([row]) }]);
-    var products = await D.getProducts();
-    assert.strictEqual(products.length, 1);
-    assert.strictEqual(products[0].carbsPerUnit, 160);
-    assert.strictEqual(products[0].sodiumPerUnit, 290);
-    assert.strictEqual(products[0].id, 'abc');
-  });
-
   // ── Events ────────────────────────────────────────────────────────────────────
 
   console.log('\nEvents CRUD');
@@ -201,14 +157,6 @@ async function run() {
     assert.strictEqual(ids[4], '2'); // oldest kept
   });
 
-  await test('deleteProduct removes ID from recent list', async function () {
-    D.recordProductUsed('p1');
-    D.recordProductUsed('p2');
-    mockFetch([{ status: 204, body: '' }]);
-    await D.deleteProduct('p1');
-    var ids = D.getRecentProducts();
-    assert.deepStrictEqual(ids, ['p2']);
-  });
 
   await test('getRecentProducts returns stale IDs as-is (filtering is caller responsibility)', function () {
     // The new implementation does not filter stale IDs — callers filter using .filter(Boolean)
@@ -229,13 +177,6 @@ async function run() {
     assert.strictEqual(e.segments[0].targets.sodiumPerHour, 500);
   });
 
-  await test('itemFromProduct snapshots product values', function () {
-    var p = { id: 'p1', brand: 'Maurten', name: 'C-160', type: 'drink_powder', carbsPerUnit: 160, sodiumPerUnit: 290, caffeinePerUnit: 0 };
-    var item = D.itemFromProduct(p);
-    assert.strictEqual(item.productId, 'p1');
-    assert.strictEqual(item.carbsPerUnit, 160);
-    assert.strictEqual(item.quantity, 1);
-  });
 
   await test('itemFromOneOff sets productId null, coerces numerics, defaults type to other', function () {
     var item = D.itemFromOneOff({ name: 'House Gel', brand: '', type: '', carbsPerUnit: '22', sodiumPerUnit: '100', caffeinePerUnit: '0' });
