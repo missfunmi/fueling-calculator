@@ -565,7 +565,7 @@
   function itemFromFoodLibraryItem(item) {
     return {
       id:              generateId(),
-      productId:       item.id,
+      productId:       null,
       name:            item.name,
       brand:           item.brand || '',
       type:            'food',
