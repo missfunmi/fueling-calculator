@@ -1960,6 +1960,10 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 }
 .fl-target-row:last-of-type { border-bottom: none; }
 .fl-targets-label { font-size: 14px; color: var(--text); }
+.fl-targets-slider {
+  height: 44px;
+  cursor: pointer;
+}
 .fl-targets-input {
   width: 100px;
   padding: 6px 10px;

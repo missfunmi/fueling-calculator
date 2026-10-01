@@ -3570,7 +3570,7 @@
             '<input class="fl-targets-slider" type="range" min="0" max="10" step="1"' +
               ' data-tkey="satFatPct"' +
               ' value="' + satFatPct + '"' +
-              ' style="width:100px' + (satFatDisabled ? ';opacity:0.4' : '') + '"' +
+              ' style="width:140px' + (satFatDisabled ? ';opacity:0.4' : '') + '"' +
               (satFatDisabled ? ' disabled' : '') + '>' +
             '<span id="settings-slider-sat-fat-label" style="font-size:12px;color:var(--text-secondary);white-space:nowrap">' + satFatLiveLabel + '</span>' +
           '</div>' +
