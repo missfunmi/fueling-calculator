@@ -3566,12 +3566,13 @@
         var satFatRow =
           '<div class="fl-target-row">' +
           '<span class="fl-targets-label">Saturated Fat</span>' +
-          '<div style="display:flex;align-items:center;gap:8px;flex:1">' +
+          '<div style="display:flex;align-items:center;gap:8px;margin-left:auto">' +
+            '<span id="settings-slider-sat-fat-label" style="font-size:13px;color:var(--text-secondary);white-space:nowrap">' + satFatLiveLabel + '</span>' +
             '<input class="fl-targets-slider" type="range" min="0" max="10" step="1"' +
               ' data-tkey="satFatPct"' +
               ' value="' + satFatPct + '"' +
-              (satFatDisabled ? ' disabled style="opacity:0.4"' : '') + '>' +
-            '<span id="settings-slider-sat-fat-label" style="font-size:13px;color:var(--text-secondary);white-space:nowrap">' + satFatLiveLabel + '</span>' +
+              ' style="width:100px' + (satFatDisabled ? ';opacity:0.4' : '') + '"' +
+              (satFatDisabled ? ' disabled' : '') + '>' +
           '</div>' +
           '</div>';
 
