@@ -230,6 +230,7 @@
         if (log.protein != null) macroParts.push(Math.round(log.protein) + 'g protein');
         if (log.carbs   != null) macroParts.push(Math.round(log.carbs)   + 'g carbs');
         if (log.fat     != null) macroParts.push(Math.round(log.fat)     + 'g fat');
+        if (log.satFat  != null) macroParts.push(Math.round(log.satFat * 10) / 10 + 'g sat fat');
         if (log.fiber   != null) macroParts.push(Math.round(log.fiber)   + 'g fiber');
         if (log.sodium  != null) macroParts.push(Math.round(log.sodium)  + 'mg sodium');
         var macroHTML = macroParts.map(function (p) {
