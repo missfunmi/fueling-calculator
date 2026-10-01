@@ -884,6 +884,9 @@
         if (formState.protein  != null) parts.push('<span><span class="fl-ps-macro">' + ps(formState.protein)  + 'g</span> <span class="fl-ps-macro-lbl">protein</span></span>');
         if (formState.carbs    != null) parts.push('<span><span class="fl-ps-macro">' + ps(formState.carbs)    + 'g</span> <span class="fl-ps-macro-lbl">carbs</span></span>');
         if (formState.fat      != null) parts.push('<span><span class="fl-ps-macro">' + ps(formState.fat)      + 'g</span> <span class="fl-ps-macro-lbl">fat</span></span>');
+        if (formState.satFat   != null) parts.push('<span><span class="fl-ps-macro">' + ps(formState.satFat)   + 'g</span> <span class="fl-ps-macro-lbl">sat fat</span></span>');
+        if (formState.fiber    != null) parts.push('<span><span class="fl-ps-macro">' + ps(formState.fiber)    + 'g</span> <span class="fl-ps-macro-lbl">fiber</span></span>');
+        if (formState.sodium   != null) parts.push('<span><span class="fl-ps-macro">' + ps(formState.sodium)   + 'mg</span> <span class="fl-ps-macro-lbl">sodium</span></span>');
         return '<div class="fl-per-serving-preview" id="fl-per-serving-preview">' +
           '<span class="fl-per-serving-eyebrow">Per serving</span>' +
           '<div class="fl-per-serving-nums">' + parts.join('') + '</div>' +
@@ -1576,7 +1579,7 @@
           var userId = localStorage.getItem('fuelPlanner.userId');
           if (isLibraryForm) {
               // Clamp negatives
-              ['protein','carbs','fat','calories','fiber','sodium'].forEach(function (k) {
+              ['protein','carbs','fat','calories','fiber','sodium','satFat'].forEach(function (k) {
                 if (formState[k] != null && formState[k] < 0) formState[k] = 0;
               });
               // Require at least a name and one macro value
