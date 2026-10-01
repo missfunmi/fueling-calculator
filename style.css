@@ -1577,6 +1577,7 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   --m-fat:     #6d28d9;
   --m-fiber:   #1a7a31;
   --m-sodium:  #0e6674;
+  --m-sat-fat: #e8a838;
 }
 
 /* Date navigation */
@@ -1691,8 +1692,9 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 .fl-macro-label {
   font-size: 13px;
   color: var(--text-secondary);
-  width: 56px;
+  width: 90px;
   flex-shrink: 0;
+  white-space: nowrap;
 }
 .fl-macro-bar-track {
   flex: 1;
@@ -1958,6 +1960,10 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 }
 .fl-target-row:last-of-type { border-bottom: none; }
 .fl-targets-label { font-size: 14px; color: var(--text); }
+.fl-targets-slider {
+  height: 44px;
+  cursor: pointer;
+}
 .fl-targets-input {
   width: 100px;
   padding: 6px 10px;

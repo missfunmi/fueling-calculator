@@ -8,6 +8,7 @@ interface LibraryItem {
   protein_per_serving: number;
   carbs_per_serving: number;
   fat_per_serving: number;
+  sat_fat_per_serving: number | null;
   fiber_per_serving: number | null;
   sodium_per_serving: number | null;
   serving_unit: string | null;
@@ -18,6 +19,7 @@ interface ParseResult {
   protein: number;
   carbs: number;
   fat: number;
+  sat_fat: number | null;
   calories: number;
   fiber: number | null;
   sodium: number | null;
@@ -61,6 +63,7 @@ Rules:
 - Otherwise estimate based on typical nutritional data and set ai_estimated to true.
 - Round all numbers to the nearest whole number.
 - fiber and sodium may be null if not known.
+- sat_fat is saturated fat in grams. Estimate from USDA data when the food is known (e.g. butter ≈ 51g/100g, cheddar cheese ≈ 20g/100g, whole milk ≈ 2.3g/100ml, chicken breast ≈ 0.9g/100g, olive oil ≈ 14g/100g). May be null if the food is unusual or sat fat is genuinely unknown.
 - ai_notes: brief note on key assumptions made (max 80 chars). null if none.
 
 Return ONLY valid JSON matching this schema (no markdown, no explanation):
@@ -69,6 +72,7 @@ Return ONLY valid JSON matching this schema (no markdown, no explanation):
   "protein": number,
   "carbs": number,
   "fat": number,
+  "sat_fat": number | null,
   "calories": number,
   "fiber": number | null,
   "sodium": number | null,

@@ -180,8 +180,7 @@
       view === "claim" ||
       view === "recovery" ||
       view === "settings" ||
-      view === "food-log-entry" ||
-      view === "food-log-targets";
+      view === "food-log-entry";
     var tabBar = $("tab-bar");
     if (tabBar) tabBar.style.display = hideTabBar ? "none" : "";
 
@@ -3288,6 +3287,7 @@
           caloriesPerServing: $("oo-calories").value !== '' ? Number($("oo-calories").value) : null,
           proteinPerServing:  $("oo-protein").value  !== '' ? Number($("oo-protein").value)  : null,
           fatPerServing:      $("oo-fat").value      !== '' ? Number($("oo-fat").value)      : null,
+          satFatPerServing:   $("oo-sat-fat").value  !== '' ? Number($("oo-sat-fat").value)  : null,
           fiberPerServing:    $("oo-fiber").value    !== '' ? Number($("oo-fiber").value)    : null,
         };
         await window.FoodLogData.saveLibraryItem(userId, libItem);
@@ -3337,6 +3337,8 @@
       $("oo-calories").value = calories > 0 ? calories : '';
       $("oo-protein").value  = protein  > 0 ? protein  : '';
       $("oo-fat").value      = fat      > 0 ? fat      : '';
+      var satFat = Math.round(parsed.sat_fat || 0);
+      $("oo-sat-fat").value  = satFat   > 0 ? satFat   : '';
       $("oo-fiber").value    = fiber    > 0 ? fiber    : '';
       var details = $("adhoc-manual-details");
       if (details) details.open = true;
@@ -3425,6 +3427,7 @@
       if (item.fiberPerServing) parts.push(item.fiberPerServing + "g fiber");
       if (item.sodiumPerServing) parts.push(item.sodiumPerServing + "mg Na");
       if (item.fatPerServing) parts.push(item.fatPerServing + "g fat");
+      if (item.satFatPerServing != null) parts.push(item.satFatPerServing + "g sat fat");
       if (item.caffeinePerServing) parts.push(Math.round(item.caffeinePerServing) + "mg caff");
       return parts.join(" · ");
     }
@@ -3552,10 +3555,32 @@
       ];
       var rowsEl = $("settings-targets-rows");
       if (rowsEl) {
+        var satFatPct = targets.satFatPct != null ? targets.satFatPct : 6;
+        var calTarget = targets.caloriesTarget;
+        var satFatDisabled = !calTarget;
+        var satFatDerivedG = (!satFatDisabled && targets.satFatPct != null)
+          ? Math.round(calTarget * targets.satFatPct / 100 / 9 * 10) / 10
+          : null;
+        var satFatLiveLabel = satFatDisabled
+          ? satFatPct + '%'
+          : satFatPct + '% · ' + (satFatDerivedG != null ? satFatDerivedG + 'g/day' : '—');
+        var satFatRow =
+          '<div class="fl-target-row">' +
+          '<span class="fl-targets-label">Saturated Fat</span>' +
+          '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;margin-left:auto">' +
+            '<input class="fl-targets-slider" type="range" min="0" max="10" step="1"' +
+              ' data-tkey="satFatPct"' +
+              ' value="' + satFatPct + '"' +
+              ' style="width:140px' + (satFatDisabled ? ';opacity:0.4' : '') + '"' +
+              (satFatDisabled ? ' disabled' : '') + '>' +
+            '<span id="settings-slider-sat-fat-label" style="font-size:12px;color:var(--text-secondary);white-space:nowrap">' + satFatLiveLabel + '</span>' +
+          '</div>' +
+          '</div>';
+
         rowsEl.innerHTML = keys
           .map(function (f) {
             var val = targets[f.key] != null ? targets[f.key] : "";
-            return (
+            var html = (
               '<div class="fl-target-row">' +
               '<span class="fl-targets-label">' +
               f.label +
@@ -3569,8 +3594,39 @@
               '">' +
               "</div>"
             );
+            if (f.key === 'fatTarget') html += satFatRow;
+            return html;
           })
           .join("");
+
+        var sliderEl = rowsEl.querySelector('[data-tkey="satFatPct"]');
+        var sliderLabelEl = $("settings-slider-sat-fat-label");
+        if (sliderEl && sliderLabelEl) {
+          sliderEl.addEventListener('input', function () {
+            var pct = parseInt(sliderEl.value, 10);
+            var calInp = rowsEl.querySelector('[data-tkey="caloriesTarget"]');
+            var cal = calInp ? parseFloat(calInp.value) : null;
+            if (cal && cal > 0) {
+              var g = Math.round(cal * pct / 100 / 9 * 10) / 10;
+              sliderLabelEl.textContent = pct + '% · ' + g + 'g/day';
+            } else {
+              sliderLabelEl.textContent = pct + '%';
+            }
+          });
+          sliderEl.addEventListener('change', async function () {
+            var updated = {};
+            $$("[data-tkey]").forEach(function (i) {
+              var v = i.value.trim();
+              updated[i.dataset.tkey] = v !== "" ? Math.max(0, parseFloat(v) || 0) : null;
+            });
+            try {
+              await window.FoodLogData.saveTargets(userId, updated);
+              showToast("Settings updated.");
+            } catch (e) {
+              showToast("Couldn't save — check your connection.");
+            }
+          });
+        }
       }
     }
 
@@ -3708,6 +3764,7 @@
     $("pf-protein").value = item && item.proteinPerServing != null ? item.proteinPerServing : "";
     $("pf-food-carbs").value = item && item.carbsPerServing != null ? item.carbsPerServing : "";
     $("pf-fat").value = item && item.fatPerServing != null ? item.fatPerServing : "";
+    $("pf-sat-fat").value = item && item.satFatPerServing != null ? item.satFatPerServing : "";
     $("pf-fiber").value = item && item.fiberPerServing != null ? item.fiberPerServing : "";
     $("pf-food-sodium").value = item && item.sodiumPerServing != null ? item.sodiumPerServing : "";
     $("pf-caffeine").value = item && item.caffeinePerServing != null ? item.caffeinePerServing : "";
@@ -3751,6 +3808,7 @@
         proteinPerServing: $("pf-protein").value !== "" ? parseFloat($("pf-protein").value) : null,
         carbsPerServing: $("pf-food-carbs").value !== "" ? parseFloat($("pf-food-carbs").value) : null,
         fatPerServing: $("pf-fat").value !== "" ? parseFloat($("pf-fat").value) : null,
+        satFatPerServing: $("pf-sat-fat").value !== "" ? parseFloat($("pf-sat-fat").value) : null,
         fiberPerServing: $("pf-fiber").value !== "" ? parseFloat($("pf-fiber").value) : null,
         sodiumPerServing: $("pf-food-sodium").value !== "" ? parseFloat($("pf-food-sodium").value) : null,
         caffeinePerServing: $("pf-caffeine").value !== "" ? (parseFloat($("pf-caffeine").value) || null) : null,
