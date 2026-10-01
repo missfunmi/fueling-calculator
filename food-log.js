@@ -1745,6 +1745,27 @@
       '</div>';
     }
 
+    function sliderRow(label, key, pct, caloriesTarget) {
+      var val = pct != null ? pct : 6;
+      var disabled = !caloriesTarget;
+      var derivedG = (!disabled && pct != null)
+        ? Math.round(caloriesTarget * pct / 100 / 9 * 10) / 10
+        : null;
+      var liveLabel = disabled
+        ? val + '%'
+        : val + '% · ' + (derivedG != null ? derivedG + 'g/day' : '—');
+      return '<div class="fl-target-row">' +
+        '<span class="fl-targets-label">' + label + '</span>' +
+        '<div style="display:flex;align-items:center;gap:8px;flex:1">' +
+          '<input class="fl-targets-slider" type="range" min="0" max="10" step="1"' +
+            ' data-key="' + key + '"' +
+            ' value="' + val + '"' +
+            (disabled ? ' disabled style="opacity:0.4"' : '') + '>' +
+          '<span id="fl-slider-sat-fat-label" style="font-size:13px;color:var(--text-secondary);white-space:nowrap">' + liveLabel + '</span>' +
+        '</div>' +
+      '</div>';
+    }
+
     $body.innerHTML =
       '<p style="padding:16px 16px 8px;font-size:14px;color:var(--text-secondary)">Leave a field blank to hide its progress bar.</p>' +
       '<div style="border:1px solid var(--border);border-radius:var(--radius-md);margin:0 16px">' +
@@ -1752,6 +1773,7 @@
         inputRow('Protein',  'proteinTarget',  'g/day') +
         inputRow('Carbs',    'carbsTarget',    'g/day') +
         inputRow('Fat',      'fatTarget',      'g/day') +
+        sliderRow('Saturated Fat', 'satFatPct', targets.satFatPct, targets.caloriesTarget) +
         inputRow('Fiber',    'fiberTarget',    'g/day') +
         inputRow('Sodium',   'sodiumTarget',   'mg/day') +
       '</div>' +
@@ -1780,6 +1802,22 @@
         alert('Could not save targets — check your connection.');
       }
     });
+
+    var sliderEl = $body.querySelector('[data-key="satFatPct"]');
+    var sliderLabelEl = _A.$('fl-slider-sat-fat-label');
+    if (sliderEl && sliderLabelEl) {
+      _A.on(sliderEl, 'input', function () {
+        var pct = parseInt(sliderEl.value, 10);
+        var calInput = $body.querySelector('[data-key="caloriesTarget"]');
+        var cal = calInput ? parseFloat(calInput.value) : null;
+        if (cal && cal > 0) {
+          var g = Math.round(cal * pct / 100 / 9 * 10) / 10;
+          sliderLabelEl.textContent = pct + '% · ' + g + 'g/day';
+        } else {
+          sliderLabelEl.textContent = pct + '%';
+        }
+      });
+    }
 
     _A.on(_A.$('btn-flt-back'), 'click', function () {
       _A.navigate('food-log');
