@@ -975,6 +975,7 @@
           '<div class="fl-estimated-macro"><div class="fl-estimated-macro-val">' + Math.round(pc.protein) + 'g</div><div class="fl-estimated-macro-label">protein</div></div>' +
           '<div class="fl-estimated-macro"><div class="fl-estimated-macro-val">' + Math.round(pc.carbs) + 'g</div><div class="fl-estimated-macro-label">carbs</div></div>' +
           '<div class="fl-estimated-macro"><div class="fl-estimated-macro-val">' + Math.round(pc.fat) + 'g</div><div class="fl-estimated-macro-label">fat</div></div>' +
+          (pc.satFat != null ? '<div class="fl-estimated-macro"><div class="fl-estimated-macro-val">' + pc.satFat + 'g</div><div class="fl-estimated-macro-label">sat fat</div></div>' : '') +
           (pc.fiber  != null ? '<div class="fl-estimated-macro"><div class="fl-estimated-macro-val">' + Math.round(pc.fiber)  + 'g</div><div class="fl-estimated-macro-label">fiber</div></div>' : '') +
           (pc.sodium != null ? '<div class="fl-estimated-macro"><div class="fl-estimated-macro-val">' + Math.round(pc.sodium) + 'mg</div><div class="fl-estimated-macro-label">sodium</div></div>' : '') +
         '</div>' +
@@ -1328,7 +1329,7 @@
             }
 
             // Sum library components from current buildComponents (post-await)
-            var totals = { protein: 0, carbs: 0, fat: 0, calories: 0, fiber: null, sodium: null };
+            var totals = { protein: 0, carbs: 0, fat: 0, calories: 0, fiber: null, sodium: null, satFat: null };
             var componentRecords = buildComponents.map(function (bc) {
               var scaled = FoodLogData.scaleComponentMacros(bc.item, bc.amountG);
               totals.protein  += scaled.protein  || 0;
@@ -1337,6 +1338,7 @@
               totals.calories += scaled.calories || 0;
               if (scaled.fiber  != null) { if (totals.fiber  == null) totals.fiber  = 0; totals.fiber  += scaled.fiber; }
               if (scaled.sodium != null) { if (totals.sodium == null) totals.sodium = 0; totals.sodium += scaled.sodium; }
+              if (scaled.satFat != null) { if (totals.satFat == null) totals.satFat = 0; totals.satFat += scaled.satFat; }
               return {
                 library_item_id: bc.item.id,
                 name:        (bc.item.brand ? bc.item.brand + ' ' : '') + bc.item.name,
@@ -1355,8 +1357,9 @@
               totals.carbs    += parsedResult.carbs     || 0;
               totals.fat      += parsedResult.fat       || 0;
               totals.calories += parsedResult.calories  || 0;
-              if (parsedResult.fiber  != null) { if (totals.fiber  == null) totals.fiber  = 0; totals.fiber  += parsedResult.fiber; }
-              if (parsedResult.sodium != null) { if (totals.sodium == null) totals.sodium = 0; totals.sodium += parsedResult.sodium; }
+              if (parsedResult.fiber   != null) { if (totals.fiber  == null) totals.fiber  = 0; totals.fiber  += parsedResult.fiber; }
+              if (parsedResult.sodium  != null) { if (totals.sodium == null) totals.sodium = 0; totals.sodium += parsedResult.sodium; }
+              if (parsedResult.sat_fat != null) { if (totals.satFat == null) totals.satFat = 0; totals.satFat += parsedResult.sat_fat; }
               freeComponents.push({
                 library_item_id: null, name: freeText, amount_g: null,
                 protein: parsedResult.protein, carbs: parsedResult.carbs,
@@ -1385,6 +1388,7 @@
               calories: Math.round(totals.calories * 10) / 10,
               fiber:    totals.fiber  != null ? Math.round(totals.fiber  * 10) / 10 : null,
               sodium:   totals.sodium != null ? Math.round(totals.sodium * 10) / 10 : null,
+              satFat:   totals.satFat != null ? Math.round(totals.satFat * 10) / 10 : null,
               components: componentRecords.concat(freeComponents)
             };
 
