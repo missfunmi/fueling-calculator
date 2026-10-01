@@ -1692,8 +1692,9 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 .fl-macro-label {
   font-size: 13px;
   color: var(--text-secondary);
-  width: 56px;
+  width: 90px;
   flex-shrink: 0;
+  white-space: nowrap;
 }
 .fl-macro-bar-track {
   flex: 1;
