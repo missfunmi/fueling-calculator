@@ -3763,6 +3763,7 @@
     $("pf-protein").value = item && item.proteinPerServing != null ? item.proteinPerServing : "";
     $("pf-food-carbs").value = item && item.carbsPerServing != null ? item.carbsPerServing : "";
     $("pf-fat").value = item && item.fatPerServing != null ? item.fatPerServing : "";
+    $("pf-sat-fat").value = item && item.satFatPerServing != null ? item.satFatPerServing : "";
     $("pf-fiber").value = item && item.fiberPerServing != null ? item.fiberPerServing : "";
     $("pf-food-sodium").value = item && item.sodiumPerServing != null ? item.sodiumPerServing : "";
     $("pf-caffeine").value = item && item.caffeinePerServing != null ? item.caffeinePerServing : "";
@@ -3806,6 +3807,7 @@
         proteinPerServing: $("pf-protein").value !== "" ? parseFloat($("pf-protein").value) : null,
         carbsPerServing: $("pf-food-carbs").value !== "" ? parseFloat($("pf-food-carbs").value) : null,
         fatPerServing: $("pf-fat").value !== "" ? parseFloat($("pf-fat").value) : null,
+        satFatPerServing: $("pf-sat-fat").value !== "" ? parseFloat($("pf-sat-fat").value) : null,
         fiberPerServing: $("pf-fiber").value !== "" ? parseFloat($("pf-fiber").value) : null,
         sodiumPerServing: $("pf-food-sodium").value !== "" ? parseFloat($("pf-food-sodium").value) : null,
         caffeinePerServing: $("pf-caffeine").value !== "" ? (parseFloat($("pf-caffeine").value) || null) : null,
