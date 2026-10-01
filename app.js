@@ -3555,10 +3555,31 @@
       ];
       var rowsEl = $("settings-targets-rows");
       if (rowsEl) {
+        var satFatPct = targets.satFatPct != null ? targets.satFatPct : 6;
+        var calTarget = targets.caloriesTarget;
+        var satFatDisabled = !calTarget;
+        var satFatDerivedG = (!satFatDisabled && targets.satFatPct != null)
+          ? Math.round(calTarget * targets.satFatPct / 100 / 9 * 10) / 10
+          : null;
+        var satFatLiveLabel = satFatDisabled
+          ? satFatPct + '%'
+          : satFatPct + '% · ' + (satFatDerivedG != null ? satFatDerivedG + 'g/day' : '—');
+        var satFatRow =
+          '<div class="fl-target-row">' +
+          '<span class="fl-targets-label">Saturated Fat</span>' +
+          '<div style="display:flex;align-items:center;gap:8px;flex:1">' +
+            '<input class="fl-targets-slider" type="range" min="0" max="10" step="1"' +
+              ' data-tkey="satFatPct"' +
+              ' value="' + satFatPct + '"' +
+              (satFatDisabled ? ' disabled style="opacity:0.4"' : '') + '>' +
+            '<span id="settings-slider-sat-fat-label" style="font-size:13px;color:var(--text-secondary);white-space:nowrap">' + satFatLiveLabel + '</span>' +
+          '</div>' +
+          '</div>';
+
         rowsEl.innerHTML = keys
           .map(function (f) {
             var val = targets[f.key] != null ? targets[f.key] : "";
-            return (
+            var html = (
               '<div class="fl-target-row">' +
               '<span class="fl-targets-label">' +
               f.label +
@@ -3572,8 +3593,39 @@
               '">' +
               "</div>"
             );
+            if (f.key === 'fatTarget') html += satFatRow;
+            return html;
           })
           .join("");
+
+        var sliderEl = rowsEl.querySelector('[data-tkey="satFatPct"]');
+        var sliderLabelEl = $("settings-slider-sat-fat-label");
+        if (sliderEl && sliderLabelEl) {
+          sliderEl.addEventListener('input', function () {
+            var pct = parseInt(sliderEl.value, 10);
+            var calInp = rowsEl.querySelector('[data-tkey="caloriesTarget"]');
+            var cal = calInp ? parseFloat(calInp.value) : null;
+            if (cal && cal > 0) {
+              var g = Math.round(cal * pct / 100 / 9 * 10) / 10;
+              sliderLabelEl.textContent = pct + '% · ' + g + 'g/day';
+            } else {
+              sliderLabelEl.textContent = pct + '%';
+            }
+          });
+          sliderEl.addEventListener('change', async function () {
+            var updated = {};
+            $$("[data-tkey]").forEach(function (i) {
+              var v = i.value.trim();
+              updated[i.dataset.tkey] = v !== "" ? Math.max(0, parseFloat(v) || 0) : null;
+            });
+            try {
+              await window.FoodLogData.saveTargets(userId, updated);
+              showToast("Settings updated.");
+            } catch (e) {
+              showToast("Couldn't save — check your connection.");
+            }
+          });
+        }
       }
     }
 
