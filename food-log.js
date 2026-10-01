@@ -804,7 +804,7 @@
 
     function macroEditRowHTML(label, key, unit) {
       var val = formState[key];
-      var display = val != null ? (Number.isInteger(val) ? val : Math.round(val * 10) / 10) : '';
+      var display = val != null ? val : '';
       return '<div class="fl-macro-edit-row">' +
         '<span class="fl-macro-edit-label">' + label + '</span>' +
         '<div class="fl-macro-edit-value-wrap">' +
