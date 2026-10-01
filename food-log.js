@@ -4,6 +4,8 @@
 
   var _A = window._App; // navigate, renders, $, $$, on, escHtml
 
+  function fmtMacro(v) { var r = Math.round(v * 10) / 10; return r === Math.floor(r) ? Math.floor(r) : r; }
+
   var COMPONENT_COLORS = ['#5b9bd5', '#e8a04b', '#6abf69', '#e8585e', '#9b7dd4', '#4bbfbf'];
   var CATEGORY_COLORS = {
     'breakfast':    { bg: 'var(--amber-bg)',  color: 'var(--amber-text)'  },
@@ -25,13 +27,13 @@
   // Core display primitive — accepts {calories, protein, carbs, fat, fiber, sodium}.
   function macroMetaFromValues(v) {
     var meta = [];
-    if (v.calories != null) meta.push(Math.round(v.calories) + ' kcal');
-    if (v.protein  != null) meta.push(Math.round(v.protein)  + 'g protein');
-    if (v.carbs    != null) meta.push(Math.round(v.carbs)    + 'g carbs');
-    if (v.fat      != null) meta.push(Math.round(v.fat)      + 'g fat');
-    if (v.satFat   != null) meta.push(Math.round(v.satFat * 10) / 10 + 'g sat fat');
-    if (v.fiber    != null) meta.push(Math.round(v.fiber)    + 'g fiber');
-    if (v.sodium   != null) meta.push(Math.round(v.sodium)   + 'mg sodium');
+    if (v.calories != null) meta.push(fmtMacro(v.calories) + ' kcal');
+    if (v.protein  != null) meta.push(fmtMacro(v.protein)  + 'g protein');
+    if (v.carbs    != null) meta.push(fmtMacro(v.carbs)    + 'g carbs');
+    if (v.fat      != null) meta.push(fmtMacro(v.fat)      + 'g fat');
+    if (v.satFat   != null) meta.push(fmtMacro(v.satFat)   + 'g sat fat');
+    if (v.fiber    != null) meta.push(fmtMacro(v.fiber)    + 'g fiber');
+    if (v.sodium   != null) meta.push(fmtMacro(v.sodium)   + 'mg sodium');
     return meta;
   }
 
@@ -130,16 +132,16 @@
   // ── Progress section ─────────────────────────────────────────────────────────
 
   function progressHTML(logs, targets) {
-    var cal  = Math.round(sumLogs(logs, 'calories'));
-    var pro  = Math.round(sumLogs(logs, 'protein'));
-    var carb = Math.round(sumLogs(logs, 'carbs'));
-    var fat  = Math.round(sumLogs(logs, 'fat'));
+    var cal  = fmtMacro(sumLogs(logs, 'calories'));
+    var pro  = fmtMacro(sumLogs(logs, 'protein'));
+    var carb = fmtMacro(sumLogs(logs, 'carbs'));
+    var fat  = fmtMacro(sumLogs(logs, 'fat'));
     var fib  = logs.some(function (l) { return l.fiber != null; })
-               ? Math.round(sumLogs(logs, 'fiber')) : null;
+               ? fmtMacro(sumLogs(logs, 'fiber')) : null;
     var sod  = logs.some(function (l) { return l.sodium != null; })
-               ? Math.round(sumLogs(logs, 'sodium')) : null;
+               ? fmtMacro(sumLogs(logs, 'sodium')) : null;
     var satFat = logs.some(function (l) { return l.satFat != null; })
-               ? Math.round(sumLogs(logs, 'satFat') * 10) / 10 : null;
+               ? fmtMacro(sumLogs(logs, 'satFat')) : null;
 
     var t = targets || {};
     var calTarget    = t.caloriesTarget;
@@ -226,13 +228,13 @@
     return '<div class="fl-timeline">' +
       logs.map(function (log) {
         var macroParts = [];
-        if (log.calories != null) macroParts.push(Math.round(log.calories) + ' kcal');
-        if (log.protein != null) macroParts.push(Math.round(log.protein) + 'g protein');
-        if (log.carbs   != null) macroParts.push(Math.round(log.carbs)   + 'g carbs');
-        if (log.fat     != null) macroParts.push(Math.round(log.fat)     + 'g fat');
-        if (log.satFat  != null) macroParts.push(Math.round(log.satFat * 10) / 10 + 'g sat fat');
-        if (log.fiber   != null) macroParts.push(Math.round(log.fiber)   + 'g fiber');
-        if (log.sodium  != null) macroParts.push(Math.round(log.sodium)  + 'mg sodium');
+        if (log.calories != null) macroParts.push(fmtMacro(log.calories) + ' kcal');
+        if (log.protein != null) macroParts.push(fmtMacro(log.protein) + 'g protein');
+        if (log.carbs   != null) macroParts.push(fmtMacro(log.carbs)   + 'g carbs');
+        if (log.fat     != null) macroParts.push(fmtMacro(log.fat)     + 'g fat');
+        if (log.satFat  != null) macroParts.push(fmtMacro(log.satFat)  + 'g sat fat');
+        if (log.fiber   != null) macroParts.push(fmtMacro(log.fiber)   + 'g fiber');
+        if (log.sodium  != null) macroParts.push(fmtMacro(log.sodium)  + 'mg sodium');
         var macroHTML = macroParts.map(function (p) {
           return '<span style="white-space:nowrap">' + _A.escHtml(p) + '</span>';
         }).join(' · ');
@@ -290,7 +292,7 @@
       '<div class="fl-active-batches-title">Active batches</div>' +
       batches.map(function (b) {
         var parts = [];
-        if (b.calories != null) parts.push(Math.round(b.calories) + ' kcal');
+        if (b.calories != null) parts.push(fmtMacro(b.calories) + ' kcal');
         parts.push(b.batchRemaining + ' serving' + (b.batchRemaining !== 1 ? 's' : '') + ' left');
         return '<div class="fl-active-batch-row">' +
           '<div class="fl-active-batch-info">' +
@@ -975,13 +977,13 @@
           '<input class="fl-estimated-name-input" type="text" id="fl-build-name" value="' + _A.escHtml(pc.name) + '">' +
         '</div>' +
         '<div class="fl-estimated-macros">' +
-          '<div class="fl-estimated-macro"><div class="fl-estimated-macro-val">' + Math.round(pc.calories) + '</div><div class="fl-estimated-macro-label">kcal</div></div>' +
-          '<div class="fl-estimated-macro"><div class="fl-estimated-macro-val">' + Math.round(pc.protein) + 'g</div><div class="fl-estimated-macro-label">protein</div></div>' +
-          '<div class="fl-estimated-macro"><div class="fl-estimated-macro-val">' + Math.round(pc.carbs) + 'g</div><div class="fl-estimated-macro-label">carbs</div></div>' +
-          '<div class="fl-estimated-macro"><div class="fl-estimated-macro-val">' + Math.round(pc.fat) + 'g</div><div class="fl-estimated-macro-label">fat</div></div>' +
-          (pc.satFat != null ? '<div class="fl-estimated-macro"><div class="fl-estimated-macro-val">' + pc.satFat + 'g</div><div class="fl-estimated-macro-label">sat fat</div></div>' : '') +
-          (pc.fiber  != null ? '<div class="fl-estimated-macro"><div class="fl-estimated-macro-val">' + Math.round(pc.fiber)  + 'g</div><div class="fl-estimated-macro-label">fiber</div></div>' : '') +
-          (pc.sodium != null ? '<div class="fl-estimated-macro"><div class="fl-estimated-macro-val">' + Math.round(pc.sodium) + 'mg</div><div class="fl-estimated-macro-label">sodium</div></div>' : '') +
+          '<div class="fl-estimated-macro"><div class="fl-estimated-macro-val">' + fmtMacro(pc.calories) + '</div><div class="fl-estimated-macro-label">kcal</div></div>' +
+          '<div class="fl-estimated-macro"><div class="fl-estimated-macro-val">' + fmtMacro(pc.protein) + 'g</div><div class="fl-estimated-macro-label">protein</div></div>' +
+          '<div class="fl-estimated-macro"><div class="fl-estimated-macro-val">' + fmtMacro(pc.carbs) + 'g</div><div class="fl-estimated-macro-label">carbs</div></div>' +
+          '<div class="fl-estimated-macro"><div class="fl-estimated-macro-val">' + fmtMacro(pc.fat) + 'g</div><div class="fl-estimated-macro-label">fat</div></div>' +
+          (pc.satFat != null ? '<div class="fl-estimated-macro"><div class="fl-estimated-macro-val">' + fmtMacro(pc.satFat) + 'g</div><div class="fl-estimated-macro-label">sat fat</div></div>' : '') +
+          (pc.fiber  != null ? '<div class="fl-estimated-macro"><div class="fl-estimated-macro-val">' + fmtMacro(pc.fiber)  + 'g</div><div class="fl-estimated-macro-label">fiber</div></div>' : '') +
+          (pc.sodium != null ? '<div class="fl-estimated-macro"><div class="fl-estimated-macro-val">' + fmtMacro(pc.sodium) + 'mg</div><div class="fl-estimated-macro-label">sodium</div></div>' : '') +
         '</div>' +
       '</div>';
     }
@@ -1471,12 +1473,15 @@
             var preview = document.getElementById('fl-per-serving-preview');
             if (preview) {
               var _n = formState.batchServings;
-              var _ps = function (v) { return v != null ? Math.round(v / _n) : null; };
+              var _ps = function (v) { return v != null ? fmtMacro(v / _n) : null; };
               var _parts = [];
               if (formState.calories != null) _parts.push('<span><span class="fl-ps-macro">' + _ps(formState.calories) + '</span> <span class="fl-ps-macro-lbl">kcal</span></span>');
               if (formState.protein  != null) _parts.push('<span><span class="fl-ps-macro">' + _ps(formState.protein)  + 'g</span> <span class="fl-ps-macro-lbl">protein</span></span>');
               if (formState.carbs    != null) _parts.push('<span><span class="fl-ps-macro">' + _ps(formState.carbs)    + 'g</span> <span class="fl-ps-macro-lbl">carbs</span></span>');
               if (formState.fat      != null) _parts.push('<span><span class="fl-ps-macro">' + _ps(formState.fat)      + 'g</span> <span class="fl-ps-macro-lbl">fat</span></span>');
+              if (formState.satFat   != null) _parts.push('<span><span class="fl-ps-macro">' + _ps(formState.satFat)   + 'g</span> <span class="fl-ps-macro-lbl">sat fat</span></span>');
+              if (formState.fiber    != null) _parts.push('<span><span class="fl-ps-macro">' + _ps(formState.fiber)    + 'g</span> <span class="fl-ps-macro-lbl">fiber</span></span>');
+              if (formState.sodium   != null) _parts.push('<span><span class="fl-ps-macro">' + _ps(formState.sodium)   + 'mg</span> <span class="fl-ps-macro-lbl">sodium</span></span>');
               var _numsEl = preview.querySelector('.fl-per-serving-nums');
               if (_numsEl) _numsEl.innerHTML = _parts.join('');
             }
