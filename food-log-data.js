@@ -29,7 +29,7 @@
       name: r.name, category: r.category || '',
       freeformInput: r.freeform_input || null,
       protein: r.protein, carbs: r.carbs, fat: r.fat, calories: r.calories,
-      fiber: r.fiber, sodium: r.sodium,
+      fiber: r.fiber, sodium: r.sodium, satFat: r.sat_fat != null ? r.sat_fat : null,
       libraryItemId: r.library_item_id || null,
       servingMultiplier: r.serving_multiplier || 1,
       aiEstimated: r.ai_estimated || false,
@@ -79,6 +79,7 @@
       calories:          entry.calories || 0,
       fiber:             entry.fiber   != null ? entry.fiber  : null,
       sodium:            entry.sodium  != null ? entry.sodium : null,
+      sat_fat:           entry.satFat  != null ? entry.satFat : null,
       library_item_id:   entry.libraryItemId   || null,
       serving_multiplier: entry.servingMultiplier || 1.0,
       ai_estimated:      entry.aiEstimated || false,
@@ -107,6 +108,7 @@
     if (fields.calories  !== undefined) body.calories  = fields.calories;
     if (fields.fiber     !== undefined) body.fiber     = fields.fiber;
     if (fields.sodium    !== undefined) body.sodium    = fields.sodium;
+    if (fields.satFat    !== undefined) body.sat_fat   = fields.satFat;
     if (fields.aiNotes       !== undefined) body.ai_notes        = fields.aiNotes;
     if (fields.aiEstimated   !== undefined) body.ai_estimated    = fields.aiEstimated;
     if (fields.components    !== undefined) body.components      = fields.components;
@@ -168,6 +170,7 @@
       fiberPerServing:    r.fiber_per_serving,
       sodiumPerServing:   r.sodium_per_serving,
       caffeinePerServing: r.caffeine_per_serving != null ? r.caffeine_per_serving : null,
+      satFatPerServing:   r.sat_fat_per_serving  != null ? r.sat_fat_per_serving  : null,
       servingSize:        r.serving_size != null ? r.serving_size : null,
       servingUnit:        r.serving_unit || null,
       createdAt:          r.created_at
@@ -201,6 +204,7 @@
       fiber_per_serving:    item.fiberPerServing    != null ? item.fiberPerServing    : null,
       sodium_per_serving:   item.sodiumPerServing   != null ? item.sodiumPerServing   : null,
       caffeine_per_serving: item.caffeinePerServing != null ? item.caffeinePerServing : null,
+      sat_fat_per_serving:  item.satFatPerServing   != null ? item.satFatPerServing   : null,
       serving_unit:         item.servingUnit || null,
       brand:                item.brand       || null,
       serving_size:         item.servingSize != null ? item.servingSize : null
@@ -230,6 +234,7 @@
     if (fields.isFuel             !== undefined) body.is_fuel              = fields.isFuel;
     if (fields.fuelType           !== undefined) body.category             = fields.fuelType;
     if (fields.caffeinePerServing !== undefined) body.caffeine_per_serving = fields.caffeinePerServing;
+    if (fields.satFatPerServing   !== undefined) body.sat_fat_per_serving  = fields.satFatPerServing;
     var rows = await req('PATCH',
       'food_library?id=eq.' + encodeURIComponent(id) + '&user_id=eq.' + encodeURIComponent(userId),
       body, 'return=representation'
@@ -255,6 +260,7 @@
       fatTarget:       r.fat_target,
       fiberTarget:     r.fiber_target,
       sodiumTarget:    r.sodium_target,
+      satFatPct:       r.sat_fat_pct != null ? r.sat_fat_pct : null,
       updatedAt:       r.updated_at
     };
   }
@@ -273,6 +279,7 @@
       fat_target:      targets.fatTarget      != null ? targets.fatTarget      : null,
       fiber_target:    targets.fiberTarget    != null ? targets.fiberTarget    : null,
       sodium_target:   targets.sodiumTarget   != null ? targets.sodiumTarget   : null,
+      sat_fat_pct:     targets.satFatPct      != null ? targets.satFatPct      : null,
       updated_at:      new Date().toISOString()
     }, 'return=representation,resolution=merge-duplicates');
     if (!rows || !rows[0]) throw new Error('saveTargets: no row returned');
@@ -324,8 +331,14 @@
       fat:      sc(item.fatPerServing),
       calories: sc(item.caloriesPerServing),
       fiber:    sc(item.fiberPerServing),
-      sodium:   sc(item.sodiumPerServing)
+      sodium:   sc(item.sodiumPerServing),
+      satFat:   sc(item.satFatPerServing)
     };
+  }
+
+  function satFatGTarget(targets) {
+    if (!targets || targets.satFatPct == null || !targets.caloriesTarget) return null;
+    return Math.round(targets.caloriesTarget * targets.satFatPct / 100 / 9 * 10) / 10;
   }
 
   // ── Exports ──────────────────────────────────────────────────────────────────
@@ -338,6 +351,7 @@
     getTargets: getTargets, saveTargets: saveTargets,
     parseMeal: parseMeal,
     scaleComponentMacros: scaleComponentMacros,
+    satFatGTarget: satFatGTarget,
     getActiveBatches: getActiveBatches,
     updateBatchRemaining: updateBatchRemaining,
     discardBatch: discardBatch,
