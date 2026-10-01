@@ -3427,6 +3427,7 @@
       if (item.fiberPerServing) parts.push(item.fiberPerServing + "g fiber");
       if (item.sodiumPerServing) parts.push(item.sodiumPerServing + "mg Na");
       if (item.fatPerServing) parts.push(item.fatPerServing + "g fat");
+      if (item.satFatPerServing != null) parts.push(item.satFatPerServing + "g sat fat");
       if (item.caffeinePerServing) parts.push(Math.round(item.caffeinePerServing) + "mg caff");
       return parts.join(" · ");
     }
