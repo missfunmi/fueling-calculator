@@ -31,6 +31,7 @@
     if (v.fat      != null) meta.push(Math.round(v.fat)      + 'g fat');
     if (v.fiber    != null) meta.push(Math.round(v.fiber)    + 'g fiber');
     if (v.sodium   != null) meta.push(Math.round(v.sodium)   + 'mg sodium');
+    if (v.satFat   != null) meta.push(Math.round(v.satFat * 10) / 10 + 'g sat fat');
     return meta;
   }
 
@@ -42,7 +43,8 @@
       carbs:    item.carbsPerServing,
       fat:      item.fatPerServing,
       fiber:    item.fiberPerServing,
-      sodium:   item.sodiumPerServing
+      sodium:   item.sodiumPerServing,
+      satFat:   item.satFatPerServing
     });
   }
 
@@ -136,13 +138,16 @@
                ? Math.round(sumLogs(logs, 'fiber')) : null;
     var sod  = logs.some(function (l) { return l.sodium != null; })
                ? Math.round(sumLogs(logs, 'sodium')) : null;
+    var satFat = logs.some(function (l) { return l.satFat != null; })
+               ? Math.round(sumLogs(logs, 'satFat') * 10) / 10 : null;
 
     var t = targets || {};
-    var calTarget  = t.caloriesTarget;
-    var proTarget  = t.proteinTarget;
-    var carbTarget = t.carbsTarget;
-    var fatTarget  = t.fatTarget;
-    var fibTarget  = t.fiberTarget;
+    var calTarget    = t.caloriesTarget;
+    var proTarget    = t.proteinTarget;
+    var carbTarget   = t.carbsTarget;
+    var fatTarget    = t.fatTarget;
+    var fibTarget    = t.fiberTarget;
+    var satFatTarget = window.FoodLogData.satFatGTarget(t);
 
     function calBarHTML() {
       if (!calTarget) {
@@ -176,6 +181,7 @@
       macroRowHTML('Carbs',   carb, carbTarget, 'var(--m-carbs)',   'g'),
       macroRowHTML('Fat',     fat,  fatTarget,  'var(--m-fat)',     'g')
     ];
+    if (satFat !== null || satFatTarget) rows.push(macroRowHTML('Saturated Fat', satFat != null ? satFat : 0, satFatTarget, 'var(--m-sat-fat)', 'g'));
     if (fib !== null || fibTarget) rows.push(macroRowHTML('Fiber', fib != null ? fib : 0, fibTarget, 'var(--m-fiber)', 'g'));
     if (sod !== null) rows.push(macroRowHTML('Sodium', sod, null, 'var(--m-sodium)', 'mg'));
 
@@ -783,6 +789,7 @@
       calories:    src ? (isLibraryEdit ? src.caloriesPerServing  : src.calories)  : (libraryOnlyMode ? null : 0),
       fiber:       src ? (isLibraryEdit ? src.fiberPerServing     : src.fiber)     : null,
       sodium:      src ? (isLibraryEdit ? src.sodiumPerServing    : src.sodium)    : null,
+      satFat:      src ? (isLibraryEdit ? src.satFatPerServing    : src.satFat)    : null,
       loggedAt:    isEdit ? entry.loggedAt : (state.date === todayStr() ? new Date().toISOString() : new Date(state.date + 'T12:00:00').toISOString()),
       aiEstimated: isEdit ? entry.aiEstimated : false,
       aiNotes:     isEdit ? entry.aiNotes    : null,
@@ -862,11 +869,12 @@
             '</div>' +
           '</div>' +
           macroEditRowHTML('Calories', 'calories', 'kcal') +
-          macroEditRowHTML('Protein',  'protein',  'g') +
-          macroEditRowHTML('Carbs',    'carbs',    'g') +
-          macroEditRowHTML('Fat',      'fat',      'g') +
-          macroEditRowHTML('Fiber',    'fiber',    'g') +
-          macroEditRowHTML('Sodium',   'sodium',   'mg') +
+          macroEditRowHTML('Protein',       'protein',  'g') +
+          macroEditRowHTML('Carbs',         'carbs',    'g') +
+          macroEditRowHTML('Fat',           'fat',      'g') +
+          macroEditRowHTML('Saturated Fat', 'satFat',   'g') +
+          macroEditRowHTML('Fiber',         'fiber',    'g') +
+          macroEditRowHTML('Sodium',        'sodium',   'mg') +
         '</div>';
       }
 
@@ -900,12 +908,13 @@
               '<span class="fl-servings-unit">portions</span>' +
             '</div>'
           : '') +
-        macroEditRowHTML('Calories', 'calories', 'kcal') +
-        macroEditRowHTML('Protein',  'protein',  'g') +
-        macroEditRowHTML('Carbs',    'carbs',    'g') +
-        macroEditRowHTML('Fat',      'fat',      'g') +
-        macroEditRowHTML('Fiber',    'fiber',    'g') +
-        macroEditRowHTML('Sodium',   'sodium',   'mg') +
+        macroEditRowHTML('Calories',      'calories', 'kcal') +
+        macroEditRowHTML('Protein',       'protein',  'g') +
+        macroEditRowHTML('Carbs',         'carbs',    'g') +
+        macroEditRowHTML('Fat',           'fat',      'g') +
+        macroEditRowHTML('Saturated Fat', 'satFat',   'g') +
+        macroEditRowHTML('Fiber',         'fiber',    'g') +
+        macroEditRowHTML('Sodium',        'sodium',   'mg') +
         perServingPreviewHTML() +
         (isEdit ? (function() {
           var _linkedLib = entry && entry.libraryItemId
@@ -1489,6 +1498,7 @@
             formState.calories         = result.calories;
             formState.fiber            = result.fiber;
             formState.sodium           = result.sodium;
+            formState.satFat           = result.sat_fat != null ? result.sat_fat : null;
             formState.aiEstimated      = result.ai_estimated;
             formState.aiNotes          = result.ai_notes;
             formState.libraryItemId    = result.library_item_id;
@@ -1585,7 +1595,8 @@
                 servingUnit: formState.servingUnit || null,
                 proteinPerServing: formState.protein, carbsPerServing: formState.carbs,
                 fatPerServing: formState.fat, caloriesPerServing: formState.calories,
-                fiberPerServing: formState.fiber, sodiumPerServing: formState.sodium
+                fiberPerServing: formState.fiber, sodiumPerServing: formState.sodium,
+                satFatPerServing: formState.satFat
               });
               state.editingEntry = null;
               _A.navigate('library', { libraryTab: 'food' });
@@ -1597,6 +1608,7 @@
                 protein: formState.protein, carbs: formState.carbs,
                 fat: formState.fat, calories: formState.calories,
                 fiber: formState.fiber, sodium: formState.sodium,
+                satFat: formState.satFat,
                 aiEstimated: formState.aiEstimated, aiNotes: formState.aiNotes
               };
               var _szRaw = formState.logServingSize;
@@ -1619,7 +1631,8 @@
                 servingUnit: formState.servingUnit || null,
                 proteinPerServing: formState.protein, carbsPerServing: formState.carbs,
                 fatPerServing: formState.fat, caloriesPerServing: formState.calories,
-                fiberPerServing: formState.fiber, sodiumPerServing: formState.sodium
+                fiberPerServing: formState.fiber, sodiumPerServing: formState.sodium,
+                satFatPerServing: formState.satFat
               });
               state.editingEntry = null;
               _A.navigate('library', { libraryTab: 'food' });
@@ -1641,6 +1654,7 @@
                 calories: _N > 1 ? _divN(formState.calories) : formState.calories,
                 fiber:    _N > 1 ? _divN(formState.fiber)    : formState.fiber,
                 sodium:   _N > 1 ? _divN(formState.sodium)   : formState.sodium,
+                satFat:   _N > 1 ? _divN(formState.satFat)   : formState.satFat,
                 libraryItemId: formState.libraryItemId,
                 servingMultiplier: formState.servingMultiplier,
                 aiEstimated: formState.aiEstimated, aiNotes: formState.aiNotes,
@@ -1655,6 +1669,7 @@
                   proteinPerServing: formState.protein, carbsPerServing: formState.carbs,
                   fatPerServing: formState.fat, caloriesPerServing: formState.calories,
                   fiberPerServing: formState.fiber, sodiumPerServing: formState.sodium,
+                  satFatPerServing: formState.satFat,
                   servingSize: parseFloat(libSizeVal),
                   servingUnit: servingUnit
                 });

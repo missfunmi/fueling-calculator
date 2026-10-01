@@ -1577,6 +1577,7 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   --m-fat:     #6d28d9;
   --m-fiber:   #1a7a31;
   --m-sodium:  #0e6674;
+  --m-sat-fat: #e8a838;
 }
 
 /* Date navigation */
