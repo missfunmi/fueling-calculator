@@ -878,7 +878,7 @@
       var n = formState.batchServings || 1;
       function perServingPreviewHTML() {
         if (n <= 1) return '';
-        function ps(v) { return v != null ? Math.round(v / n) : null; }
+        function ps(v) { return v != null ? Math.round(v / n * 10) / 10 : null; }
         var parts = [];
         if (formState.calories != null) parts.push('<span><span class="fl-ps-macro">' + ps(formState.calories) + '</span> <span class="fl-ps-macro-lbl">kcal</span></span>');
         if (formState.protein  != null) parts.push('<span><span class="fl-ps-macro">' + ps(formState.protein)  + 'g</span> <span class="fl-ps-macro-lbl">protein</span></span>');
