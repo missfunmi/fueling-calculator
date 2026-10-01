@@ -29,9 +29,9 @@
     if (v.protein  != null) meta.push(Math.round(v.protein)  + 'g protein');
     if (v.carbs    != null) meta.push(Math.round(v.carbs)    + 'g carbs');
     if (v.fat      != null) meta.push(Math.round(v.fat)      + 'g fat');
+    if (v.satFat   != null) meta.push(Math.round(v.satFat * 10) / 10 + 'g sat fat');
     if (v.fiber    != null) meta.push(Math.round(v.fiber)    + 'g fiber');
     if (v.sodium   != null) meta.push(Math.round(v.sodium)   + 'mg sodium');
-    if (v.satFat   != null) meta.push(Math.round(v.satFat * 10) / 10 + 'g sat fat');
     return meta;
   }
 
