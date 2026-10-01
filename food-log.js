@@ -17,6 +17,7 @@
     'chew':         { bg: 'var(--red-bg)',    color: 'var(--red-text)'    },
     'drink_powder': { bg: 'var(--red-bg)',    color: 'var(--red-text)'    },
     'liquid':       { bg: 'var(--red-bg)',    color: 'var(--red-text)'    },
+    'drink':        { bg: 'var(--blue-bg)',   color: 'var(--blue-text)'   },
     'snack':        { bg: 'var(--green-bg)',  color: 'var(--green-text)'  },
     'pre-workout':  { bg: 'var(--red-bg)',    color: 'var(--red-text)'    },
     'post-workout': { bg: 'var(--green-bg)',  color: 'var(--green-text)'  }
@@ -327,7 +328,7 @@
   }
 
   function servingPickerSheetHTML(entry) {
-    var cats = ['Breakfast', 'Lunch', 'Dinner', 'Fuel', 'Snack'];
+    var cats = ['Breakfast', 'Lunch', 'Dinner', 'Fuel', 'Snack', 'Drink'];
     return '<div class="fl-sheet-overlay" id="fl-serving-overlay">' +
       '<div class="fl-sheet">' +
         '<div class="fl-sheet-handle"></div>' +
@@ -1033,7 +1034,7 @@
       '</div>';
     }
 
-    var categories = ['Breakfast', 'Lunch', 'Dinner', 'Fuel', 'Snack'];
+    var categories = ['Breakfast', 'Lunch', 'Dinner', 'Fuel', 'Snack', 'Drink'];
 
     function categoryChipsHTML() {
       return '<div class="fl-category-chips">' +
