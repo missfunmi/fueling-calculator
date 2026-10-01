@@ -547,12 +547,6 @@
       });
     }
 
-    // Gear icon → settings (onclick replaces handler on each render)
-    _A.$('btn-food-log-targets').onclick = function () {
-      _A.state.settingsReturnView = 'food-log';
-      _A.navigate('settings');
-    };
-
     // FAB → new entry
     _A.on(_A.$('fl-fab'), 'click', function () {
       state.editingEntry = null;
@@ -1724,111 +1718,10 @@
 
   // ── Targets settings ─────────────────────────────────────────────────────────
 
-  async function renderFoodLogTargets() {
-    var $body = _A.$('food-log-targets-body');
-    $body.innerHTML = '<div style="padding:32px;text-align:center;color:var(--text-tertiary)">Loading…</div>';
-
-    var userId = localStorage.getItem('fuelPlanner.userId');
-    var targets;
-    try {
-      targets = await FoodLogData.getTargets(userId) || {};
-    } catch (e) {
-      $body.innerHTML = '<div style="padding:24px;color:var(--text-secondary)">Couldn\'t load targets.</div>';
-      return;
-    }
-
-    function inputRow(label, key, placeholder) {
-      var val = targets[key] != null ? targets[key] : '';
-      return '<div class="fl-target-row">' +
-        '<span class="fl-targets-label">' + label + '</span>' +
-        '<input class="fl-targets-input" type="number" min="0" data-key="' + key + '" value="' + val + '" placeholder="' + placeholder + '">' +
-      '</div>';
-    }
-
-    function sliderRow(label, key, pct, caloriesTarget) {
-      var val = pct != null ? pct : 6;
-      var disabled = !caloriesTarget;
-      var derivedG = (!disabled && pct != null)
-        ? Math.round(caloriesTarget * pct / 100 / 9 * 10) / 10
-        : null;
-      var liveLabel = disabled
-        ? val + '%'
-        : val + '% · ' + (derivedG != null ? derivedG + 'g/day' : '—');
-      return '<div class="fl-target-row">' +
-        '<span class="fl-targets-label">' + label + '</span>' +
-        '<div style="display:flex;align-items:center;gap:8px;flex:1">' +
-          '<input class="fl-targets-slider" type="range" min="0" max="10" step="1"' +
-            ' data-key="' + key + '"' +
-            ' value="' + val + '"' +
-            (disabled ? ' disabled style="opacity:0.4"' : '') + '>' +
-          '<span id="fl-slider-sat-fat-label" style="font-size:13px;color:var(--text-secondary);white-space:nowrap">' + liveLabel + '</span>' +
-        '</div>' +
-      '</div>';
-    }
-
-    $body.innerHTML =
-      '<p style="padding:16px 16px 8px;font-size:14px;color:var(--text-secondary)">Leave a field blank to hide its progress bar.</p>' +
-      '<div style="border:1px solid var(--border);border-radius:var(--radius-md);margin:0 16px">' +
-        inputRow('Calories', 'caloriesTarget', 'kcal/day') +
-        inputRow('Protein',  'proteinTarget',  'g/day') +
-        inputRow('Carbs',    'carbsTarget',    'g/day') +
-        inputRow('Fat',      'fatTarget',      'g/day') +
-        sliderRow('Saturated Fat', 'satFatPct', targets.satFatPct, targets.caloriesTarget) +
-        inputRow('Fiber',    'fiberTarget',    'g/day') +
-        inputRow('Sodium',   'sodiumTarget',   'mg/day') +
-      '</div>' +
-      '<div style="padding:16px">' +
-        '<button id="fl-targets-save" class="btn-primary" style="width:100%">Save</button>' +
-      '</div>';
-
-    _A.on(_A.$('fl-targets-save'), 'click', async function () {
-      var btn = _A.$('fl-targets-save');
-      btn.disabled = true;
-      btn.textContent = 'Saving…';
-
-      var updated = {};
-      _A.$$('[data-key]', $body).forEach(function (input) {
-        var val = input.value.trim();
-        updated[input.dataset.key] = val !== '' ? Math.max(0, parseFloat(val) || 0) : null;
-      });
-
-      try {
-        await FoodLogData.saveTargets(userId, updated);
-        state.targets = updated;
-        _A.navigate('food-log');
-      } catch (e) {
-        btn.disabled = false;
-        btn.textContent = 'Save';
-        alert('Could not save targets — check your connection.');
-      }
-    });
-
-    var sliderEl = $body.querySelector('[data-key="satFatPct"]');
-    var sliderLabelEl = _A.$('fl-slider-sat-fat-label');
-    if (sliderEl && sliderLabelEl) {
-      _A.on(sliderEl, 'input', function () {
-        var pct = parseInt(sliderEl.value, 10);
-        var calInput = $body.querySelector('[data-key="caloriesTarget"]');
-        var cal = calInput ? parseFloat(calInput.value) : null;
-        if (cal && cal > 0) {
-          var g = Math.round(cal * pct / 100 / 9 * 10) / 10;
-          sliderLabelEl.textContent = pct + '% · ' + g + 'g/day';
-        } else {
-          sliderLabelEl.textContent = pct + '%';
-        }
-      });
-    }
-
-    _A.on(_A.$('btn-flt-back'), 'click', function () {
-      _A.navigate('food-log');
-    });
-  }
-
   // ── Register ─────────────────────────────────────────────────────────────────
 
   _A.renders['food-log'] = renderFoodLog;
   _A.renders['food-log-entry']   = renderFoodLogEntry;
-  _A.renders['food-log-targets'] = renderFoodLogTargets;
 
   window.FoodLog = {
     renderFoodLog: renderFoodLog,

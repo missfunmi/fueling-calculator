@@ -180,8 +180,7 @@
       view === "claim" ||
       view === "recovery" ||
       view === "settings" ||
-      view === "food-log-entry" ||
-      view === "food-log-targets";
+      view === "food-log-entry";
     var tabBar = $("tab-bar");
     if (tabBar) tabBar.style.display = hideTabBar ? "none" : "";
 
