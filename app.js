@@ -3288,6 +3288,7 @@
           caloriesPerServing: $("oo-calories").value !== '' ? Number($("oo-calories").value) : null,
           proteinPerServing:  $("oo-protein").value  !== '' ? Number($("oo-protein").value)  : null,
           fatPerServing:      $("oo-fat").value      !== '' ? Number($("oo-fat").value)      : null,
+          satFatPerServing:   $("oo-sat-fat").value  !== '' ? Number($("oo-sat-fat").value)  : null,
           fiberPerServing:    $("oo-fiber").value    !== '' ? Number($("oo-fiber").value)    : null,
         };
         await window.FoodLogData.saveLibraryItem(userId, libItem);
@@ -3337,6 +3338,8 @@
       $("oo-calories").value = calories > 0 ? calories : '';
       $("oo-protein").value  = protein  > 0 ? protein  : '';
       $("oo-fat").value      = fat      > 0 ? fat      : '';
+      var satFat = Math.round(parsed.sat_fat || 0);
+      $("oo-sat-fat").value  = satFat   > 0 ? satFat   : '';
       $("oo-fiber").value    = fiber    > 0 ? fiber    : '';
       var details = $("adhoc-manual-details");
       if (details) details.open = true;
