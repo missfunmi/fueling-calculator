@@ -213,6 +213,8 @@
 
   // ── Food Log Markdown ────────────────────────────────────────────────────────
 
+  function fmtMacro(v) { var r = Math.round(v * 10) / 10; return r === Math.floor(r) ? Math.floor(r) : r; }
+
   var MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   var DAY_LONG = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   var FOOD_CAT_ORDER = ['breakfast','pre-workout','lunch','snack','dinner','post-workout','fuel'];
@@ -256,12 +258,13 @@
     }
     var trimmedDates = firstIdx >= 0 ? allDates.slice(firstIdx, lastIdx + 1) : [];
 
-    // Determine if sodium/fiber columns needed
-    var showSodium = false, showFiber = false;
+    // Determine if sodium/fiber/satFat columns needed
+    var showSodium = false, showFiber = false, showSatFat = false;
     Object.keys(logsByDate).forEach(function (dateKey) {
       (logsByDate[dateKey] || []).forEach(function (log) {
         if (log.sodium != null) showSodium = true;
-        if (log.fiber != null) showFiber = true;
+        if (log.fiber  != null) showFiber  = true;
+        if (log.satFat != null) showSatFat = true;
       });
     });
 
@@ -283,7 +286,7 @@
 
     var lines = [title, ''];
 
-    var grandCal = 0, grandProtein = 0, grandCarbs = 0, grandFat = 0;
+    var grandCal = 0, grandProtein = 0, grandCarbs = 0, grandFat = 0, grandSatFat = null;
 
     trimmedDates.forEach(function (dateStr) {
       var d = parseDateLocal(dateStr);
@@ -299,7 +302,7 @@
         return;
       }
 
-      var dayCal = 0, dayProtein = 0, dayCarbs = 0, dayFat = 0;
+      var dayCal = 0, dayProtein = 0, dayCarbs = 0, dayFat = 0, daySatFat = null;
 
       var sortedEntries = dayEntries.slice().sort(function (a, b) {
         return new Date(a.loggedAt) - new Date(b.loggedAt);
@@ -307,8 +310,9 @@
 
       var header = '| Time | Category | Item | Cal | Protein | Carbs | Fat |';
       var divider = '|------|----------|------|-----|---------|-------|-----|';
-      if (showSodium) { header += ' Sodium |'; divider += '--------|'; }
-      if (showFiber)  { header += ' Fiber |';  divider += '-------|'; }
+      if (showSatFat) { header += ' Sat Fat |'; divider += '---------|'; }
+      if (showSodium) { header += ' Sodium |';  divider += '--------|'; }
+      if (showFiber)  { header += ' Fiber |';   divider += '-------|'; }
       lines.push(header);
       lines.push(divider);
 
@@ -318,20 +322,24 @@
         var timeStr = (h % 12 || 12) + ':' + m + ' ' + (h >= 12 ? 'PM' : 'AM');
         var cat = log.category || 'other';
         var catLabel = cat.charAt(0).toUpperCase() + cat.slice(1);
-        var row = '| ' + timeStr + ' | ' + catLabel + ' | ' + (log.name || '') + ' | ' + Math.round(log.calories || 0) + ' | ' + Math.round(log.protein || 0) + 'g | ' + Math.round(log.carbs || 0) + 'g | ' + Math.round(log.fat || 0) + 'g |';
-        if (showSodium) row += ' ' + (log.sodium != null ? Math.round(log.sodium) + 'mg' : '—') + ' |';
-        if (showFiber)  row += ' ' + (log.fiber  != null ? Math.round(log.fiber)  + 'g'  : '—') + ' |';
+        var row = '| ' + timeStr + ' | ' + catLabel + ' | ' + (log.name || '') + ' | ' + fmtMacro(log.calories || 0) + ' | ' + fmtMacro(log.protein || 0) + 'g | ' + fmtMacro(log.carbs || 0) + 'g | ' + fmtMacro(log.fat || 0) + 'g |';
+        if (showSatFat) row += ' ' + (log.satFat != null ? fmtMacro(log.satFat) + 'g' : '—') + ' |';
+        if (showSodium) row += ' ' + (log.sodium != null ? fmtMacro(log.sodium) + 'mg' : '—') + ' |';
+        if (showFiber)  row += ' ' + (log.fiber  != null ? fmtMacro(log.fiber)  + 'g'  : '—') + ' |';
         lines.push(row);
 
         dayCal     += (log.calories || 0);
         dayProtein += (log.protein  || 0);
         dayCarbs   += (log.carbs    || 0);
         dayFat     += (log.fat      || 0);
+        if (log.satFat != null) { daySatFat = (daySatFat || 0) + log.satFat; }
       });
 
       lines.push('');
 
-      lines.push((isMultiDay ? '**Day total:**' : '**Total:**') + ' ' + Math.round(dayCal) + ' kcal · ' + Math.round(dayProtein) + 'g protein · ' + Math.round(dayCarbs) + 'g carbs · ' + Math.round(dayFat) + 'g fat');
+      var dayTotalLine = (isMultiDay ? '**Day total:**' : '**Total:**') + ' ' + fmtMacro(dayCal) + ' kcal · ' + fmtMacro(dayProtein) + 'g protein · ' + fmtMacro(dayCarbs) + 'g carbs · ' + fmtMacro(dayFat) + 'g fat';
+      if (daySatFat != null) dayTotalLine += ' · ' + fmtMacro(daySatFat) + 'g sat fat';
+      lines.push(dayTotalLine);
       lines.push('');
       if (isMultiDay) {
         lines.push('---');
@@ -343,11 +351,14 @@
         grandProtein += dayProtein;
         grandCarbs   += dayCarbs;
         grandFat     += dayFat;
+        if (daySatFat != null) { grandSatFat = (grandSatFat || 0) + daySatFat; }
       }
     });
 
     if (isMultiDay && trimmedDates.length > 0) {
-      lines.push('**Total:** ' + Math.round(grandCal) + ' kcal · ' + Math.round(grandProtein) + 'g protein · ' + Math.round(grandCarbs) + 'g carbs · ' + Math.round(grandFat) + 'g fat');
+      var grandTotalLine = '**Total:** ' + fmtMacro(grandCal) + ' kcal · ' + fmtMacro(grandProtein) + 'g protein · ' + fmtMacro(grandCarbs) + 'g carbs · ' + fmtMacro(grandFat) + 'g fat';
+      if (grandSatFat != null) grandTotalLine += ' · ' + fmtMacro(grandSatFat) + 'g sat fat';
+      lines.push(grandTotalLine);
       lines.push('');
     }
 
