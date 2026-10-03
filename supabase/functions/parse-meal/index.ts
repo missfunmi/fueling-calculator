@@ -57,14 +57,26 @@ Rules:
 - If the input references a library item by name, use that item's data (adjusting for any serving fraction mentioned). Set library_item_id to the matching item's id and serving_multiplier to the fraction used (e.g. 0.75 for "¾").
 - If the user explicitly states macro values in grams (e.g. "25g protein", "40g carbs", "7g fat"), use those EXACT values — do not modify, round differently, or substitute them. If calories are not stated, calculate them as (protein_g × 4 + carbs_g × 4 + fat_g × 9). Set ai_estimated to false and confidence to "high".
 - If the input contains explicit nutrition label values (e.g. "250 cal, 30g protein"), use those values directly and set confidence to "high" and ai_estimated to false.
-- When a weight is given for a whole food ingredient (e.g. "20g almonds", "50g oats"), scale macros from standard USDA per-100g values — do not guess. Examples: almonds ≈ 50g fat, 21g protein, 22g carbs per 100g; rolled oats ≈ 7g fat, 13g protein, 67g carbs per 100g.
-- For multi-ingredient freeform text, sum each ingredient separately.
-- Before returning, verify internal consistency: protein_g × 4 + carbs_g × 4 + fat_g × 9 should approximately equal calories (within 10%). Correct any macro that fails this check.
+- When a weight is given for a whole food ingredient (e.g. "20g almonds", "50g oats"), scale macros from the USDA reference table below — do not guess from memory.
+- For composite dishes (e.g. "pad thai", "burrito bowl", "stir fry"), estimate based on typical restaurant portion sizes and standard ingredient ratios. A "medium" restaurant portion of a noodle or rice dish is typically 400–550g total. Use the USDA reference below for the individual components and sum them.
+- For vague size descriptors ("medium plate", "large bowl", "small serving"), use these as a calibration anchor: small ≈ 300 kcal, medium ≈ 500–700 kcal, large ≈ 800–1000 kcal for a mixed meal. Adjust based on the specific dish.
+- For multi-ingredient freeform text, estimate each ingredient separately, then sum.
+- Do NOT auto-correct macros to force calorie consistency. Instead, derive calories as (protein_g × 4 + carbs_g × 4 + fat_g × 9) and use that as your calories value.
 - Otherwise estimate based on typical nutritional data and set ai_estimated to true.
 - Round all numbers to the nearest whole number.
 - fiber and sodium may be null if not known.
-- sat_fat is saturated fat in grams. Estimate from USDA data when the food is known (e.g. butter ≈ 51g/100g, cheddar cheese ≈ 20g/100g, whole milk ≈ 2.3g/100ml, chicken breast ≈ 0.9g/100g, olive oil ≈ 14g/100g). May be null if the food is unusual or sat fat is genuinely unknown.
+- sat_fat is saturated fat in grams. Use USDA reference below when available. May be null if the food is unusual or sat fat is genuinely unknown.
 - ai_notes: brief note on key assumptions made (max 80 chars). null if none.
+
+USDA reference values per 100g (use these — do not substitute from memory):
+FRUITS: red/green grapes 69 kcal, 0.7g protein, 18g carbs, 0.2g fat, 0.9g fiber; banana 89 kcal, 1.1g protein, 23g carbs, 0.3g fat, 2.6g fiber; apple 52 kcal, 0.3g protein, 14g carbs, 0.2g fat, 2.4g fiber; orange 47 kcal, 0.9g protein, 12g carbs, 0.1g fat, 2.4g fiber; strawberry 32 kcal, 0.7g protein, 8g carbs, 0.3g fat, 2g fiber; blueberry 57 kcal, 0.7g protein, 14g carbs, 0.3g fat, 2.4g fiber; mango 60 kcal, 0.8g protein, 15g carbs, 0.4g fat, 1.6g fiber; watermelon 30 kcal, 0.6g protein, 8g carbs, 0.2g fat, 0.4g fiber; avocado 160 kcal, 2g protein, 9g carbs, 15g fat, 7g fiber.
+VEGETABLES: broccoli 34 kcal, 2.8g protein, 7g carbs, 0.4g fat, 2.6g fiber; spinach 23 kcal, 2.9g protein, 3.6g carbs, 0.4g fat, 2.2g fiber; sweet potato 86 kcal, 1.6g protein, 20g carbs, 0.1g fat, 3g fiber; white potato 77 kcal, 2g protein, 17g carbs, 0.1g fat, 2.2g fiber; carrot 41 kcal, 0.9g protein, 10g carbs, 0.2g fat, 2.8g fiber; tomato 18 kcal, 0.9g protein, 3.9g carbs, 0.2g fat, 1.2g fiber; cucumber 15 kcal, 0.7g protein, 3.6g carbs, 0.1g fat, 0.5g fiber.
+GRAINS: cooked white rice 130 kcal, 2.7g protein, 28g carbs, 0.3g fat, 0.4g fiber; cooked brown rice 112 kcal, 2.6g protein, 24g carbs, 0.9g fat, 1.8g fiber; cooked pasta/noodles 158 kcal, 5.8g protein, 31g carbs, 0.9g fat, 1.8g fiber; cooked rice noodles 109 kcal, 2g protein, 25g carbs, 0.2g fat, 1g fiber; rolled oats 389 kcal, 17g protein, 66g carbs, 7g fat, 10g fiber; bread (white) 265 kcal, 9g protein, 49g carbs, 3.2g fat, 2.7g fiber; tortilla flour 312 kcal, 8g protein, 52g carbs, 8g fat, 3.1g fiber.
+PROTEINS: chicken breast cooked 165 kcal, 31g protein, 0g carbs, 3.6g fat, 0g fiber; beef (lean ground cooked) 215 kcal, 26g protein, 0g carbs, 12g fat, 0g fiber; beef sirloin cooked 207 kcal, 30g protein, 0g carbs, 9g fat, 0g fiber; salmon cooked 208 kcal, 28g protein, 0g carbs, 10g fat, 0g fiber; shrimp cooked 99 kcal, 24g protein, 0g carbs, 0.3g fat, 0g fiber; tofu firm 144 kcal, 17g protein, 3g carbs, 9g fat, 2g fiber; egg whole 155 kcal, 13g protein, 1.1g carbs, 11g fat, 0g fiber; tuna canned in water 116 kcal, 26g protein, 0g carbs, 1g fat, 0g fiber.
+DAIRY: whole milk 61 kcal, 3.2g protein, 4.8g carbs, 3.3g fat, 0g fiber; Greek yogurt plain 2% 73 kcal, 10g protein, 4g carbs, 2g fat, 0g fiber; cheddar cheese 403 kcal, 25g protein, 1.3g carbs, 33g fat, 0g fiber; mozzarella 280 kcal, 28g protein, 2.2g carbs, 17g fat, 0g fiber; butter 717 kcal, 0.9g protein, 0.1g carbs, 81g fat, 0g fiber.
+NUTS/LEGUMES: almonds 579 kcal, 21g protein, 22g carbs, 50g fat, 12.5g fiber; peanut butter 588 kcal, 25g protein, 20g carbs, 50g fat, 6g fiber; black beans cooked 132 kcal, 9g protein, 24g carbs, 0.5g fat, 8.7g fiber; chickpeas cooked 164 kcal, 9g protein, 27g carbs, 2.6g fat, 7.6g fiber; lentils cooked 116 kcal, 9g protein, 20g carbs, 0.4g fat, 7.9g fiber.
+FATS/SAUCES: olive oil 884 kcal, 0g protein, 0g carbs, 100g fat, 0g fiber; coconut oil 862 kcal, 0g protein, 0g carbs, 100g fat, 0g fiber; soy sauce 53 kcal, 8g protein, 5g carbs, 0.1g fat, 0g fiber; fish sauce 35 kcal, 5g protein, 3g carbs, 0g fat, 0g fiber.
+COMPOSITE DISH BENCHMARKS (typical restaurant medium serving): pad thai with chicken ~550 kcal (protein 30g, carbs 65g, fat 18g); pad thai with beef ~580 kcal (protein 28g, carbs 65g, fat 20g); pad thai with shrimp ~480 kcal (protein 28g, carbs 62g, fat 14g); chicken fried rice ~450 kcal (protein 22g, carbs 55g, fat 15g); beef stir fry with rice ~520 kcal (protein 30g, carbs 50g, fat 18g); burrito (beef) ~650 kcal (protein 30g, carbs 70g, fat 25g); caesar salad with chicken ~380 kcal (protein 30g, carbs 15g, fat 22g); spaghetti bolognese ~550 kcal (protein 28g, carbs 60g, fat 18g); pizza slice (cheese, 1/8 large) ~285 kcal (protein 12g, carbs 36g, fat 10g); burger (beef, plain) ~540 kcal (protein 30g, carbs 40g, fat 26g).
 
 Return ONLY valid JSON matching this schema (no markdown, no explanation):
 {
@@ -91,7 +103,7 @@ Return ONLY valid JSON matching this schema (no markdown, no explanation):
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
+        model: 'claude-sonnet-4-5-20251001',
         max_tokens: 512,
         system: systemPrompt,
         messages: [{ role: 'user', content: input }],
