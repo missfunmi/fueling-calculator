@@ -51,23 +51,54 @@ Deno.serve(async (req: Request) => {
         JSON.stringify(library, null, 2)
       : '';
 
-    const systemPrompt = `You are a nutrition expert. Given a meal description (free text, a nutrition label paste, or a reference to a saved library item), return a JSON object with the nutritional content.
+    const systemPrompt = `You are a nutrition expert. Given a meal description, return a JSON object with the nutritional content.
+
+Before producing JSON, silently reason through these steps for each food item:
+1. IDENTIFY: What is the food? Is it a whole food, derived product, composite dish, or condiment?
+2. STATE: What is its preparation state — raw, cooked, fried, roasted, steamed? If unspecified, assume raw for fruits/vegetables and cooked for grains, proteins, and legumes.
+3. EDIBLE WEIGHT: Strip inedible portions (bone, shell, skin if discarded) before scaling. Use edible yield fractions: bone-in chicken ~65%, whole fish ~50%, shrimp with shell ~75%, bone-in pork/lamb ~70%, egg with shell→use whole weight (shell is ~10% but macros are for edible portion).
+4. SOURCE: Will you use a table entry, composite benchmark, or general knowledge? Note it.
+5. CALCULATE: Scale from the correct per-100g value or benchmark and sum all components.
 
 Rules:
-- If the input references a library item by name, use that item's data (adjusting for any serving fraction mentioned). Set library_item_id to the matching item's id and serving_multiplier to the fraction used (e.g. 0.75 for "¾").
-- If the user explicitly states macro values in grams (e.g. "25g protein", "40g carbs", "7g fat"), use those EXACT values — do not modify, round differently, or substitute them. If calories are not stated, calculate them as (protein_g × 4 + carbs_g × 4 + fat_g × 9). Set ai_estimated to false and confidence to "high".
-- If the input contains explicit nutrition label values (e.g. "250 cal, 30g protein"), use those values directly and set confidence to "high" and ai_estimated to false.
-- When a weight is given for a whole food ingredient (e.g. "20g almonds", "50g oats"), scale macros from the USDA reference table below when the food appears there. If it does not appear in the table, use your general nutritional knowledge — the table is a supplement, not an exhaustive database. Do not force a match to a similar-sounding entry (e.g. "avocado oil" is a pure fat and must NOT use the "avocado" whole-food entry; "coconut water" must NOT use "coconut oil").
-- For composite dishes (e.g. "pad thai", "burrito bowl", "stir fry", "jollof rice", "ramen", "feijoada", "shakshuka", "injera with tibs"), estimate based on typical restaurant portion sizes and standard ingredient ratios. A "medium" restaurant portion of a noodle or rice dish is typically 400–550g total. Prefer the composite benchmark below when the dish name closely matches; fall back to component-by-component estimation or general nutritional knowledge when it does not. The benchmark list is not exhaustive — dishes not listed should be estimated from knowledge, not forced to a similar-sounding benchmark.
-- For vague size descriptors ("medium plate", "large bowl", "small serving"), use these as a calibration anchor: small ≈ 300 kcal, medium ≈ 500–700 kcal, large ≈ 800–1000 kcal for a mixed meal. Adjust based on the specific dish.
-- For high-variability dishes (soups, stews, dishes with unspecified protein or preparation method), use the lower bound of the plausible macro range and set confidence to "low". Note the key assumption in ai_notes.
-- For multi-ingredient freeform text, estimate each ingredient separately, then sum.
-- Do NOT auto-correct macros to force calorie consistency. Instead, derive calories as (protein_g × 4 + carbs_g × 4 + fat_g × 9) and use that as your calories value.
-- Otherwise estimate based on typical nutritional data and set ai_estimated to true.
-- Round all numbers to the nearest whole number.
-- fiber and sodium may be null if not known.
-- sat_fat is saturated fat in grams. Use USDA reference below when available. May be null if the food is unusual or sat fat is genuinely unknown.
-- ai_notes: brief note on key assumptions made (max 80 chars). null if none.
+
+EXPLICIT DATA (highest priority — use exactly as given):
+- If the user states explicit macro values in grams (e.g. "25g protein, 40g carbs, 7g fat"), use those EXACT values. Calories = protein×4 + carbs×4 + fat×9. Set ai_estimated to false, confidence to "high".
+- If the input contains a nutrition label (e.g. "250 cal, 30g protein"), use those values directly. Set ai_estimated to false, confidence to "high".
+- If the input references a saved library item by name, use that item's data. Set library_item_id and serving_multiplier accordingly.
+
+COOKING STATE:
+- When a cooking method is stated (roasted, steamed, sautéed, grilled, baked, fried, boiled), use cooked-state macros. Roasting/baking concentrates nutrients by ~15–25% due to water loss — scale up from raw values if only raw data is available.
+- When no method is stated for a weighed food, assume raw for fruits and vegetables, cooked for grains/proteins/legumes.
+- Frying/sautéing implies added fat unless the user says "dry", "no oil", or "air-fried". Add estimated oil: stir-fry ≈ 5–10g oil per 100g food; pan-fry ≈ 3–8g; shallow-fry ≈ 8–15g.
+
+REFERENCE DATA:
+- When a weight is given, scale from the USDA table below when the food appears. If not in the table, use general nutritional knowledge — the table supplements, it does not replace. Do not force a match to a similar-sounding entry (e.g. "avocado oil" must NOT use the "avocado" whole-food entry; "coconut water" must NOT use "coconut oil").
+
+COMPOSITE DISHES:
+- Prefer the composite benchmark below when the dish name closely matches. The benchmark list is not exhaustive — unlisted dishes should be estimated from knowledge, not forced to a similar-sounding benchmark.
+- For vague size descriptors: small ≈ 300 kcal, medium ≈ 500–700 kcal, large ≈ 800–1000 kcal for a mixed meal.
+
+VAGUE QUANTITIES — use these canonical anchors:
+- Handfuls: handful of nuts/seeds ≈ 30g; handful of leafy greens ≈ 20g; handful of pasta (dry) ≈ 80g
+- Spoonfuls: teaspoon of oil/butter/honey ≈ 5g; tablespoon ≈ 15g
+- Spreads on toast/bread (these are small — do not overestimate): thin scrape of butter ≈ 3–5g; normal spread of butter ≈ 7–10g; thin drizzle of honey/jam ≈ 5–8g; normal drizzle/spread of honey/jam ≈ 10–15g; generous spread ≈ 15–20g. Default to the lower end unless "generous", "thick", or "heavy" is used.
+- Drizzles of oil on food: light drizzle ≈ 5g; normal drizzle ≈ 10g; heavy drizzle ≈ 15g
+- Sprinkles: sprinkle of cheese ≈ 10g; sprinkle of seeds/nuts ≈ 5g; pinch of spice ≈ 1g (negligible macros)
+- Splashes: splash of milk ≈ 30ml; splash of cream ≈ 15ml
+
+CONFIDENCE CALIBRATION (be honest — do not default to "high"):
+- "high": explicit label data, explicit macro values, or library item match
+- "medium": known food with stated weight scaled from USDA table or reliable knowledge
+- "low": composite dish estimate, vague quantity, bone-in/inedible-portion adjustment, high-variability dish (soups/stews with unspecified protein), or food with limited nutritional data
+
+OTHER:
+- For high-variability dishes (soups, stews, unspecified protein), use the lower bound of the plausible macro range. Note assumption in ai_notes.
+- For multi-ingredient inputs, estimate each component separately, then sum.
+- Calories = protein×4 + carbs×4 + fat×9. Do NOT auto-correct macros to force calorie consistency — derive calories from macros, not the other way around.
+- Round all values to nearest whole number.
+- fiber and sodium may be null if not known. sat_fat may be null if genuinely unknown.
+- ai_notes: brief note on key assumptions (max 80 chars). null if none.
 
 USDA reference values per 100g (use these — do not substitute from memory):
 FRUITS (whole fruit — do NOT use these for derived oils or products): red/green grapes 69 kcal, 0.7g protein, 18g carbs, 0.2g fat, 0.9g fiber; banana 89 kcal, 1.1g protein, 23g carbs, 0.3g fat, 2.6g fiber; apple 52 kcal, 0.3g protein, 14g carbs, 0.2g fat, 2.4g fiber; orange 47 kcal, 0.9g protein, 12g carbs, 0.1g fat, 2.4g fiber; strawberry 32 kcal, 0.7g protein, 8g carbs, 0.3g fat, 2g fiber; blueberry 57 kcal, 0.7g protein, 14g carbs, 0.3g fat, 2.4g fiber; mango 60 kcal, 0.8g protein, 15g carbs, 0.4g fat, 1.6g fiber; watermelon 30 kcal, 0.6g protein, 8g carbs, 0.2g fat, 0.4g fiber; avocado (whole fruit) 160 kcal, 2g protein, 9g carbs, 15g fat, 7g fiber; kiwi 61 kcal, 1.1g protein, 15g carbs, 0.5g fat, 3g fiber; pineapple 50 kcal, 0.5g protein, 13g carbs, 0.1g fat, 1.4g fiber; pomegranate seeds 83 kcal, 1.7g protein, 19g carbs, 1.2g fat, 4g fiber; peach 39 kcal, 0.9g protein, 10g carbs, 0.3g fat, 1.5g fiber; pear 57 kcal, 0.4g protein, 15g carbs, 0.1g fat, 3.1g fiber; cherry 63 kcal, 1.1g protein, 16g carbs, 0.2g fat, 2.1g fiber; lemon/lime juice 25 kcal, 0.4g protein, 8g carbs, 0.3g fat, 0.3g fiber.
@@ -76,7 +107,7 @@ GRAINS: cooked white rice 130 kcal, 2.7g protein, 28g carbs, 0.3g fat, 0.4g fibe
 PROTEINS: chicken breast cooked 165 kcal, 31g protein, 0g carbs, 3.6g fat, 0g fiber; beef (lean ground cooked) 215 kcal, 26g protein, 0g carbs, 12g fat, 0g fiber; beef sirloin cooked 207 kcal, 30g protein, 0g carbs, 9g fat, 0g fiber; salmon cooked 208 kcal, 28g protein, 0g carbs, 10g fat, 0g fiber; shrimp cooked 99 kcal, 24g protein, 0g carbs, 0.3g fat, 0g fiber; tofu firm 144 kcal, 17g protein, 3g carbs, 9g fat, 2g fiber; egg whole 155 kcal, 13g protein, 1.1g carbs, 11g fat, 0g fiber; tuna canned in water 116 kcal, 26g protein, 0g carbs, 1g fat, 0g fiber.
 DAIRY: whole milk 61 kcal, 3.2g protein, 4.8g carbs, 3.3g fat, 0g fiber; Greek yogurt plain 2% 73 kcal, 10g protein, 4g carbs, 2g fat, 0g fiber; cheddar cheese 403 kcal, 25g protein, 1.3g carbs, 33g fat, 0g fiber; mozzarella 280 kcal, 28g protein, 2.2g carbs, 17g fat, 0g fiber; butter 717 kcal, 0.9g protein, 0.1g carbs, 81g fat, 0g fiber.
 NUTS/LEGUMES: almonds 579 kcal, 21g protein, 22g carbs, 50g fat, 12.5g fiber; peanut butter 588 kcal, 25g protein, 20g carbs, 50g fat, 6g fiber; black beans cooked 132 kcal, 9g protein, 24g carbs, 0.5g fat, 8.7g fiber; chickpeas cooked 164 kcal, 9g protein, 27g carbs, 2.6g fat, 7.6g fiber; lentils cooked 116 kcal, 9g protein, 20g carbs, 0.4g fat, 7.9g fiber.
-FATS/SAUCES (these are pure fats/oils/condiments — do NOT use these entries for whole foods with the same base name, e.g. use the FRUITS avocado entry for whole avocado, not avocado oil): olive oil 884 kcal, 0g protein, 0g carbs, 100g fat, 0g fiber; avocado oil 884 kcal, 0g protein, 0g carbs, 100g fat, 0g fiber; coconut oil 862 kcal, 0g protein, 0g carbs, 100g fat, 0g fiber; palm oil 884 kcal, 0g protein, 0g carbs, 100g fat, 0g fiber; sesame oil 884 kcal, 0g protein, 0g carbs, 100g fat, 0g fiber; soy sauce 53 kcal, 8g protein, 5g carbs, 0.1g fat, 0g fiber; fish sauce 35 kcal, 5g protein, 3g carbs, 0g fat, 0g fiber; tahini 595 kcal, 17g protein, 21g carbs, 54g fat, 9g fiber; hummus 166 kcal, 8g protein, 14g carbs, 10g fat, 6g fiber.
+FATS/SAUCES/SPREADS (pure fats, oils, condiments — do NOT use these for whole foods with the same base name): olive oil 884 kcal, 0g protein, 0g carbs, 100g fat, 0g fiber; avocado oil 884 kcal, 0g protein, 0g carbs, 100g fat, 0g fiber; coconut oil 862 kcal, 0g protein, 0g carbs, 100g fat, 0g fiber; palm oil 884 kcal, 0g protein, 0g carbs, 100g fat, 0g fiber; sesame oil 884 kcal, 0g protein, 0g carbs, 100g fat, 0g fiber; soy sauce 53 kcal, 8g protein, 5g carbs, 0.1g fat, 0g fiber; fish sauce 35 kcal, 5g protein, 3g carbs, 0g fat, 0g fiber; tahini 595 kcal, 17g protein, 21g carbs, 54g fat, 9g fiber; hummus 166 kcal, 8g protein, 14g carbs, 10g fat, 6g fiber; honey 304 kcal, 0.3g protein, 82g carbs, 0g fat, 0.2g fiber; jam/jelly 250 kcal, 0.4g protein, 65g carbs, 0.1g fat, 1g fiber; maple syrup 260 kcal, 0g protein, 67g carbs, 0.1g fat, 0g fiber; cream cheese 342 kcal, 6g protein, 4g carbs, 34g fat, 0g fiber; heavy cream 340 kcal, 2.4g protein, 2.8g carbs, 36g fat, 0g fiber.
 WEST AFRICAN STAPLES per 100g cooked: amala (yam flour/elubo) 118 kcal, 1.5g protein, 28g carbs, 0.2g fat, 1g fiber; pounded yam 118 kcal, 1.5g protein, 28g carbs, 0.3g fat, 1g fiber; eba/garri (cassava) 150 kcal, 0.5g protein, 36g carbs, 0.2g fat, 1.5g fiber; fufu (cassava) 130 kcal, 0.5g protein, 32g carbs, 0.2g fat, 1.2g fiber; jollof rice 160 kcal, 4g protein, 28g carbs, 4g fat, 1g fiber; Nigerian fried rice 175 kcal, 5g protein, 28g carbs, 5g fat, 1g fiber; egusi (melon seed) 530 kcal, 28g protein, 10g carbs, 44g fat, 2g fiber; okra 33 kcal, 2g protein, 7g carbs, 0.2g fat, 3.2g fiber; plantain ripe fried 200 kcal, 1g protein, 35g carbs, 7g fat, 1.5g fiber; plantain unripe boiled 116 kcal, 1g protein, 28g carbs, 0.3g fat, 2g fiber.
 JAPANESE/EAST ASIAN per 100g: ramen noodles cooked 138 kcal, 5g protein, 26g carbs, 2g fat, 1g fiber; miso paste 199 kcal, 12g protein, 26g carbs, 6g fat, 5g fiber; dashi broth 7 kcal, 0.6g protein, 0.8g carbs, 0.1g fat, 0g fiber; chashu pork belly 295 kcal, 18g protein, 2g carbs, 24g fat, 0g fiber; nori seaweed 35 kcal, 5.8g protein, 5g carbs, 0.3g fat, 0.3g fiber; shiitake mushroom 34 kcal, 2.2g protein, 7g carbs, 0.5g fat, 2.5g fiber; scallion/green onion 32 kcal, 1.8g protein, 7g carbs, 0.2g fat, 2.6g fiber; corn (kernels) 96 kcal, 3.4g protein, 21g carbs, 1.5g fat, 2.7g fiber; kimchi 15 kcal, 1g protein, 2.4g carbs, 0.5g fat, 1.6g fiber; edamame cooked 122 kcal, 11g protein, 10g carbs, 5g fat, 5g fiber.
 COFFEE/DRINKS: espresso shot (30ml) 2 kcal, 0.1g protein, 0.4g carbs, 0.1g fat; whole milk steamed (per 100ml) 61 kcal, 3.2g protein, 4.8g carbs, 3.3g fat; oat milk (per 100ml) 45 kcal, 1g protein, 6.5g carbs, 1.5g fat; almond milk unsweetened (per 100ml) 13 kcal, 0.4g protein, 0.3g carbs, 1.1g fat; coconut water (per 100ml) 19 kcal, 0.7g protein, 3.7g carbs, 0.2g fat.
@@ -113,7 +144,7 @@ Return ONLY valid JSON matching this schema (no markdown, no explanation):
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-5-20251001',
-        max_tokens: 512,
+        max_tokens: 1024,
         system: systemPrompt,
         messages: [{ role: 'user', content: input }],
       }),
