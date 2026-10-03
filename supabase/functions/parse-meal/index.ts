@@ -143,7 +143,7 @@ Return ONLY valid JSON matching this schema (no markdown, no explanation):
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-5-20251001',
+        model: 'claude-sonnet-5-5',
         max_tokens: 1024,
         system: systemPrompt,
         messages: [{ role: 'user', content: input }],
@@ -156,7 +156,9 @@ Return ONLY valid JSON matching this schema (no markdown, no explanation):
     }
 
     const data = await response.json();
-    let text = data.content[0].text.trim();
+    const textBlock = data.content?.find((b: { type: string }) => b.type === 'text');
+    if (!textBlock?.text) throw new Error('No text block in Anthropic response');
+    let text = textBlock.text.trim();
     if (text.startsWith('```')) {
       text = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
     }
