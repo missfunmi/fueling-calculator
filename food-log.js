@@ -13,7 +13,7 @@
     'dinner':    { bg: 'var(--purple-bg)', color: 'var(--purple-text)' },
     'fuel':      { bg: 'var(--red-bg)',    color: 'var(--red-text)'    },
     'snack':     { bg: 'var(--green-bg)',  color: 'var(--green-text)'  },
-    'drink':     { bg: 'var(--blue-bg)',   color: 'var(--blue-text)'   }
+    'drink':     { bg: 'var(--teal-bg)',   color: 'var(--teal-text)'   }
   };
 
   // ── Item display helpers ─────────────────────────────────────────────────────
