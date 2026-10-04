@@ -8,19 +8,12 @@
 
   var COMPONENT_COLORS = ['#5b9bd5', '#e8a04b', '#6abf69', '#e8585e', '#9b7dd4', '#4bbfbf'];
   var CATEGORY_COLORS = {
-    'breakfast':    { bg: 'var(--amber-bg)',  color: 'var(--amber-text)'  },
-    'lunch':        { bg: 'var(--blue-bg)',   color: 'var(--blue-text)'   },
-    'dinner':       { bg: 'var(--purple-bg)', color: 'var(--purple-text)' },
-    'fuel':         { bg: 'var(--red-bg)',    color: 'var(--red-text)'    },
-    'gel':          { bg: 'var(--red-bg)',    color: 'var(--red-text)'    },
-    'bar':          { bg: 'var(--red-bg)',    color: 'var(--red-text)'    },
-    'chew':         { bg: 'var(--red-bg)',    color: 'var(--red-text)'    },
-    'drink_powder': { bg: 'var(--red-bg)',    color: 'var(--red-text)'    },
-    'liquid':       { bg: 'var(--red-bg)',    color: 'var(--red-text)'    },
-    'drink':        { bg: 'var(--blue-bg)',   color: 'var(--blue-text)'   },
-    'snack':        { bg: 'var(--green-bg)',  color: 'var(--green-text)'  },
-    'pre-workout':  { bg: 'var(--red-bg)',    color: 'var(--red-text)'    },
-    'post-workout': { bg: 'var(--green-bg)',  color: 'var(--green-text)'  }
+    'breakfast': { bg: 'var(--amber-bg)',  color: 'var(--amber-text)'  },
+    'lunch':     { bg: 'var(--blue-bg)',   color: 'var(--blue-text)'   },
+    'dinner':    { bg: 'var(--purple-bg)', color: 'var(--purple-text)' },
+    'fuel':      { bg: 'var(--red-bg)',    color: 'var(--red-text)'    },
+    'snack':     { bg: 'var(--green-bg)',  color: 'var(--green-text)'  },
+    'drink':     { bg: 'var(--blue-bg)',   color: 'var(--blue-text)'   }
   };
 
   // ── Item display helpers ─────────────────────────────────────────────────────
