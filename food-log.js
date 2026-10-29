@@ -1463,7 +1463,7 @@
             ? input.value
             : (input.value === '' ? (nullOnClear ? null : 0) : parseFloat(input.value));
           // Refresh per-serving preview live when editing macro values with batching active
-          if (formState.batchServings > 1 && ['calories', 'protein', 'carbs', 'fat'].indexOf(key) !== -1) {
+          if (formState.batchServings > 1 && ['calories', 'protein', 'carbs', 'fat', 'satFat', 'fiber', 'sodium'].indexOf(key) !== -1) {
             var preview = document.getElementById('fl-per-serving-preview');
             if (preview) {
               var _n = formState.batchServings;
