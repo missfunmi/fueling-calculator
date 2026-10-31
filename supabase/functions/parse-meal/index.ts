@@ -168,6 +168,7 @@ Return ONLY valid JSON matching this schema (no markdown, no explanation):
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     });
   } catch (e) {
+    console.error('parse-meal error:', e instanceof Error ? e.message : e);
     return new Response(
       JSON.stringify({ error: e instanceof Error ? e.message : 'Unknown error' }),
       { status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
